@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "Padel Indonesia",
+    "slug": "padel-indonesia",
+    "version": "1.0.0",
+    "scheme": "padelindonesia",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "id.padelindonesia.app"
+    },
+    "android": {
+      "package": "id.padelindonesia.app"
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-sqlite",
+      "expo-font"
+    ],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "platforms": [
+      "ios",
+      "android"
+    ]
+  }
+}

@@ -1,0 +1,605 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ORGANIZER
+  REFEREE
+  VIEWER
+}
+
+enum TournamentStatus {
+  DRAFT
+  REGISTRATION
+  PUBLISHED
+  IN_PROGRESS
+  COMPLETED
+  ARCHIVED
+}
+
+enum TournamentMemberRole {
+  OWNER
+  ADMIN
+  REFEREE
+}
+
+enum CategoryFormat {
+  SINGLE_ELIMINATION
+  DOUBLE_ELIMINATION
+  ROUND_ROBIN
+  GROUP_KNOCKOUT
+  LEAGUE
+  AMERICANO
+  MEXICANO
+}
+
+enum CategoryStatus {
+  DRAFT
+  OPEN
+  CLOSED
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum DeuceType {
+  ADVANTAGE
+  GOLDEN_POINT
+  NO_AD
+}
+
+enum EntryStatus {
+  REGISTERED
+  CONFIRMED
+  WITHDRAWN
+  DISQUALIFIED
+}
+
+enum StageType {
+  GROUP
+  SINGLE_ELIMINATION
+  DOUBLE_ELIMINATION
+  ROUND_ROBIN
+  LEAGUE
+  AMERICANO_ROUND
+  MEXICANO_ROUND
+}
+
+enum StageStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum MatchStatus {
+  SCHEDULED
+  WARMUP
+  IN_PROGRESS
+  SUSPENDED
+  FINISHED
+  APPROVED
+  CANCELLED
+}
+
+enum MatchOfficialRole {
+  CHAIR_UMPIRE
+  LINE_JUDGE
+}
+
+enum MatchEventType {
+  MATCH_START
+  POINT_SCORED
+  GAME_WON
+  SET_WON
+  MATCH_WON
+  UNDO
+  CORRECTION
+  MATCH_FINISH
+  MATCH_APPROVED
+  MATCH_REOPENED
+  MATCH_SUSPENDED
+}
+
+enum IdempotencyStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+model User {
+  avatarKey String?
+  organizationMemberships OrganizationMember[]
+  sessions MobileSession[]
+  id           String        @id @default(uuid())
+  email        String        @unique
+  username     String        @unique
+  passwordHash String        @map("password_hash")
+  fullName     String        @map("full_name")
+  role         UserRole      @default(VIEWER)
+  isActive     Boolean       @default(true) @map("is_active")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  memberships  TournamentMember[]
+  matchOfficials MatchOfficial[]
+  auditLogs    AuditLog[]
+
+  @@map("users")
+}
+
+model Tournament {
+  organizationId String?
+  organization Organization? @relation(fields: [organizationId], references: [id])
+  handbookUrl String?
+  responsibleName String?
+  approvalNote String?
+  id          String           @id @default(uuid())
+  name        String
+  slug        String           @unique
+  description String?
+  location    String?
+  timezone    String           @default("Asia/Jakarta")
+  startDate   DateTime         @map("start_date")
+  endDate     DateTime         @map("end_date")
+  status      TournamentStatus @default(DRAFT)
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+
+  members     TournamentMember[]
+  categories  Category[]
+  courts      Court[]
+  auditLogs   AuditLog[]
+
+  @@map("tournaments")
+}
+
+model TournamentMember {
+  id           String               @id @default(uuid())
+  tournamentId String               @map("tournament_id")
+  userId       String               @map("user_id")
+  role         TournamentMemberRole @default(REFEREE)
+  createdAt    DateTime             @default(now()) @map("created_at")
+  updatedAt    DateTime             @updatedAt @map("updated_at")
+
+  tournament   Tournament           @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tournamentId, userId])
+  @@map("tournament_members")
+}
+
+model Category {
+  rulesV2 Json?
+  eligibility Json?
+  standingsPolicy Json?
+  qualificationPolicy Json?
+  id          String         @id @default(uuid())
+  tournamentId String        @map("tournament_id")
+  name        String
+  description String?
+  format      CategoryFormat
+  maxEntries  Int?           @map("max_entries")
+  status      CategoryStatus @default(DRAFT)
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  tournament  Tournament     @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  ruleset     Ruleset?
+  entries     Entry[]
+  stages      Stage[]
+
+  @@map("categories")
+}
+
+model Ruleset {
+  id               String    @id @default(uuid())
+  categoryId       String    @unique @map("category_id")
+  setsToWin        Int       @default(2) @map("sets_to_win")
+  gamesPerSet      Int       @default(6) @map("games_per_set")
+  tiebreakAt       Int       @default(6) @map("tiebreak_at")
+  tiebreakPoints   Int       @default(7) @map("tiebreak_points")
+  goldenPoint      Boolean   @default(false) @map("golden_point")
+  superTiebreak    Boolean   @default(false) @map("super_tiebreak")
+  superTiebreakPts Int       @default(10) @map("super_tiebreak_pts")
+  deuceType        DeuceType @default(ADVANTAGE) @map("deuce_type")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  category         Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@map("rulesets")
+}
+
+model Player {
+  organizationId String?
+  organization Organization? @relation(fields: [organizationId], references: [id])
+  federationId String?
+  verificationStatus String @default("UNVERIFIED")
+  birthDate DateTime?
+  gender String?
+  level String?
+  id           String        @id @default(uuid())
+  fullName     String        @map("full_name")
+  email        String?
+  phone        String?
+  rating       Float?
+  notes        String?
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  entryPlayers EntryPlayer[]
+
+  @@map("players")
+}
+
+model Entry {
+  id          String        @id @default(uuid())
+  categoryId  String        @map("category_id")
+  name        String
+  seed        Int?
+  status      EntryStatus   @default(REGISTERED)
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  category    Category      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  players     EntryPlayer[]
+  matchesAsA  Match[]       @relation("MatchEntryA")
+  matchesAsB  Match[]       @relation("MatchEntryB")
+  wonMatches  Match[]       @relation("MatchWinner")
+  bracketSlots BracketSlot[]
+  standings   Standing[]
+
+  @@map("entries")
+}
+
+model EntryPlayer {
+  id        String   @id @default(uuid())
+  entryId   String   @map("entry_id")
+  playerId  String   @map("player_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  entry     Entry    @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([entryId, playerId])
+  @@map("entry_players")
+}
+
+model Court {
+  venueCourtId String?
+  venueCourt VenueCourt? @relation(fields: [venueCourtId], references: [id])
+  id           String   @id @default(uuid())
+  tournamentId String   @map("tournament_id")
+  name         String
+  isActive     Boolean  @default(true) @map("is_active")
+  priority     Int      @default(0)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  matches      Match[]
+
+  @@map("courts")
+}
+
+model Stage {
+  rulesOverride Json?
+  roundRules Json?
+  id         String      @id @default(uuid())
+  categoryId String      @map("category_id")
+  name       String
+  type       StageType
+  order      Int
+  status     StageStatus @default(PENDING)
+  config     Json
+  createdAt  DateTime    @default(now()) @map("created_at")
+  updatedAt  DateTime    @updatedAt @map("updated_at")
+
+  category   Category    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  groups     Group[]
+  matches    Match[]
+  bracketSlots BracketSlot[]
+
+  @@map("stages")
+}
+
+model Group {
+  id        String     @id @default(uuid())
+  stageId   String     @map("stage_id")
+  name      String
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+
+  stage     Stage      @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  matches   Match[]
+  standings Standing[]
+
+  @@map("groups")
+}
+
+model Match {
+  engineVersion Int @default(1)
+  rulesSnapshot Json?
+  stateV2 Json?
+  deviceId String?
+  ownershipVersion Int @default(0)
+  approvalStatus String @default("PENDING")
+  actionEvents ScoringAction[]
+  nextWinnerMatchId String?
+  nextLoserMatchId String?
+  bracketSide String?
+  estimatedEndAt DateTime?
+  id          String      @id @default(uuid())
+  stageId     String      @map("stage_id")
+  groupId     String?     @map("group_id")
+  courtId     String?     @map("court_id")
+  entryAId    String?     @map("entry_a_id")
+  entryBId    String?     @map("entry_b_id")
+  winnerId    String?     @map("winner_id")
+  status      MatchStatus @default(SCHEDULED)
+  matchNumber Int         @map("match_number")
+  round       Int
+  scheduledAt DateTime?   @map("scheduled_at")
+  startedAt   DateTime?   @map("started_at")
+  finishedAt  DateTime?   @map("finished_at")
+  version     Int         @default(0)
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  stage       Stage       @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  group       Group?      @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  court       Court?      @relation(fields: [courtId], references: [id], onDelete: SetNull)
+  entryA      Entry?      @relation("MatchEntryA", fields: [entryAId], references: [id], onDelete: SetNull)
+  entryB      Entry?      @relation("MatchEntryB", fields: [entryBId], references: [id], onDelete: SetNull)
+  winner      Entry?      @relation("MatchWinner", fields: [winnerId], references: [id], onDelete: SetNull)
+
+  officials     MatchOfficial[]
+  sets          MatchSet[]
+  events        MatchEvent[]
+  scoreSnapshot MatchScoreSnapshot?
+
+  @@index([stageId])
+  @@index([courtId])
+  @@index([scheduledAt])
+  @@map("matches")
+}
+
+model MatchOfficial {
+  id        String            @id @default(uuid())
+  matchId   String            @map("match_id")
+  userId    String            @map("user_id")
+  role      MatchOfficialRole @default(CHAIR_UMPIRE)
+  createdAt DateTime          @default(now()) @map("created_at")
+  updatedAt DateTime          @updatedAt @map("updated_at")
+
+  match     Match             @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([matchId, userId])
+  @@map("match_officials")
+}
+
+model MatchSet {
+  id        String   @id @default(uuid())
+  matchId   String   @map("match_id")
+  setNumber Int      @map("set_number")
+  gamesA    Int      @default(0) @map("games_a")
+  gamesB    Int      @default(0) @map("games_b")
+  tiebreak  Boolean  @default(false)
+  winnerId  String?  @map("winner_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  match     Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@unique([matchId, setNumber])
+  @@map("match_sets")
+}
+
+model MatchEvent {
+  id        String         @id @default(uuid())
+  matchId   String         @map("match_id")
+  eventType MatchEventType @map("event_type")
+  team      String?
+  pointType String?        @map("point_type")
+  sequence  Int
+  payload   Json?
+  reason    String?
+  userId    String?        @map("user_id")
+  version   Int            @default(0)
+  undone    Boolean        @default(false)
+  undoneBy  String?        @map("undone_by")
+  createdAt DateTime       @default(now()) @map("created_at")
+
+  match     Match          @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@index([matchId, sequence])
+  @@index([matchId, createdAt])
+  @@map("match_events")
+}
+
+model MatchScoreSnapshot {
+  id           String   @id @default(uuid())
+  matchId      String   @unique @map("match_id")
+  currentSet   Int      @default(1) @map("current_set")
+  pointsA      String   @default("0") @map("points_a")
+  pointsB      String   @default("0") @map("points_b")
+  setsA        Int      @default(0) @map("sets_a")
+  setsB        Int      @default(0) @map("sets_b")
+  gamesA       Int[]    @default([]) @map("games_a")
+  gamesB       Int[]    @default([]) @map("games_b")
+  server       String?
+  isTiebreak   Boolean  @default(false) @map("is_tiebreak")
+  tiebreakPtsA Int      @default(0) @map("tiebreak_pts_a")
+  tiebreakPtsB Int      @default(0) @map("tiebreak_pts_b")
+  version      Int      @default(0)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  match        Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@map("match_score_snapshots")
+}
+
+model BracketSlot {
+  id        String   @id @default(uuid())
+  stageId   String   @map("stage_id")
+  round     Int
+  position  Int
+  entryId   String?  @map("entry_id")
+  isBye     Boolean  @default(false) @map("is_bye")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  stage     Stage    @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  entry     Entry?   @relation(fields: [entryId], references: [id], onDelete: SetNull)
+
+  @@unique([stageId, round, position])
+  @@map("bracket_slots")
+}
+
+model Standing {
+  id           String   @id @default(uuid())
+  groupId      String   @map("group_id")
+  entryId      String   @map("entry_id")
+  played       Int      @default(0)
+  won          Int      @default(0)
+  lost         Int      @default(0)
+  drawn        Int      @default(0)
+  setsWon      Int      @default(0) @map("sets_won")
+  setsLost     Int      @default(0) @map("sets_lost")
+  gamesWon     Int      @default(0) @map("games_won")
+  gamesLost    Int      @default(0) @map("games_lost")
+  pointsScored Int      @default(0) @map("points_scored")
+  points       Int      @default(0)
+  rank         Int      @default(0)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  group        Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  entry        Entry    @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, entryId])
+  @@map("standings")
+}
+
+model AuditLog {
+  id           String      @id @default(uuid())
+  userId       String?     @map("user_id")
+  tournamentId String?     @map("tournament_id")
+  action       String
+  entityType   String      @map("entity_type")
+  entityId     String      @map("entity_id")
+  before       Json?
+  after        Json?
+  ipAddress    String?     @map("ip_address")
+  createdAt    DateTime    @default(now()) @map("created_at")
+
+  user         User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  tournament   Tournament? @relation(fields: [tournamentId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([tournamentId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model IdempotencyKey {
+  id        String            @id @default(uuid())
+  key       String            @unique
+  response  Json?
+  status    IdempotencyStatus @default(PENDING)
+  expiresAt DateTime          @map("expires_at")
+  createdAt DateTime          @default(now()) @map("created_at")
+
+  @@index([expiresAt])
+  @@map("idempotency_keys")
+}
+
+model Organization {
+  id String @id @default(uuid())
+  name String
+  features Json @default("{}")
+  createdAt DateTime @default(now())
+  members OrganizationMember[]
+  tournaments Tournament[]
+  players Player[]
+  venues Venue[]
+  socials SocialEvent[]
+}
+model OrganizationMember {
+  organizationId String
+  userId String
+  role String @default("STAFF")
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@id([organizationId, userId])
+}
+model Venue {
+  id String @id @default(uuid())
+  organizationId String
+  name String
+  address String?
+  timezone String @default("Asia/Jakarta")
+  organization Organization @relation(fields: [organizationId], references: [id])
+  courts VenueCourt[]
+}
+model VenueCourt {
+  id String @id @default(uuid())
+  venueId String
+  name String
+  venue Venue @relation(fields: [venueId], references: [id])
+  assignments Court[]
+}
+model MobileSession {
+  id String @id @default(uuid())
+  userId String
+  tokenHash String @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+model ScoringAction {
+  id String @id
+  matchId String
+  userId String
+  deviceId String
+  ownershipVersion Int
+  sequence Int
+  baseVersion Int
+  action Json
+  createdAt DateTime @default(now())
+  match Match @relation(fields: [matchId], references: [id])
+  @@unique([matchId, sequence])
+}
+model SocialEvent {
+  id String @id @default(uuid())
+  organizationId String
+  name String
+  format String
+  config Json
+  participants Json
+  rounds Json @default("[]")
+  version Int @default(0)
+  published Boolean @default(false)
+  createdAt DateTime @default(now())
+  organization Organization @relation(fields: [organizationId], references: [id])
+}
+model StaffInvitation {
+  id String @id @default(uuid())
+  organizationId String
+  email String
+  role String
+  tokenHash String @unique
+  expiresAt DateTime
+  acceptedAt DateTime?
+  createdAt DateTime @default(now())
+}

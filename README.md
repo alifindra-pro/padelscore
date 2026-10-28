@@ -1,36 +1,117 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🎾 Padel Tournament OS
 
-## Getting Started
+> Status implementasi terbaru dan batas verifikasi: [docs/INDONESIA_V2.md](docs/INDONESIA_V2.md). Klaim selesai dalam bagian lama tidak mencakup seluruh rencana Indonesia v2.
 
-First, run the development server:
+> Platform Manajemen Turnamen Padel Terpadu: Penjadwalan Otomatis, Live Scoring Real-Time (SSE), Bagan & Upacara Undian 3D (*Live Draw Ceremony*), Konsol Wasit Mobile, dan Statistik Karir Atlet.
 
+---
+
+## 🌟 Fitur Utama
+
+1. **Upacara Pengundian Resmi (*Live Draw Ceremony*)**:
+   - Animasi bola padel 3D yang berputar dengan efek suspensi acak (*ball shuffle*).
+   - Mode undian interaktif: langkah-demi-langkah (*manual draw*) atau putaran otomatis (*auto-draw*).
+   - Efek konfeti perayaan dan pembuatan bagan sistem gugur atomik.
+2. **Sistem Scoring Padel Murni (*Pure Scoring Engine*)**:
+   - Mendukung format standar FIP / Premier Padel: 0-15-30-40, Advantage / Deuce, Golden Point (*Punto de Oro*), Tiebreak (7 poin, selisih 2), dan Super Tiebreak 10 poin.
+   - Rotasi server permainan dan rotasi tiebreak otomatis.
+   - Riwayat event audit log, replay state deterministik, dan undo score instan.
+3. **Konsol Wasit Khusus Mobile (*Mobile Referee Console*)**:
+   - Desain layar sentuh dengan tombol masukan poin ekstra besar.
+   - Deteksi koneksi internet dengan peringatan offline.
+   - *Optimistic Concurrency Control* via nomor versi (`version`) dan *Idempotency Keys* untuk mencegah request ganda.
+4. **Live Score Real-Time (*Server-Sent Events / SSE*)**:
+   - Pembaruan skor langsung instan tanpa refresh halaman.
+   - Rekonsiliasi state otomatis saat browser penonton kembali terhubung.
+   - Papan skor siaran langsung (*broadcast scoreboard*) yang dapat dibagikan per pertandingan.
+5. **Mesin Turnamen & Penjadwalan Lapangan Otomatis**:
+   - Generator bagan Single Elimination dengan penempatan unggulan (*seeded pairs*) dan BYE advancement.
+   - Format Round Robin (algoritma Berger) dan Group Stage + Knockout.
+   - Format rotasi ganda berpasangan dinamis (**Americano & Mexicano**).
+   - Alokasi multi-lapangan otomatis yang menghitung durasi match dan waktu istirahat minimal atlet.
+6. **Statistik Karir Atlet & Riwayat Pertandingan**:
+   - Pelacakan Win Rate %, total match dimainkan/menang/kalah, selisih set, selisih game, dan gelar juara.
+   - Rekam jejak pertandingan turnamen lengkap dengan skor per set.
+   - Peringkat atlet (*Leaderboard*).
+7. **Autentikasi & RBAC (Role-Based Access Control)**:
+   - Keamanan hashing password menggunakan bcrypt (12 salt rounds).
+   - Session aman via JWT HttpOnly cookie.
+   - Hak akses berjenjang: `SUPER_ADMIN`, `ORGANIZER`, `REFEREE`, dan `VIEWER`.
+
+---
+
+## 🛠 Teknologi
+
+* **Frontend**: Next.js 16 (App Router + Turbopack), React 19, TypeScript, Tailwind CSS.
+* **Backend**: Next.js Route Handlers, Zod schema validation, Service Layer terstruktur.
+* **Database & ORM**: PostgreSQL 16, Prisma ORM 5.22.
+* **Real-time**: Server-Sent Events (SSE) dengan In-Memory Event Bus (`MatchEventBus`).
+* **Pengujian**: Vitest (50 Unit & Integration Tests, 100% Passing).
+
+---
+
+## 🚀 Panduan Memulai Cepat
+
+### 1. Prasyarat
+* Node.js v20+ atau v24+
+* PostgreSQL 16 aktif di `localhost:5432`
+
+### 2. Instalasi & Setup Database
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# Clone dan masuk ke direktori
+cd padel-tournament-os
+
+# Salin variabel lingkungan
+cp .env.example .env
+
+# Jalankan migrasi Prisma ke PostgreSQL
+npx prisma migrate deploy
+
+# Isi data awal (seed showcase turnamen, pemain pro, dan pertandingan live)
+npm run db:seed
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 3. Menjalankan Server Pengembangan
+```bash
+npm run dev
+```
+Buka browser pada **[http://localhost:3000](http://localhost:3000)**.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🔑 Akun & Kredensial Pengujian (Hasil Seed)
 
-## Learn More
+| Peran | Email | Kata Sandi | Deskripsi Akses |
+| :--- | :--- | :--- | :--- |
+| **Super Admin** | `admin@padelos.com` | `PadelAdmin2026!` | Kontrol penuh seluruh turnamen, akun, dan lapangan. |
+| **Organizer** | `organizer@padelos.com` | `Organizer2026!` | Mengelola turnamen, bagan, undian, dan jadwal. |
+| **Wasit 1 (Chair Umpire)** | `wasit1@padelos.com` | `WasitPadel2026!` | Ditugaskan memimpin live match di Center Court GBK. |
+| **Wasit 2 (Line Umpire)** | `wasit2@padelos.com` | `WasitPadel2026!` | Akun wasit cadangan untuk pengujian. |
+| **Penonton (Viewer)** | `viewer@padelos.com` | `ViewerPadel2026!` | Akun umum untuk memantau turnamen. |
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 🔗 Tautan Akses Cepat Showcase
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+* **Portal Publik Penonton**: [http://localhost:3000/tournament/jakarta-premier-2026](http://localhost:3000/tournament/jakarta-premier-2026)
+* **Papan Skor Siaran Langsung**: [http://localhost:3000/match/b5f41589-2767-47ac-80b1-d8588ebc5ab0](http://localhost:3000/match/b5f41589-2767-47ac-80b1-d8588ebc5ab0)
+* **Konsol Wasit Mobile**: [http://localhost:3000/referee](http://localhost:3000/referee)
+* **Dashboard Admin Turnamen**: [http://localhost:3000/admin](http://localhost:3000/admin)
+* **Direktori & Statistik Atlet**: [http://localhost:3000/admin/players](http://localhost:3000/admin/players)
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 🧪 Pengujian & Build
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+# Menjalankan seluruh 50 unit dan integration tests
+npm run test
+
+# Menjalankan kompilasi build produksi Next.js
+npm run build
+```
+
+---
+
+## 📄 Lisensi
+MIT License.
