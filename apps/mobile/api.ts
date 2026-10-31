@@ -1,5 +1,5 @@
 import * as SecureStore from "expo-secure-store";
-export const API = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3000";
+export const API = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3100";
 let refreshing: Promise<void> | null = null;
 export async function saveTokens(tokens: {
   accessToken: string;

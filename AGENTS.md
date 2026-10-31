@@ -1,3 +1,12 @@
+# Identitas proyek
+
+- Proyek: Padel Score / Padel Tournament OS.
+- Repository: `https://github.com/alifindra-pro/padelscore.git`.
+- Server web dan API lokal: `http://localhost:3100`.
+- Periksa `pwd`, `git rev-parse --show-toplevel`, dan `git remote -v` sebelum mengubah berkas, commit, atau push. Jika identitas tidak sesuai, cari checkout yang benar terlebih dahulu.
+- Simpan kode, konfigurasi, kredensial, dan data hanya untuk proyek ini. Jangan menyalin berkas dari proyek lain tanpa instruksi pengguna yang jelas.
+- Stage hanya berkas atau bagian perubahan yang telah diperiksa untuk tugas aktif. Pertahankan perubahan lokal pekerjaan lain.
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 ## This is NOT the Next.js you know

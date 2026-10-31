@@ -75,7 +75,11 @@ npm run db:seed
 ```bash
 npm run dev
 ```
-Buka browser pada **[http://localhost:3000](http://localhost:3000)**.
+Buka browser pada **[http://localhost:3100](http://localhost:3100)**.
+
+Repository proyek ini: https://github.com/alifindra-pro/padelscore.git. Jalankan perintah dari folder proyek ini dan gunakan konfigurasi serta database khusus proyek ini. `npm start` juga memakai port `3100` secara default; server produksi dapat mengaturnya melalui variabel lingkungan `PORT`.
+
+Untuk aplikasi mobile di HP fisik, atur `EXPO_PUBLIC_API_URL` ke alamat jaringan server Padel Score, misalnya `http://192.168.1.10:3100`. `localhost` pada HP merujuk ke HP tersebut.
 
 ---
 
@@ -93,11 +97,11 @@ Buka browser pada **[http://localhost:3000](http://localhost:3000)**.
 
 ## 🔗 Tautan Akses Cepat Showcase
 
-* **Portal Publik Penonton**: [http://localhost:3000/tournament/jakarta-premier-2026](http://localhost:3000/tournament/jakarta-premier-2026)
-* **Papan Skor Siaran Langsung**: [http://localhost:3000/match/b5f41589-2767-47ac-80b1-d8588ebc5ab0](http://localhost:3000/match/b5f41589-2767-47ac-80b1-d8588ebc5ab0)
-* **Konsol Wasit Mobile**: [http://localhost:3000/referee](http://localhost:3000/referee)
-* **Dashboard Admin Turnamen**: [http://localhost:3000/admin](http://localhost:3000/admin)
-* **Direktori & Statistik Atlet**: [http://localhost:3000/admin/players](http://localhost:3000/admin/players)
+* **Portal Publik Penonton**: [http://localhost:3100/tournament/jakarta-premier-2026](http://localhost:3100/tournament/jakarta-premier-2026)
+* **Papan Skor Siaran Langsung**: [http://localhost:3100/match/b5f41589-2767-47ac-80b1-d8588ebc5ab0](http://localhost:3100/match/b5f41589-2767-47ac-80b1-d8588ebc5ab0)
+* **Konsol Wasit Mobile**: [http://localhost:3100/referee](http://localhost:3100/referee)
+* **Dashboard Admin Turnamen**: [http://localhost:3100/admin](http://localhost:3100/admin)
+* **Direktori & Statistik Atlet**: [http://localhost:3100/admin/players](http://localhost:3100/admin/players)
 
 ---
 
