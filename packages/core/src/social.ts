@@ -4,6 +4,9 @@ export interface SocialPlayer {
   active: boolean;
 }
 export interface SocialConfig {
+  start?: string;
+  timezone?: string;
+  location?: string;
   courts: number;
   rounds: number;
   target: number;

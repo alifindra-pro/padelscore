@@ -11,18 +11,18 @@ export async function POST(request: NextRequest) {
     const validatedData = loginSchema.parse(body);
 
     const user = await prisma.user.findUnique({
-      where: {
-        email: validatedData.email.toLowerCase(),
-      },
+      where: validatedData.identifier.includes('@')
+        ? { email: validatedData.identifier.toLowerCase() }
+        : { username: validatedData.identifier },
     });
 
     if (!user || !user.isActive) {
-      throw unauthorized('Email atau kata sandi tidak sesuai');
+      throw unauthorized('Nama pengguna, email, atau kata sandi tidak sesuai');
     }
 
     const isPasswordValid = await comparePassword(validatedData.password, user.passwordHash);
     if (!isPasswordValid) {
-      throw unauthorized('Email atau kata sandi tidak sesuai');
+      throw unauthorized('Nama pengguna, email, atau kata sandi tidak sesuai');
     }
 
     const token = generateToken({

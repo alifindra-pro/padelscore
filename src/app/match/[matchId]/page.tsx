@@ -306,6 +306,20 @@ function MatchScoreboardContent({
         {/* Live Shareable Link Card */}
         <div className="p-4 bg-card border border-line rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-secondary">
           <span>Skor diperbarui otomatis tanpa memuat ulang halaman.</span>
+          <Link href={`/tv/${matchId}`} className="btn-secondary">
+            Buka layar TV
+          </Link>
+          {(match.approvalStatus === "APPROVED" ||
+            match.status === "APPROVED") &&
+            match.entryA &&
+            match.entryB && (
+              <a
+                className="btn-secondary"
+                href={`/api/v2/matches/${matchId}/result.pdf`}
+              >
+                Unduh PDF hasil
+              </a>
+            )}
           <button
             onClick={async () => {
               try {

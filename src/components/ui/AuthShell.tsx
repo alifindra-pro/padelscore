@@ -21,28 +21,28 @@ export function AuthShell({
         <div className="page-shell">
           <AppBrand />
           <Link href="/" className="section-link">
-            Kembali ke lapangan <Icon name="arrow" size={16} />
+            Lihat acara publik <Icon name="arrow" size={16} />
           </Link>
         </div>
       </header>
       <main className="account-grid page-shell">
-        <section className="account-story" aria-label="Padel Indonesia">
-          <p className="page-eyebrow">YOUR GAME. CONNECTED.</p>
+        <section className="account-story" aria-label="Padel Score by Padel Addictive">
+          <p className="page-eyebrow">PADEL SCORE by PADEL ADDICTIVE</p>
           <h2>
-            Setiap poin.
+            Jadwal,
             <br />
-            Setiap momen.
+            skor, dan
             <br />
-            <span>Tetap dekat.</span>
+            <span>hasil pertandingan.</span>
           </h2>
           <p>
-            Dari servis pertama sampai match point.
+            Penonton dapat melihat acara tanpa akun.
             <br />
-            Satu tempat untuk seluruh permainanmu.
+            Pengelola mengatur peserta dan pertandingan dari dashboard.
           </p>
           <CourtScene className="account-court" />
           <div className="account-story-footer">
-            <span>MADE FOR THE LOVE OF THE GAME.</span>
+            <span>TURNAMEN & PERTANDINGAN SOSIAL</span>
             <Icon name="court" size={20} />
           </div>
         </section>
@@ -54,8 +54,8 @@ export function AuthShell({
         </section>
       </main>
       <footer className="app-public-footer page-shell">
-        <span>PADEL INDONESIA</span>
-        <span>Play. Connect. Compete.</span>
+        <span>PADEL SCORE by PADEL ADDICTIVE</span>
+        <span>Jadwal dan hasil pertandingan padel.</span>
       </footer>
     </div>
   );

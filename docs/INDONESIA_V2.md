@@ -19,7 +19,7 @@ Navigasi samping desktop menjadi menu pada ponsel. Formulir, kartu, dan tombol m
 
 ## Menjalankan
 
-Gunakan PostgreSQL yang telah dikonfigurasi melalui `DATABASE_URL`. Set `JWT_SECRET` acak yang kuat. Jalankan `npm ci`, `npx prisma migrate deploy`, `npx prisma generate`, lalu `npm run dev`. Jangan menjalankan seed pada basis data produksi tanpa meninjau isinya.
+Gunakan PostgreSQL yang telah dikonfigurasi melalui `DATABASE_URL` untuk aplikasi dan `DATABASE_URL_UNPOOLED` untuk migrasi Prisma. Untuk PostgreSQL lokal, kedua variabel memakai URL yang sama. Panduan koneksi Neon tersedia di [NEON.md](NEON.md). Set `JWT_SECRET` acak yang kuat. Jalankan `npm ci`, `npx prisma migrate deploy`, `npx prisma generate`, lalu `npm run dev`. Jangan menjalankan seed pada basis data produksi tanpa meninjau isinya.
 
 Untuk Redis/MinIO lokal, isi variabel berikut pada `.env` (jangan commit kredensial):
 
@@ -51,3 +51,9 @@ Masih memerlukan pekerjaan/verifikasi sebelum menyatakan seluruh rencana selesai
 - Per 18 Oktober 2026 lint seluruh repositori bersih (0 error, 0 warning) tanpa menonaktifkan aturan secara global; pengecualian hanya untuk `require()` di file CommonJS dan satu `<img>` avatar privat, masing-masing dengan alasan tertulis.
 
 Pembayaran, booking komersial, akun member, foto pemain, integrasi resmi PBPI, dan publikasi App Store/Google Play tidak termasuk rilis ini. Metadata federasi adalah pencatatan admin, bukan pengesahan otomatis.
+
+## Akses sementara melalui tombol
+
+Pada lingkungan preview lokal, `TEMPORARY_BUTTON_LOGIN=true` menampilkan tombol **Masuk ke ruang pengelola** tanpa kolom email/kata sandi. `TEMPORARY_LOGIN_EMAIL` memilih akun pengelola aktif di server. Tombol membuat cookie sesi HttpOnly sehingga dashboard dan API tetap menggunakan otorisasi akun tersebut.
+
+Untuk mengembalikan formulir login, set `TEMPORARY_BUTTON_LOGIN=false` lalu mulai ulang server. Jangan mengaktifkan mode sementara pada lingkungan publik yang membutuhkan pembatasan akses; semua orang yang dapat membuka preview dapat masuk sebagai akun yang dikonfigurasi.

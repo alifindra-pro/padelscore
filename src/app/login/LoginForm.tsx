@@ -10,7 +10,7 @@ import { Icon } from "@/components/ui/Icon";
 export default function LoginForm({ quickLogin }: { quickLogin: boolean }) {
   const router = useRouter();
   const { login, loginWithButton } = useAuth();
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -24,7 +24,7 @@ export default function LoginForm({ quickLogin }: { quickLogin: boolean }) {
     try {
       const user = quickLogin
         ? await loginWithButton()
-        : await login(email, password);
+        : await login(identifier, password);
       if (user.role === "SUPER_ADMIN" || user.role === "ORGANIZER") {
         router.push("/admin");
       } else if (user.role === "REFEREE") {
@@ -47,7 +47,11 @@ export default function LoginForm({ quickLogin }: { quickLogin: boolean }) {
     <AuthShell
       eyebrow="RUANG PENGELOLA & WASIT"
       title="Selamat datang kembali."
-      description="Masuk dan siapkan hari pertandingan yang hebat."
+      description={
+        quickLogin
+          ? "Klik tombol untuk membuka dashboard pengelola."
+          : "Masuk dengan akun pengelola atau wasit Anda."
+      }
     >
       {error && (
         <div
@@ -58,24 +62,28 @@ export default function LoginForm({ quickLogin }: { quickLogin: boolean }) {
         </div>
       )}
 
-      <form className="space-y-6" onSubmit={handleSubmit}>
+      <form className="space-y-6" onSubmit={handleSubmit} aria-busy={loading}>
         {!quickLogin && (
           <div className="space-y-4">
             <div>
               <label
-                htmlFor="login-email"
+                htmlFor="login-identifier"
                 className="block text-xs font-semibold uppercase tracking-wider text-secondary mb-2"
               >
-                Alamat email
+                Nama pengguna atau email
               </label>
               <input
-                type="email"
-                id="login-email"
-                autoComplete="email"
+                type="text"
+                id="login-identifier"
+                name="username"
+                autoComplete="username"
+                autoCapitalize="none"
+                spellCheck={false}
+                maxLength={254}
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="nama@organisasi.com"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                placeholder="Nama pengguna atau nama@email.com"
                 className="w-full px-4 py-3 rounded-xl bg-surface-tint border border-line text-ink placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition"
               />
             </div>

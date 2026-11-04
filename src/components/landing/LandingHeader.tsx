@@ -12,12 +12,17 @@ export function LandingHeader() {
         <Link
           href="/"
           className={styles.brand}
-          aria-label="Padel Indonesia, beranda"
+          aria-label="Padel Score by Padel Addictive, beranda"
         >
           <span className={styles.brandMark}>
             <Icon name="court" size={23} />
           </span>
-          PADEL<span>INDONESIA</span>
+          <span className={styles.brandCopy}>
+            <strong>
+              PADEL<span> SCORE</span>
+            </strong>
+            <small>by PADEL ADDICTIVE</small>
+          </span>
         </Link>
         <nav
           id="landing-navigation"

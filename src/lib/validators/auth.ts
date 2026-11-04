@@ -1,9 +1,18 @@
 import { z } from 'zod';
 
-export const loginSchema = z.object({
-  email: z.string().trim().email('Invalid email address format'),
-  password: z.string().min(6, 'Password must be at least 6 characters long'),
-});
+const loginPassword = z.string().min(6, 'Kata sandi minimal 6 karakter');
+
+export const loginSchema = z.union([
+  z.object({
+    identifier: z.string().trim().min(1, 'Masukkan nama pengguna atau email').max(254),
+    password: loginPassword,
+  }),
+  // Keep existing clients that submit an email working.
+  z.object({
+    email: z.string().trim().email('Format email tidak valid'),
+    password: loginPassword,
+  }).transform(({ email, password }) => ({ identifier: email, password })),
+]);
 
 export const registerSchema = z.object({
   email: z.string().trim().email('Invalid email address format'),

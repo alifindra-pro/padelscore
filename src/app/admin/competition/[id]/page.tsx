@@ -3,6 +3,11 @@ import { Suspense, use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { apiFetch } from "@/lib/api-client";
 import {
+  OptionCards,
+  PRESET_OPTIONS,
+  DEUCE_OPTIONS,
+} from "@/components/admin/TournamentChoices";
+import {
   PRESETS,
   Rules,
   DEFAULT_STANDINGS,
@@ -101,12 +106,12 @@ function Competition({ params }: { params: Promise<{ id: string }> }) {
     }
   };
   return (
-    <div className="space-y-6">
+    <div className="competition-workspace space-y-6">
       <Link href={`/admin/tournaments/${id}`} className="text-brand">
         ← Kelola turnamen
       </Link>
       <div className="app-page-heading">
-        <p className="page-eyebrow">SET THE RULES. START THE GAME.</p>
+        <p className="page-eyebrow">PENGATURAN LANJUTAN</p>
         <h1 className="page-heading">Aturan & operasional kompetisi</h1>
       </div>
       <p className="text-secondary">
@@ -150,19 +155,21 @@ function Competition({ params }: { params: Promise<{ id: string }> }) {
             <h2 className="text-xl font-bold md:col-span-3">
               Format pertandingan
             </h2>
-            <label className="field">
-              Preset
-              <select
-                onChange={(e) => setRules({ ...PRESETS[e.target.value] })}
-                defaultValue="STANDARD"
-              >
-                {Object.entries(PRESETS).map(([key, p]) => (
-                  <option key={key} value={key}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="md:col-span-3">
+              <OptionCards
+                legend="Pilih dasar aturan"
+                name="preset"
+                value={
+                  Object.keys(PRESETS).find(
+                    (key) => PRESETS[key].name === rules.name,
+                  ) ?? "CUSTOM"
+                }
+                options={PRESET_OPTIONS}
+                onChange={(key) => setRules({ ...PRESETS[key] })}
+                compact
+                disabled={busy}
+              />
+            </div>
             <label className="field">
               Berlaku pada
               <select
@@ -187,22 +194,24 @@ function Competition({ params }: { params: Promise<{ id: string }> }) {
                 onChange={(e) => setRound(e.target.value)}
               />
             </label>
-            <label className="field">
-              Aturan deuce
-              <select
+            <div className="md:col-span-3">
+              <OptionCards
+                legend="Aturan deuce"
+                name="deuce"
                 value={rules.deuce}
-                onChange={(e) =>
-                  setRules({
-                    ...rules,
-                    deuce: e.target.value as Rules["deuce"],
-                  })
+                options={DEUCE_OPTIONS}
+                onChange={(deuce) =>
+                  setRules({ ...rules, deuce: deuce as Rules["deuce"] })
                 }
-              >
-                <option value="ADVANTAGE">Advantage</option>
-                <option value="GOLDEN_POINT">Golden Point</option>
-                <option value="STAR_POINT">Star Point</option>
-              </select>
-            </label>
+                compact
+                disabled={busy}
+              />
+            </div>
+            <p className="setting-help md:col-span-3">
+              Pengaturan berikut mengubah rincian pilihan di atas. Set adalah
+              kumpulan game; tie-break menentukan set saat game imbang. Pilih
+              lingkup kategori atau babak sebelum menyimpan.
+            </p>
             {(
               [
                 ["setsToWin", "Set untuk menang"],
@@ -370,7 +379,7 @@ function Competition({ params }: { params: Promise<{ id: string }> }) {
             </button>
           </form>
           <section className="panel space-y-4">
-            <h2 className="text-xl font-bold">Drawing & hasil</h2>
+            <h2 className="text-xl font-bold">Bagan & hasil</h2>
             <div className="flex flex-wrap gap-3">
               {(["SEEDED", "RANDOM"] as const).map((mode) => (
                 <button
@@ -433,7 +442,9 @@ function Competition({ params }: { params: Promise<{ id: string }> }) {
                 {g.standings.map((r) => (
                   <p key={r.id}>
                     #{r.rank} · {r.id} · {r.points} poin{" "}
-                    {r.needsPlayoff ? "— perlu playoff/keputusan admin" : ""}
+                    {r.needsPlayoff
+                      ? "(perlu playoff atau keputusan admin)"
+                      : ""}
                   </p>
                 ))}
               </div>

@@ -1,0 +1,13 @@
+.env*
+.neon
+.agents
+.codex
+.aws
+.git
+.next
+node_modules
+apps/mobile
+tests
+docs
+coverage
+*.tsbuildinfo

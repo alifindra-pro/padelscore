@@ -2,13 +2,14 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api-client";
 import { useAuth } from "@/context/AuthContext";
+import {
+  StaffAccounts,
+  type StaffMember,
+} from "@/components/admin/StaffAccounts";
 interface Organization {
   id: string;
   name: string;
-  members: {
-    role: string;
-    user: { id: string; fullName: string; email: string };
-  }[];
+  members: StaffMember[];
 }
 interface Venue {
   id: string;
@@ -22,15 +23,16 @@ export default function Organizations() {
   const [selected, setSelected] = useState("");
   const [venues, setVenues] = useState<Venue[]>([]);
   const [message, setMessage] = useState("");
-  const [link, setLink] = useState("");
   const [busy, setBusy] = useState(false);
   const load = () =>
     apiFetch<Organization[]>("/api/v2/organizations").then((data) => {
       setOrgs(data);
-      setSelected(
-        (s) =>
-          s || localStorage.getItem("padel-organization") || data[0]?.id || "",
-      );
+      setSelected((current) => {
+        const saved = current || localStorage.getItem("padel-organization");
+        return data.some((org) => org.id === saved)
+          ? saved!
+          : data[0]?.id || "";
+      });
     });
   useEffect(() => {
     load().catch((e) => setMessage(e.message));
@@ -48,9 +50,9 @@ export default function Organizations() {
     <div className="space-y-6">
       <div className="app-page-heading">
         <p className="page-eyebrow">TIM YANG HEBAT. PERMAINAN YANG HEBAT.</p>
-        <h1 className="page-heading">Organisasi & venue</h1>
+        <h1 className="page-heading">Akun & organisasi</h1>
         <p className="page-intro">
-          Siapkan tim pengelola, venue, dan lapangan untuk hari pertandingan.
+          Kelola akun tim, organisasi, venue, dan lapangan.
         </p>
       </div>
       <label className="field max-w-lg">
@@ -97,71 +99,20 @@ export default function Organizations() {
           </button>
         </form>
       )}
-      <section className="panel space-y-4">
-        <h2 className="text-xl font-bold">Tim pengelola</h2>
-        {org?.members.map((m) => (
-          <p key={m.user.id}>
-            {m.user.fullName} · {m.role}{" "}
-            <span className="text-secondary">{m.user.email}</span>
-          </p>
-        ))}
-        <form
-          className="flex flex-wrap gap-3"
-          onSubmit={async (e) => {
-            e.preventDefault();
-            const f = new FormData(e.currentTarget);
-            setBusy(true);
-            try {
-              const result = await apiFetch<{ invitationUrl: string }>(
-                "/api/v2/staff",
-                {
-                  method: "POST",
-                  body: JSON.stringify({
-                    organizationId: selected,
-                    email: f.get("email"),
-                    role: f.get("role"),
-                  }),
-                },
-              );
-              setLink(result.invitationUrl);
-            } catch (e) {
-              setMessage((e as Error).message);
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          <label className="field flex-1">
-            Email undangan
-            <input name="email" type="email" required />
-          </label>
-          <label className="field">
-            Peran
-            <select name="role">
-              <option value="REFEREE">Wasit</option>
-              <option value="STAFF">Staf</option>
-              <option value="ADMIN">Admin</option>
-            </select>
-          </label>
-          <button className="btn-primary" disabled={!selected || busy}>
-            Buat tautan undangan
-          </button>
-        </form>
-        {link && (
-          <div className="bg-brand-soft p-3 rounded-lg break-all">
-            <p>
-              Tautan berlaku 7 hari. Bagikan langsung kepada staf yang dituju.
-            </p>
-            <input
-              className="w-full"
-              readOnly
-              value={link}
-              aria-label="Tautan undangan"
-              onFocus={(e) => e.target.select()}
-            />
-          </div>
-        )}
-      </section>
+      <StaffAccounts
+        key={selected}
+        organizationId={selected}
+        members={org?.members || []}
+        canManage={
+          user?.role === "SUPER_ADMIN" ||
+          !!org?.members.some(
+            (member) =>
+              member.user.id === user?.id &&
+              ["OWNER", "ADMIN"].includes(member.role),
+          )
+        }
+        onCreated={load}
+      />
       <section className="panel space-y-4">
         <h2 className="text-xl font-bold">Venue & lapangan bersama</h2>
         {venues.map((v) => (

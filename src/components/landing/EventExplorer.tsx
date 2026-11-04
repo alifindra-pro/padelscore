@@ -145,7 +145,7 @@ export function EventExplorer() {
       {loading ? (
         <div className={styles.loadingEvents} role="status">
           <span className={styles.loadingBar} />
-          Memuat acara dari lapangan…
+          Memuat daftar acara…
         </div>
       ) : count > 0 ? (
         <>
@@ -162,13 +162,13 @@ export function EventExplorer() {
                 <div className={styles.eventArtwork}>
                   <Icon name="trophy" size={40} />
                   <span>
-                    PLAY.
+                    JADWAL
                     <br />
-                    COMPETE.
+                    BAGAN
                     <br />
-                    <b>CONNECT.</b>
+                    <b>HASIL</b>
                   </span>
-                  <span className={styles.eventCategory}>TOURNAMENT</span>
+                  <span className={styles.eventCategory}>TURNAMEN</span>
                 </div>
                 <div className={styles.eventBody}>
                   <span

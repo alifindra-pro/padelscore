@@ -3,6 +3,12 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { apiFetch } from "@/lib/api-client";
 import {
+  OptionCards,
+  SocialSettings,
+  FORMAT_OPTIONS,
+} from "@/components/admin/TournamentChoices";
+import { Icon } from "@/components/ui/Icon";
+import {
   SocialConfig,
   SocialPlayer,
   SocialRound,
@@ -37,11 +43,18 @@ export default function SocialAdmin() {
   const [current, setCurrent] = useState<Event>();
   const [message, setMessage] = useState("");
   const [format, setFormat] = useState("AMERICANO");
-  const [target, setTarget] = useState(32);
+  const [settings, setSettings] = useState<
+    Pick<SocialConfig, "target" | "rounds" | "ranking" | "pairing">
+  >({ target: 32, rounds: 7, ranking: "TOTAL", pairing: "BALANCED" });
   const [busy, setBusy] = useState(false);
   const apply = useCallback(
     ([e, p]: Awaited<ReturnType<typeof fetchSocial>>) => {
       setEvents(e);
+      setCurrent((previous) => {
+        const requested =
+          previous?.id || new URLSearchParams(window.location.search).get("id");
+        return e.find((event) => event.id === requested) || previous;
+      });
       setPlayers(p.items);
     },
     [],
@@ -73,9 +86,9 @@ export default function SocialAdmin() {
     }
   }
   return (
-    <div className="space-y-6">
+    <div className="social-workspace space-y-6">
       <div className="app-page-heading">
-        <p className="page-eyebrow">GOOD GAMES. GREAT COMPANY.</p>
+        <p className="page-eyebrow">ROTASI PEMAIN & PERINGKAT</p>
         <h1 className="page-heading">Americano / Mexicano</h1>
       </div>
       <p className="text-secondary">
@@ -83,20 +96,28 @@ export default function SocialAdmin() {
         dihitung untuk setiap pemain.
       </p>
       <p role="status">{message}</p>
-      <div className="flex flex-wrap gap-3">
+      <div className="social-event-picker">
         {events.map((e) => (
           <button
             className="btn-secondary"
             key={e.id}
+            aria-pressed={current?.id === e.id}
             onClick={() => setCurrent(e)}
           >
             {e.name}
           </button>
         ))}
       </div>
-      <details className="panel" open={!current}>
+      <Link
+        className="btn-primary"
+        href="/admin/tournaments/new?format=AMERICANO"
+      >
+        <Icon name="plus" size={18} />
+        Buat acara dengan panduan
+      </Link>
+      <details className="panel" open={!current && events.length === 0}>
         <summary className="font-bold cursor-pointer">
-          Buat Americano / Mexicano
+          Buat acara dari pemain terdaftar
         </summary>
         <form
           className="grid md:grid-cols-2 gap-4 mt-4"
@@ -114,10 +135,7 @@ export default function SocialAdmin() {
                   format: f.get("format"),
                   config: {
                     courts: Number(f.get("courts")),
-                    rounds: Number(f.get("rounds")),
-                    target: Number(f.get("target")),
-                    ranking: f.get("ranking"),
-                    pairing: f.get("pairing") || "BALANCED",
+                    ...settings,
                   },
                   participants: players
                     .filter((p) => selected.includes(p.id))
@@ -138,70 +156,33 @@ export default function SocialAdmin() {
             <input name="name" required minLength={2} />
           </label>
           <label className="field">
-            Format
-            <select
-              name="format"
-              value={format}
-              onChange={(e) => setFormat(e.target.value)}
-            >
-              <option value="AMERICANO">
-                Americano — pasangan berganti sesuai rotasi
-              </option>
-              <option value="MEXICANO">
-                Mexicano — pasangan mengikuti peringkat
-              </option>
-            </select>
-          </label>
-          {[
-            ["courts", "Jumlah lapangan", 4],
-            ["rounds", "Jumlah ronde", 7],
-          ].map(([name, label, value]) => (
-            <label className="field" key={name}>
-              {label}
-              <input
-                type="number"
-                name={String(name)}
-                min={1}
-                max={100}
-                defaultValue={value}
-                required
-              />
-            </label>
-          ))}
-          <label className="field">
-            Total poin kedua pasangan per pertandingan
+            Jumlah lapangan
             <input
-              name="target"
+              name="courts"
               type="number"
               min={1}
-              max={100}
+              max={32}
+              defaultValue={1}
               required
-              value={target}
-              onChange={(e) => setTarget(Number(e.target.value))}
-              aria-describedby="points-example"
             />
-            <span id="points-example" className="action-help">
-              {target > 0
-                ? `Jumlah skor A + B harus ${target}. Contoh hasil: ${Math.ceil(target / 2)}–${Math.floor(target / 2)}. Setiap pemain memperoleh poin pasangannya.`
-                : "Masukkan total poin, misalnya 24 atau 32."}
-            </span>
           </label>
-          <label className="field">
-            Peringkat berdasarkan
-            <select name="ranking">
-              <option value="AVERAGE">Rata-rata poin per pertandingan</option>
-              <option value="TOTAL">Total poin</option>
-            </select>
-          </label>
-          {format === "MEXICANO" && (
-            <label className="field">
-              Susunan pasangan berdasarkan peringkat
-              <select name="pairing">
-                <option value="BALANCED">Peringkat 1 & 4 melawan 2 & 3</option>
-                <option value="ADJACENT">Peringkat 1 & 2 melawan 3 & 4</option>
-              </select>
-            </label>
-          )}
+          <div className="md:col-span-2">
+            <OptionCards
+              legend="Sistem pertandingan"
+              name="format"
+              value={format}
+              options={FORMAT_OPTIONS.slice(2)}
+              onChange={setFormat}
+            />
+          </div>
+          <div className="md:col-span-2">
+            <SocialSettings
+              format={format}
+              value={settings}
+              onChange={setSettings}
+              disabled={busy}
+            />
+          </div>
           <fieldset className="md:col-span-2">
             <legend className="font-bold mb-3">
               Pilih pemain (minimal 4 orang)
@@ -242,7 +223,9 @@ export default function SocialAdmin() {
               <div>
                 <h2 className="text-2xl font-bold">{current.name}</h2>
                 <p>
-                  {current.format} · {current.config.target} poin
+                  {current.format === "AMERICANO" ? "Americano" : "Mexicano"} ·{" "}
+                  {current.config.target} poin per laga ·{" "}
+                  {current.config.rounds} ronde
                 </p>
               </div>
               <button
@@ -252,6 +235,24 @@ export default function SocialAdmin() {
               >
                 {current.published ? "Sembunyikan dari publik" : "Publikasikan"}
               </button>
+            </div>
+            {(current.config.location || current.config.start) && (
+              <p className="setting-help">
+                {current.config.location}
+                {current.config.start &&
+                  ` · ${new Date(current.config.start).toLocaleString("id-ID", { timeZone: current.config.timezone || "Asia/Jakarta", dateStyle: "medium", timeStyle: "short" })}`}
+              </p>
+            )}
+            <div className="setup-callout">
+              <Icon name="live" />
+              <p>
+                <strong>Hitungan poin: A + B = {current.config.target}.</strong>{" "}
+                Poin pasangan masuk ke masing-masing pemain. Peringkat memakai{" "}
+                {current.config.ranking === "TOTAL"
+                  ? "total poin"
+                  : "rata-rata poin per laga"}
+                . Sahkan semua hasil ronde sebelum melanjutkan.
+              </p>
             </div>
             {current.published && (
               <Link
@@ -295,7 +296,18 @@ export default function SocialAdmin() {
           </section>
           {current.rounds.map((round) => (
             <section className="panel space-y-4" key={round.number}>
-              <h3 className="text-xl font-bold">Ronde {round.number}</h3>
+              <div className="setting-section-heading">
+                <span className="setting-section-icon">
+                  <Icon name="court" />
+                </span>
+                <div>
+                  <h3>Ronde {round.number}</h3>
+                  <p>
+                    {round.matches.length} laga · Total skor kedua pasangan
+                    harus {current.config.target} poin.
+                  </p>
+                </div>
+              </div>
               {round.waiting.length > 0 && (
                 <p>
                   Menunggu:{" "}

@@ -54,7 +54,7 @@
 
 ### 1. Prasyarat
 * Node.js v20+ atau v24+
-* PostgreSQL 16 aktif di `localhost:5432`
+* PostgreSQL lokal aktif di `localhost:5432`, atau database Neon sesuai [panduan Neon](docs/NEON.md).
 
 ### 2. Instalasi & Setup Database
 ```bash
@@ -63,6 +63,9 @@ cd padel-tournament-os
 
 # Salin variabel lingkungan
 cp .env.example .env
+
+# Isi DATABASE_URL dan DATABASE_URL_UNPOOLED di .env.
+# Untuk PostgreSQL lokal, keduanya memakai URL yang sama.
 
 # Jalankan migrasi Prisma ke PostgreSQL
 npx prisma migrate deploy
@@ -78,6 +81,8 @@ npm run dev
 Buka browser pada **[http://localhost:3100](http://localhost:3100)**.
 
 Repository proyek ini: https://github.com/alifindra-pro/padelscore.git. Jalankan perintah dari folder proyek ini dan gunakan konfigurasi serta database khusus proyek ini. `npm start` juga memakai port `3100` secara default; server produksi dapat mengaturnya melalui variabel lingkungan `PORT`.
+
+Persiapan hosting Vercel, daftar environment variable, dan status deployment tersedia di [docs/VERCEL.md](docs/VERCEL.md).
 
 Untuk aplikasi mobile di HP fisik, atur `EXPO_PUBLIC_API_URL` ke alamat jaringan server Padel Score, misalnya `http://192.168.1.10:3100`. `localhost` pada HP merujuk ke HP tersebut.
 

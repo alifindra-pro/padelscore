@@ -5,6 +5,13 @@ import { apiFetch } from "@/lib/api-client";
 import { Icon } from "@/components/ui/Icon";
 import { BracketViewer } from "@/components/BracketViewer";
 import {
+  OptionCards,
+  FORMAT_OPTIONS,
+  EXTRA_FORMAT_OPTIONS,
+  PRESET_OPTIONS,
+  DEUCE_OPTIONS,
+} from "@/components/admin/TournamentChoices";
+import {
   PRESETS,
   CATEGORY_NAMES,
   Rules,
@@ -83,6 +90,8 @@ export default function Workspace({
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [addExisting, setAddExisting] = useState(false);
+  const [newCategoryFormat, setNewCategoryFormat] =
+    useState("SINGLE_ELIMINATION");
   const [rules, setRules] = useState<Rules>(PRESETS.STANDARD);
   const category = t?.categories.find((c) => c.id === selected);
   const load = useCallback(async () => {
@@ -125,9 +134,17 @@ export default function Workspace({
     setStages(Array.isArray(b) ? b : (b.stages ?? []));
   }, [selected]);
   useEffect(() => {
+    const requestedStep = new URLSearchParams(window.location.search).get(
+      "step",
+    );
     // State changes in load occur only after awaited API responses.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    load().catch((e) => setError(e.message));
+    load()
+      .then(() => {
+        if (requestedStep && /^[0-3]$/.test(requestedStep))
+          setStep(Number(requestedStep));
+      })
+      .catch((e) => setError(e.message));
   }, [load]);
   useEffect(() => {
     // State changes occur after the category requests resolve, never synchronously.
@@ -179,7 +196,7 @@ export default function Workspace({
     );
   const visibleMatches = matches.filter((m) => m.stage.categoryId === selected);
   return (
-    <div className="space-y-6">
+    <div className="tournament-workspace space-y-6">
       <Link href="/admin/tournaments" className="text-xs text-secondary">
         ← Semua turnamen
       </Link>
@@ -201,7 +218,7 @@ export default function Workspace({
               })}
             </span>
           </div>
-          <p className="page-eyebrow">TOURNAMENT CONTROL</p>
+          <p className="page-eyebrow">KELOLA TURNAMEN</p>
           <h1 className="page-heading">{t.name}</h1>
           <p className="text-secondary text-sm mt-2 flex gap-2 items-center">
             <Icon name="pin" size={15} />
@@ -227,6 +244,7 @@ export default function Workspace({
           <button
             key={label}
             className="step-tab"
+            aria-label={label}
             aria-current={step === i ? "step" : undefined}
             onClick={() => {
               setStep(i);
@@ -234,10 +252,49 @@ export default function Workspace({
             }}
           >
             <span className="step-number">{i + 1}</span>
-            {label}
+            <span className="step-tab-copy">
+              {label}
+              <small>
+                {
+                  [
+                    "Kategori & lapangan",
+                    "Nama pemain & pasangan",
+                    "Skor, bagan & jadwal",
+                    "Wasit, publikasi & hasil",
+                  ][i]
+                }
+              </small>
+            </span>
           </button>
         ))}
       </nav>
+      <div className="workspace-step-intro">
+        <span className="setting-section-icon">
+          <Icon name={["settings", "users", "court", "live"][step]} />
+        </span>
+        <div>
+          <h2>
+            {
+              [
+                "Siapkan dasar acaranya",
+                "Susun daftar peserta",
+                "Tentukan jalannya pertandingan",
+                "Jalankan acara & periksa hasil",
+              ][step]
+            }
+          </h2>
+          <p>
+            {
+              [
+                "Buat kategori untuk tiap kelompok peserta, lalu tambahkan lapangan yang tersedia.",
+                "Daftarkan pasangan baru atau pilih pemain yang sudah ada dalam organisasi.",
+                "Pilih aturan skor, buat bagan, lalu susun waktu bermain dan jeda istirahat.",
+                "Tugaskan wasit, publikasikan acara, dan sahkan hasil sebelum dibagikan.",
+              ][step]
+            }
+          </p>
+        </div>
+      </div>
       {error && (
         <p className="panel bg-critical/10 text-danger" role="alert">
           {error}
@@ -312,16 +369,17 @@ export default function Workspace({
                     ))}
                   </datalist>
                 </label>
-                <label className="field">
-                  Cara menentukan lawan
-                  <select name="format">
-                    {Object.entries(formats).map(([key, label]) => (
-                      <option key={key} value={key}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <OptionCards
+                  legend="Cara menentukan lawan"
+                  name="format"
+                  value={newCategoryFormat}
+                  onChange={setNewCategoryFormat}
+                  options={[
+                    ...FORMAT_OPTIONS.slice(0, 2),
+                    ...EXTRA_FORMAT_OPTIONS,
+                  ]}
+                  compact
+                />
                 <button className="btn-secondary w-full" disabled={busy}>
                   <Icon name="plus" size={16} />
                   Tambah kategori
@@ -593,47 +651,34 @@ export default function Workspace({
                     dan cara menentukan pemenang saat 40–40.
                   </p>
                 </div>
-                <div className="grid md:grid-cols-2 gap-4">
-                  <label className="field">
-                    Jumlah set dan durasi
-                    <select
-                      value={
-                        Object.keys(PRESETS).find(
-                          (k) => PRESETS[k].name === rules.name,
-                        ) ?? "CUSTOM"
-                      }
-                      onChange={(e) => setRules({ ...PRESETS[e.target.value] })}
-                    >
-                      {Object.entries(PRESETS).map(([key, p]) => (
-                        <option value={key} key={key}>
-                          {p.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="field">
-                    Jika skor 40–40 (deuce)
-                    <select
-                      value={rules.deuce}
-                      onChange={(e) =>
-                        setRules({
-                          ...rules,
-                          deuce: e.target.value as Rules["deuce"],
-                        })
-                      }
-                    >
-                      <option value="ADVANTAGE">
-                        Harus unggul dua poin (Advantage)
-                      </option>
-                      <option value="GOLDEN_POINT">
-                        Satu poin penentu (Golden Point)
-                      </option>
-                      <option value="STAR_POINT">
-                        Dua kali advantage, lalu poin penentu (Star Point)
-                      </option>
-                    </select>
-                  </label>
-                </div>
+                <OptionCards
+                  legend="Jumlah set dan durasi"
+                  name="preset"
+                  value={
+                    Object.keys(PRESETS).find(
+                      (key) => PRESETS[key].name === rules.name,
+                    ) ?? "CUSTOM"
+                  }
+                  options={PRESET_OPTIONS}
+                  onChange={(key) => setRules({ ...PRESETS[key] })}
+                  compact
+                  disabled={busy}
+                />
+                <OptionCards
+                  legend="Jika skor 40–40 (deuce)"
+                  name="deuce"
+                  value={rules.deuce}
+                  options={DEUCE_OPTIONS}
+                  onChange={(deuce) =>
+                    setRules({ ...rules, deuce: deuce as Rules["deuce"] })
+                  }
+                  compact
+                  disabled={busy}
+                />
+                <p className="setting-help">
+                  Perubahan berlaku untuk pertandingan yang belum dimulai. Untuk
+                  nilai game atau set kustom, buka pengaturan rinci di bawah.
+                </p>
                 <button
                   className="btn-primary"
                   disabled={busy}
@@ -902,6 +947,30 @@ export default function Workspace({
                       >
                         Catat skor pertandingan
                       </Link>
+                      {[
+                        "PUBLISHED",
+                        "IN_PROGRESS",
+                        "COMPLETED",
+                        "ARCHIVED",
+                      ].includes(t.status) && (
+                        <Link
+                          className="btn-secondary text-xs"
+                          href={`/tv/${m.id}`}
+                        >
+                          Buka layar TV
+                        </Link>
+                      )}
+                      {(m.approvalStatus === "APPROVED" ||
+                        m.status === "APPROVED") &&
+                        m.entryA &&
+                        m.entryB && (
+                          <a
+                            className="btn-secondary text-xs"
+                            href={`/api/v2/matches/${m.id}/result.pdf`}
+                          >
+                            Unduh PDF hasil
+                          </a>
+                        )}
                       {m.status === "FINISHED" &&
                         m.approvalStatus !== "APPROVED" && (
                           <button

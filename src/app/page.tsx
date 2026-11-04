@@ -8,9 +8,9 @@ import { EventExplorer } from "@/components/landing/EventExplorer";
 import styles from "@/components/landing/landing.module.css";
 
 export const metadata: Metadata = {
-  title: "Padel Indonesia — Setiap poin. Setiap momen.",
+  title: "Padel Score by Padel Addictive | Jadwal, skor, dan hasil pertandingan",
   description:
-    "Ikuti skor padel langsung, temukan turnamen, dan jelajahi pertandingan komunitas. Semua dari satu tempat, tanpa perlu akun penonton.",
+    "Lihat jadwal, bagan, dan skor turnamen padel serta hasil Americano dan Mexicano tanpa membuat akun.",
 };
 
 export default function Home() {
@@ -27,47 +27,44 @@ export default function Home() {
         >
           <div className={styles.heroCopy}>
             <p className={styles.eyebrow}>
-              <span className={styles.liveDot} /> YOUR GAME. CONNECTED.
+              <span className={styles.liveDot} /> TURNAMEN & PERTANDINGAN SOSIAL
             </p>
             <h1 id="hero-title">
-              Setiap poin.
+              Jadwal padel,
               <br />
-              Setiap momen.
+              skor, dan
               <br />
-              <span>Tetap dekat.</span>
+              <span>hasil pertandingan.</span>
             </h1>
             <p className={styles.heroDescription}>
-              Dari servis pertama sampai match point. Ikuti skor langsung,
-              temukan turnamen, dan jadi bagian dari permainan.
+              Pilih acara untuk melihat jadwal, bagan, dan skor yang dicatat
+              wasit. Acara yang sudah dipublikasikan dapat dilihat tanpa akun.
             </p>
             <div className={styles.heroActions}>
               <a href="#events" className={styles.primaryButton}>
-                Jelajahi pertandingan <Icon name="arrow" size={18} />
+                Lihat daftar acara <Icon name="arrow" size={18} />
               </a>
               <a href="#demo" className={styles.textButton}>
-                <span className={styles.playIcon}>▶</span> Coba live scoring
+                <span className={styles.playIcon}>▶</span> Coba demo skor
               </a>
             </div>
             <p className={styles.heroNote}>
-              <Icon name="check" size={15} /> Tanpa akun. Langsung ikut
-              keseruannya.
+              <Icon name="check" size={15} /> Penonton tidak perlu membuat akun.
             </p>
           </div>
           <div className={styles.heroVisual}>
-            <span className={styles.visualLabel}>THE COURT IS CALLING.</span>
+            <span className={styles.visualLabel}>LAPANGAN PADEL</span>
             <CourtScene className={styles.courtScene} />
             <div className={styles.courtLabel}>
               <Icon name="court" size={16} />
               <span>
-                DI LAPANGAN.
+                TURNAMEN
                 <br />
-                <strong>DALAM GENGGAMAN.</strong>
+                <strong>& SESI SOSIAL</strong>
               </span>
             </div>
             <LiveScore />
-            <span className={styles.visualCaption}>
-              PADEL, POINT BY POINT. <span>01 — 03</span>
-            </span>
+            <span className={styles.visualCaption}>ILUSTRASI LAPANGAN</span>
           </div>
         </section>
         <div className={styles.benefitStrip}>
@@ -85,7 +82,7 @@ export default function Home() {
             </span>
             <i />
             <span>
-              <Icon name="court" /> Satu tempat. Semua permainan.
+              <Icon name="court" /> Americano & Mexicano
             </span>
           </div>
         </div>
@@ -96,13 +93,13 @@ export default function Home() {
         >
           <div className={styles.sectionHeading}>
             <div>
-              <p className={styles.eyebrow}>TEMUKAN PERMAINANMU</p>
-              <h2 id="events-heading">Dari lapangan, untuk kamu.</h2>
+              <p className={styles.eyebrow}>ACARA PUBLIK</p>
+              <h2 id="events-heading">Cari turnamen atau sesi sosial.</h2>
             </div>
             <p>
-              Turnamen kompetitif atau pertandingan santai.
+              Cari berdasarkan nama acara atau lokasi.
               <br />
-              Keseruan berikutnya dimulai di sini.
+              Pilih acara untuk melihat detail pertandingan.
             </p>
           </div>
           <EventExplorer />
@@ -115,22 +112,24 @@ export default function Home() {
           <div className={styles.shell}>
             <div className={styles.sectionHeading}>
               <div>
-                <p className={styles.eyebrow}>LESS HASSLE. MORE PADEL.</p>
+                <p className={styles.eyebrow}>INFORMASI PERTANDINGAN</p>
                 <h2 id="features-heading">
-                  Fokus pada permainan.
+                  Ikuti pertandingan.
                   <br />
-                  Sisanya, ada di sini.
+                  Periksa jadwal dan hasilnya.
                 </h2>
               </div>
               <p>
-                Untuk penonton yang tak mau ketinggalan.
+                Penonton melihat jadwal dan skor.
                 <br />
-                Untuk penyelenggara yang ingin serba tertata.
+                Pengelola menyiapkan acara dan mencatat hasil.
               </p>
             </div>
             <div className={styles.featureGrid}>
               <article className={styles.feature}>
-                <span className={styles.featureNumber}>01 / LIVE SCORING</span>
+                <span className={styles.featureNumber}>
+                  01 / SKOR PERTANDINGAN
+                </span>
                 <div className={styles.miniScore} aria-hidden="true">
                   <span>GAME. SET.</span>
                   <strong>
@@ -146,19 +145,17 @@ export default function Home() {
                     <span className={styles.matchPoint}>MATCH POINT</span>
                   </div>
                 </div>
-                <h3>Jangan lewatkan satu poin pun.</h3>
+                <h3>Lihat skor yang dicatat wasit.</h3>
                 <p>
-                  Poin, game, dan set dalam tampilan yang jelas. Ikuti jalannya
-                  pertandingan dari mana saja.
+                  Buka halaman pertandingan untuk melihat poin, game, dan set.
+                  Pembaruan tampil setelah perangkat wasit tersinkron.
                 </p>
                 <a href="#demo" className={styles.featureLink}>
                   Coba papan skor <Icon name="arrow" size={17} />
                 </a>
               </article>
               <article className={styles.feature}>
-                <span className={styles.featureNumber}>
-                  02 / TOURNAMENT HUB
-                </span>
+                <span className={styles.featureNumber}>02 / TURNAMEN</span>
                 <div className={styles.miniBracket} aria-hidden="true">
                   <div>
                     <span>
@@ -171,34 +168,36 @@ export default function Home() {
                   <i />
                   <div>
                     <Icon name="trophy" size={25} />
-                    <span>THE NEXT CHAMPION</span>
+                    <span>CONTOH BAGAN</span>
                   </div>
                 </div>
-                <h3>Perjalanan menuju juara.</h3>
+                <h3>Periksa jadwal dan bagan.</h3>
                 <p>
-                  Jadwal pertandingan, bagan turnamen, dan hasil akhir. Semua
-                  rapi dalam satu tempat.
+                  Pilih turnamen untuk melihat pasangan yang bertanding, jadwal,
+                  dan hasil setiap babak.
                 </p>
                 <a href="#events" className={styles.featureLink}>
                   Temukan turnamen <Icon name="arrow" size={17} />
                 </a>
               </article>
               <article className={styles.feature}>
-                <span className={styles.featureNumber}>03 / SOCIAL PADEL</span>
+                <span className={styles.featureNumber}>
+                  03 / PERTANDINGAN SOSIAL
+                </span>
                 <div className={styles.miniCommunity} aria-hidden="true">
                   <span>AD</span>
                   <span>BK</span>
                   <span>CL</span>
-                  <span>YOU</span>
-                  <p>GOOD GAMES. GREAT COMPANY.</p>
+                  <span>DM</span>
+                  <p>CONTOH ROTASI PASANGAN</p>
                 </div>
-                <h3>Pasangan baru. Cerita baru.</h3>
+                <h3>Ikuti ronde Americano dan Mexicano.</h3>
                 <p>
-                  Jelajahi sesi sosial, rotasi pasangan, dan leaderboard. Karena
-                  padel lebih seru bersama.
+                  Lihat susunan pasangan tiap ronde dan klasemen sesi sosial
+                  yang dipublikasikan pengelola.
                 </p>
                 <a href="#events" className={styles.featureLink}>
-                  Jelajahi acara sosial <Icon name="arrow" size={17} />
+                  Lihat sesi sosial <Icon name="arrow" size={17} />
                 </a>
               </article>
             </div>
@@ -212,26 +211,26 @@ export default function Home() {
             <div className={styles.organizerCopy}>
               <p className={styles.eyebrow}>UNTUK PENYELENGGARA</p>
               <h2>
-                Turnamen hebat.
+                Kelola turnamen
                 <br />
-                Dimulai dari sini.
+                dari dashboard.
               </h2>
               <p>
-                Kelola peserta, atur lapangan, dan jalankan live scoring.
+                Masukkan peserta, susun jadwal, dan tugaskan wasit.
                 <br />
-                Satu ruang untuk seluruh turnamenmu.
+                Sahkan hasil sebelum melanjutkan ke babak berikutnya.
               </p>
               <Link href="/login" className={styles.limeButton}>
                 Masuk ruang pengelola <Icon name="arrow" size={18} />
               </Link>
-              <small>Akses pengelola dan wasit melalui undangan.</small>
+              <small>Peserta didaftarkan oleh pengelola.</small>
             </div>
             <div className={styles.organizerArt} aria-hidden="true">
               <div className={styles.outlineCourt} />
               <span>
-                LET’S
+                ATUR
                 <br />
-                PLAY<span>.</span>
+                LAGA<span>.</span>
               </span>
               <Icon name="arrow" size={100} />
             </div>
@@ -243,9 +242,9 @@ export default function Home() {
           aria-labelledby="faq-heading"
         >
           <div>
-            <p className={styles.eyebrow}>SEBELUM MASUK LAPANGAN</p>
-            <h2 id="faq-heading">Masih penasaran?</h2>
-            <p>Beberapa hal yang perlu kamu tahu.</p>
+            <p className={styles.eyebrow}>BANTUAN</p>
+            <h2 id="faq-heading">Akun dan pembaruan skor</h2>
+            <p>Informasi untuk penonton dan pengelola.</p>
           </div>
           <div className={styles.faqList}>
             <details>
@@ -272,9 +271,9 @@ export default function Home() {
                 Bagaimana cara mengelola turnamen?<span>+</span>
               </summary>
               <p>
-                Masuk ke ruang pengelola dengan akun yang telah diundang oleh
-                organisasi. Peserta, kategori, jadwal, lapangan, dan
-                pertandingan dikelola dari dashboard.
+                Buka halaman masuk untuk mengakses ruang pengelola. Peserta,
+                kategori, jadwal, lapangan, dan pertandingan dikelola dari
+                dashboard.
               </p>
             </details>
           </div>
@@ -286,16 +285,19 @@ export default function Home() {
             <span className={styles.brandMark}>
               <Icon name="court" size={23} />
             </span>
-            PADEL<span>INDONESIA</span>
+            <span className={styles.brandCopy}>
+              <strong>PADEL<span> SCORE</span></strong>
+              <small>by PADEL ADDICTIVE</small>
+            </span>
           </Link>
-          <p>Setiap lapangan. Setiap poin. Setiap pertandingan.</p>
+          <p>Jadwal, skor, dan hasil pertandingan padel.</p>
           <a href="#main">
             Kembali ke atas <span>↗</span>
           </a>
         </div>
         <div className={`${styles.shell} ${styles.footerBottom}`}>
-          <span>© Padel Indonesia</span>
-          <span>MADE FOR THE LOVE OF THE GAME.</span>
+          <span>© Padel Score by Padel Addictive</span>
+          <span>TURNAMEN & PERTANDINGAN SOSIAL</span>
         </div>
       </footer>
     </div>

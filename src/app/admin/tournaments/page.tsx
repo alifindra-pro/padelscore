@@ -30,8 +30,29 @@ export default function Tournaments() {
   const [scoreChosen, setScoreChosen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [socialEvents, setSocialEvents] = useState<
+    {
+      id: string;
+      name: string;
+      format: string;
+      published: boolean;
+      config: { target: number; rounds: number; location?: string };
+      participants: unknown[];
+    }[]
+  >([]);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
+    apiFetch<typeof socialEvents>("/api/v2/social", {
+      params: {
+        organizationId: localStorage.getItem("padel-organization") || undefined,
+      },
+    })
+      .then(setSocialEvents)
+      .catch(() =>
+        setError(
+          "Acara Americano/Mexicano belum dapat dimuat. Coba muat ulang halaman.",
+        ),
+      );
     apiFetch<{ items: Tournament[] }>("/api/v1/tournaments?limit=100")
       .then((x) => {
         setEvents(x.items);
@@ -80,21 +101,34 @@ export default function Tournaments() {
       (filter === "ALL" || filter === t.status) &&
       `${t.name} ${t.location}`.toLowerCase().includes(query.toLowerCase()),
   );
+  const socialVisible = socialEvents.filter(
+    (event) =>
+      (filter === "ALL" ||
+        filter === (event.published ? "PUBLISHED" : "DRAFT")) &&
+      `${event.name} ${event.config.location || ""} ${event.format}`
+        .toLowerCase()
+        .includes(query.toLowerCase()),
+  );
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between gap-4 sm:items-end">
         <div>
-          <p className="page-eyebrow">PLAY. COMPETE. CONNECT.</p>
+          <p className="page-eyebrow">ACARA ORGANISASI</p>
           <h1 className="page-heading">Turnamen</h1>
           <p className="page-intro">
             Cari turnamen berdasarkan nama, lokasi, atau status.
           </p>
         </div>
         {!creating && (
-          <button className="btn-primary" onClick={() => setCreating(true)}>
-            <Icon name="plus" size={18} />
-            Buat turnamen
-          </button>
+          <div className="action-row">
+            <Link className="btn-primary" href="/admin/tournaments/new">
+              Buat turnamen & jadwal
+            </Link>
+            <button className="btn-secondary" onClick={() => setCreating(true)}>
+              <Icon name="plus" size={18} />
+              Buat acara tanpa peserta
+            </button>
+          </div>
         )}
       </div>
       {error && (
@@ -131,7 +165,7 @@ export default function Tournaments() {
             </div>
             <div className="border border-line rounded-xl p-5 space-y-4">
               <h3 className="text-lg font-bold">
-                Skor poin — Americano / Mexicano
+                Skor poin: Americano / Mexicano
               </h3>
               <p className="text-2xl font-bold tabular-nums">0 → 1 → 2 → 3</p>
               <p className="text-secondary">
@@ -197,9 +231,9 @@ export default function Tournaments() {
             <label className="field">
               Zona waktu
               <select name="timezone">
-                <option value="Asia/Jakarta">WIB — Jakarta</option>
-                <option value="Asia/Makassar">WITA — Makassar</option>
-                <option value="Asia/Jayapura">WIT — Jayapura</option>
+                <option value="Asia/Jakarta">WIB (Jakarta)</option>
+                <option value="Asia/Makassar">WITA (Makassar)</option>
+                <option value="Asia/Jayapura">WIT (Jayapura)</option>
               </select>
             </label>
           </div>
@@ -259,7 +293,7 @@ export default function Tournaments() {
             <div className="panel empty-state">Memuat turnamen…</div>
           ) : visible.length ? (
             <TournamentList events={visible} />
-          ) : (
+          ) : socialVisible.length ? null : (
             <section className="panel empty-state">
               <h2 className="font-bold text-ink">
                 {events.length
@@ -271,6 +305,44 @@ export default function Tournaments() {
                   ? "Coba kata kunci atau status lain."
                   : "Gunakan “Buat turnamen” untuk menambahkan acara."}
               </p>
+            </section>
+          )}
+          {socialVisible.length > 0 && (
+            <section className="panel space-y-4">
+              <div className="setting-section-heading">
+                <span className="setting-section-icon">
+                  <Icon name="refresh" />
+                </span>
+                <div>
+                  <h2>Americano & Mexicano</h2>
+                  <p>Rotasi pasangan dan peringkat tiap pemain.</p>
+                </div>
+              </div>
+              <div className="grid md:grid-cols-2 gap-3">
+                {socialVisible.map((event) => (
+                  <Link
+                    key={event.id}
+                    href={`/admin/social?id=${event.id}`}
+                    className="social-list-event"
+                  >
+                    <div>
+                      <strong>{event.name}</strong>
+                      <p>
+                        {event.format === "AMERICANO"
+                          ? "Americano"
+                          : "Mexicano"}{" "}
+                        · {event.participants.length} pemain ·{" "}
+                        {event.config.target} poin
+                      </p>
+                      <span>
+                        {event.published ? "Dipublikasikan" : "Draf"} ·{" "}
+                        {event.config.rounds} ronde
+                      </span>
+                    </div>
+                    <Icon name="arrow" size={18} />
+                  </Link>
+                ))}
+              </div>
             </section>
           )}
         </>

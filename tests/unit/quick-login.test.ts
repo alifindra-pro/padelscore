@@ -6,6 +6,8 @@ vi.mock("@/lib/auth", () => ({ AUTH_CONFIG: { COOKIE_NAME: "token" }, generateTo
 import { POST } from "@/app/api/v1/auth/quick-login/route";
 
 beforeEach(() => {
+  vi.stubEnv("NODE_ENV", "test");
+  vi.stubEnv("VERCEL", "");
   vi.stubEnv("TEMPORARY_BUTTON_LOGIN", "true");
   vi.stubEnv("TEMPORARY_LOGIN_EMAIL", "preview@example.test");
   findUnique.mockResolvedValue({ id: "preview", role: "ORGANIZER", isActive: true });
@@ -17,6 +19,12 @@ function request(host: string, origin: string, site = "same-origin") {
   });
 }
 describe("Preview login origin protection", () => {
+  it.each(["production", "vercel"])("blocks temporary login in %s even when enabled", async environment => {
+    if (environment === "production") vi.stubEnv("NODE_ENV", "production");
+    else vi.stubEnv("VERCEL", "1");
+    expect((await POST(request("localhost:3100", "http://localhost:3100"))).status).toBe(404);
+    expect(findUnique).not.toHaveBeenCalled();
+  });
   it.each(["127.0.0.1:3000", "localhost:3000", "[::1]:3000"])("allows matching browser origin for %s", async host => {
     const response = await POST(request(host, `http://${host}`));
     expect(response.status).toBe(200);

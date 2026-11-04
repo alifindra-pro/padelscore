@@ -5,19 +5,19 @@ export default function RegistrationClosed() {
   return (
     <AuthShell
       eyebrow="TERBUKA UNTUK SEMUA PENONTON"
-      title="Langsung ikut keseruannya."
-      description="Nikmati jadwal, bagan, dan skor pertandingan tanpa membuat akun."
+      title="Lihat pertandingan tanpa akun."
+      description="Buka acara publik untuk melihat jadwal, bagan, dan skor pertandingan."
     >
       <div className="space-y-6">
         <div className="account-info">
           <Icon name="users" size={24} />
           <p>
             Peserta didaftarkan oleh penyelenggara. Akun pengelola dan wasit
-            tersedia melalui undangan organisasi.
+            dibuat oleh admin organisasi. Hubungi admin untuk mendapatkan akun.
           </p>
         </div>
         <Link href="/#events" className="btn-primary w-full">
-          Jelajahi pertandingan <Icon name="arrow" size={18} />
+          Lihat daftar acara <Icon name="arrow" size={18} />
         </Link>
         <Link href="/login" className="section-link">
           Sudah punya akun pengelola? Masuk <Icon name="arrow" size={16} />

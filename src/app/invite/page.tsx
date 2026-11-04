@@ -18,7 +18,8 @@ export default function Invite() {
         <div className="space-y-5">
           <p className="account-info" role="status">
             <Icon name="check" />
-            Akun berhasil diaktifkan. Selamat bergabung!
+            Akun berhasil diaktifkan. Masuk dengan nama pengguna yang baru Anda
+            buat atau email penerima undangan.
           </p>
           <Link href="/login" className="btn-primary w-full">
             Masuk ke akun <Icon name="arrow" size={18} />
@@ -60,11 +61,20 @@ export default function Invite() {
             <input
               name="username"
               autoComplete="username"
+              autoCapitalize="none"
+              spellCheck={false}
+              aria-describedby="invite-username-help"
               minLength={3}
+              maxLength={30}
               pattern="[a-zA-Z0-9_]+"
               required
             />
           </label>
+          <p id="invite-username-help" className="action-help">
+            Nama pengguna ini bisa dipakai untuk masuk. Anda juga bisa memakai
+            email penerima undangan. Huruf besar dan kecil pada nama pengguna
+            harus sesuai.
+          </p>
           <label className="field">
             Kata sandi
             <input

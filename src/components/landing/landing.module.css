@@ -90,7 +90,7 @@
   letter-spacing: -0.7px;
   white-space: nowrap;
 }
-.brand > span:last-child {
+.brandCopy strong > span {
   color: var(--lp-blue);
 }
 .brandMark {
@@ -1788,3 +1788,7 @@
     scroll-behavior: auto !important;
   }
 }
+
+.brandCopy { display: flex; flex-direction: column; gap: 4px; line-height: 1.1; }
+.brandCopy strong { font-weight: 850; }
+.brandCopy small { font-size: 9px; font-weight: 600; letter-spacing: 0.5px; color: var(--lp-muted); }

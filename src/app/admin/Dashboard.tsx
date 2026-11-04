@@ -5,6 +5,7 @@ import { apiFetch } from "@/lib/api-client";
 import { useAuth } from "@/context/AuthContext";
 import { TournamentList } from "@/components/TournamentList";
 import { Icon } from "@/components/ui/Icon";
+import { DashboardFeatures } from "@/components/ui/DashboardFeatures";
 import { CourtScene } from "@/components/ui/CourtScene";
 interface Tournament {
   id: string;
@@ -14,56 +15,6 @@ interface Tournament {
   startDate: string;
   timezone?: string;
 }
-const shortcuts = [
-  {
-    title: "Turnamen",
-    description: "Atur kategori, bagan, jadwal, dan hasil pertandingan.",
-    icon: "trophy",
-    href: "/admin/tournaments",
-    action: "Kelola turnamen",
-    tone: "blue",
-  },
-  {
-    title: "Americano / Mexicano",
-    description: "Rotasi pasangan dan klasemen untuk sesi komunitas.",
-    icon: "court",
-    href: "/admin/social",
-    action: "Buka sesi sosial",
-    tone: "lime",
-  },
-  {
-    title: "Pemain",
-    description: "Kelola data peserta dan temukan pemain di organisasi.",
-    icon: "users",
-    href: "/admin/players",
-    action: "Lihat pemain",
-    tone: "purple",
-  },
-  {
-    title: "Organisasi & venue",
-    description: "Siapkan tim pengelola, venue, dan lapangan bermain.",
-    icon: "settings",
-    href: "/admin/organization",
-    action: "Atur organisasi",
-    tone: "amber",
-  },
-  {
-    title: "Profil saya",
-    description: "Perbarui informasi profil dan pengaturan akun Anda.",
-    icon: "user",
-    href: "/admin/profile",
-    action: "Buka profil",
-    tone: "purple",
-  },
-  {
-    title: "Portal publik",
-    description: "Lihat halaman acara yang dapat diakses komunitas.",
-    icon: "arrow",
-    href: "/",
-    action: "Lihat portal",
-    tone: "blue",
-  },
-];
 export default function Dashboard() {
   const { user } = useAuth();
   const [events, setEvents] = useState<Tournament[]>([]);
@@ -123,7 +74,7 @@ export default function Dashboard() {
       label: "Pemain terdaftar",
       value: counts.players,
       icon: "users",
-      detail: "Komunitas dalam satu tempat",
+      detail: "Pemain dalam organisasi",
       href: "/admin/players",
       tone: "purple",
     },
@@ -153,7 +104,7 @@ export default function Dashboard() {
             Halo, {user?.fullName.split(" ")[0] || "Pengelola"}.
           </h1>
           <p className="page-intro">
-            Semua yang Anda butuhkan untuk hari pertandingan yang hebat.
+            Periksa turnamen aktif atau pilih menu untuk mengelola acara.
           </p>
         </div>
         <Link href="/admin/tournaments?new=1" className="btn-primary">
@@ -163,20 +114,20 @@ export default function Dashboard() {
       <section className="dashboard-hero" aria-labelledby="hero-title">
         <div className="dashboard-hero-copy">
           <span className="hero-kicker">
-            <span /> YOUR COURT. YOUR GAME.
+            <span /> PENGELOLAAN TURNAMEN
           </span>
           <h2 id="hero-title">
-            Pertandingan seru.
+            Siapkan turnamen.
             <br />
-            <span>Pengelolaan lebih mudah.</span>
+            <span>Atur peserta dan jadwal.</span>
           </h2>
           <p>
-            Dari servis pertama hingga poin kemenangan. Siapkan turnamen,
-            kumpulkan pemain, dan hidupkan komunitas Anda.
+            Buat acara, masukkan pasangan, lalu susun bagan pertandingan. Untuk
+            Americano atau Mexicano, buka sesi sosial.
           </p>
           <div className="flex flex-wrap gap-3">
             <Link href="/admin/tournaments?new=1" className="btn-kinetic">
-              Mulai turnamen <Icon name="arrow" size={17} />
+              Buat turnamen <Icon name="arrow" size={17} />
             </Link>
             <Link href="/admin/social" className="hero-secondary">
               Buka sesi sosial <Icon name="arrow" size={17} />
@@ -186,7 +137,7 @@ export default function Dashboard() {
         <div className="dashboard-court-scene" aria-hidden="true">
           <CourtScene className="dashboard-vector" />
           <span className="court-caption">
-            PADEL INDONESIA <span>PLAY. CONNECT. COMPETE.</span>
+            PADEL SCORE by PADEL ADDICTIVE <span>TURNAMEN & PERTANDINGAN SOSIAL</span>
           </span>
         </div>
       </section>
@@ -241,40 +192,11 @@ export default function Dashboard() {
           </Link>
         ))}
       </section>
-      <section aria-labelledby="shortcuts-title">
-        <div className="dashboard-section-heading">
-          <div>
-            <p className="page-eyebrow">LANGSUNG KE TUJUAN</p>
-            <h2 id="shortcuts-title">Satu dashboard, semua fitur</h2>
-          </div>
-          <span className="section-note">
-            Pilih fitur untuk mulai mengelola
-          </span>
-        </div>
-        <div className="dashboard-shortcuts">
-          {shortcuts.map((item) => (
-            <Link
-              key={item.title}
-              href={item.href}
-              className={`shortcut-card tone-${item.tone}`}
-            >
-              <span className="shortcut-icon">
-                <Icon name={item.icon} size={23} />
-              </span>
-              <h3>{item.title}</h3>
-              <p>{item.description}</p>
-              <span className="shortcut-action">
-                {item.action}
-                <Icon name="arrow" size={17} />
-              </span>
-            </Link>
-          ))}
-        </div>
-      </section>
+      <DashboardFeatures />
       <section aria-labelledby="events-title">
         <div className="dashboard-section-heading">
           <div>
-            <p className="page-eyebrow">TETAP TERHUBUNG</p>
+            <p className="page-eyebrow">TURNAMEN ORGANISASI</p>
             <h2 id="events-title">Lanjutkan mengelola</h2>
           </div>
           <Link className="section-link" href="/admin/tournaments">
@@ -297,11 +219,9 @@ export default function Dashboard() {
             <span className="empty-court-icon">
               <Icon name="trophy" size={30} />
             </span>
-            <h3 className="text-lg font-bold text-ink">
-              Turnamen hebat dimulai di sini
-            </h3>
+            <h3 className="text-lg font-bold text-ink">Belum ada turnamen</h3>
             <p>
-              Siapkan acara pertama dan ajak komunitas Anda turun ke lapangan.
+              Buat turnamen untuk menambahkan kategori, peserta, dan jadwal.
             </p>
             <Link href="/admin/tournaments?new=1" className="btn-primary">
               <Icon name="plus" size={17} /> Buat turnamen pertama
@@ -311,8 +231,8 @@ export default function Dashboard() {
       </section>
       <div className="dashboard-footer">
         <Icon name="court" size={17} />
-        <span>Dibuat untuk pertandingan. Dirancang untuk komunitas.</span>
-        <span className="ml-auto font-bold">PADEL INDONESIA</span>
+        <span>Peserta dan hasil pertandingan dikelola oleh admin.</span>
+        <span className="ml-auto font-bold">PADEL SCORE by PADEL ADDICTIVE</span>
       </div>
     </div>
   );

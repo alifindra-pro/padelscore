@@ -1,11 +1,14 @@
 "use client";
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api-client";
+import { MAX_AVATAR_BYTES, AVATAR_SIZE_MESSAGE } from "@/lib/upload-limits";
 export default function Profile() {
   const [name, setName] = useState("");
   const [avatar, setAvatar] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [passwordBusy, setPasswordBusy] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState("");
   useEffect(() => {
     apiFetch<{ fullName: string; avatarUrl: string | null }>("/api/v2/profile")
       .then((p) => {
@@ -15,6 +18,10 @@ export default function Profile() {
       .catch((e) => setMessage(e.message));
   }, []);
   async function upload(file: File) {
+    if (file.size === 0 || file.size > MAX_AVATAR_BYTES) {
+      setMessage(AVATAR_SIZE_MESSAGE);
+      return;
+    }
     setBusy(true);
     try {
       const form = new FormData();
@@ -36,11 +43,11 @@ export default function Profile() {
   return (
     <div className="max-w-xl space-y-6">
       <div className="app-page-heading">
-        <p className="page-eyebrow">YOUR GAME. YOUR IDENTITY.</p>
+        <p className="page-eyebrow">AKUN PENGELOLA</p>
         <h1 className="page-heading">Profil saya</h1>
       </div>
       <p className="text-secondary">
-        Kelola nama dan foto akun pengelola Anda.
+        Kelola nama, foto, dan kata sandi akun pengelola Anda.
       </p>
       <form
         className="panel space-y-5"
@@ -76,7 +83,7 @@ export default function Profile() {
           </div>
         )}
         <label className="field">
-          Foto JPEG, PNG, atau WebP (maksimal 5 MB)
+          Foto JPEG, PNG, atau WebP (maksimal 4 MB)
           <input
             type="file"
             accept="image/jpeg,image/png,image/webp"
@@ -117,6 +124,83 @@ export default function Profile() {
           Simpan profil
         </button>
         <p role="status">{message}</p>
+      </form>
+      <form
+        className="panel space-y-5"
+        onSubmit={async (event) => {
+          event.preventDefault();
+          const form = event.currentTarget;
+          const fields = new FormData(form);
+          const newPassword = String(fields.get("newPassword"));
+          if (newPassword !== fields.get("confirmation")) {
+            setPasswordMessage("Konfirmasi kata sandi belum sama");
+            return;
+          }
+          setPasswordBusy(true);
+          setPasswordMessage("");
+          try {
+            await apiFetch("/api/v2/profile/password", {
+              method: "POST",
+              body: JSON.stringify({
+                currentPassword: fields.get("currentPassword"),
+                newPassword,
+              }),
+            });
+            form.reset();
+            setPasswordMessage(
+              "Kata sandi berhasil diubah. Gunakan kata sandi baru saat login berikutnya.",
+            );
+          } catch (error) {
+            setPasswordMessage((error as Error).message);
+          } finally {
+            setPasswordBusy(false);
+          }
+        }}
+      >
+        <h2 className="text-xl font-bold">Ubah kata sandi</h2>
+        <p className="text-secondary">
+          Masukkan kata sandi saat ini, lalu pilih kata sandi baru minimal 10
+          karakter.
+        </p>
+        <label className="field">
+          Kata sandi saat ini
+          <input
+            name="currentPassword"
+            type="password"
+            autoComplete="current-password"
+            required
+            maxLength={72}
+            disabled={passwordBusy}
+          />
+        </label>
+        <label className="field">
+          Kata sandi baru
+          <input
+            name="newPassword"
+            type="password"
+            autoComplete="new-password"
+            required
+            minLength={10}
+            maxLength={72}
+            disabled={passwordBusy}
+          />
+        </label>
+        <label className="field">
+          Ulangi kata sandi baru
+          <input
+            name="confirmation"
+            type="password"
+            autoComplete="new-password"
+            required
+            minLength={10}
+            maxLength={72}
+            disabled={passwordBusy}
+          />
+        </label>
+        <button className="btn-primary" disabled={passwordBusy}>
+          {passwordBusy ? "Menyimpan…" : "Simpan kata sandi"}
+        </button>
+        <p role="status">{passwordMessage}</p>
       </form>
     </div>
   );

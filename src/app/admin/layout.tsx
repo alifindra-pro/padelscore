@@ -189,7 +189,7 @@ function Shell({ children }: { children: React.ReactNode }) {
             className={`nav-item ${pathname === "/admin/organization" ? "active" : ""}`}
           >
             <Icon name="settings" />
-            Organisasi & venue
+            Akun & organisasi
           </Link>
           <Link href="/" className="nav-item">
             <Icon name="arrow" />
@@ -232,7 +232,7 @@ function Shell({ children }: { children: React.ReactNode }) {
                       pathname.includes("competition")
                     ? "Turnamen"
                     : pathname.includes("organization")
-                      ? "Organisasi & venue"
+                      ? "Akun & organisasi"
                       : pathname.includes("profile")
                         ? "Profil saya"
                         : "Ringkasan"}

@@ -297,6 +297,8 @@ async function dispatch(req: NextRequest, context: Context): Promise<Response> {
                       fullName: true,
                       email: true,
                       role: true,
+                      username: true,
+                      isActive: true,
                     },
                   },
                 },
@@ -802,7 +804,12 @@ async function dispatch(req: NextRequest, context: Context): Promise<Response> {
           where: { id },
           data: {
             rulesOverride: body.rules ? json(body.rules) : undefined,
-            roundRules: body.roundRules ? json({ ...((stage.roundRules as Record<string, unknown>) ?? {}), ...body.roundRules }) : undefined,
+            roundRules: body.roundRules
+              ? json({
+                  ...((stage.roundRules as Record<string, unknown>) ?? {}),
+                  ...body.roundRules,
+                })
+              : undefined,
           },
         }),
       );
@@ -983,6 +990,14 @@ async function dispatch(req: NextRequest, context: Context): Promise<Response> {
               scoreB: z.number().int(),
             })
             .parse(body);
+          if (
+            input.scoreA < 0 ||
+            input.scoreB < 0 ||
+            input.scoreA + input.scoreB !== config.target
+          )
+            throw AppError.badRequest(
+              `Jumlah skor kedua pasangan harus ${config.target} poin`,
+            );
           if (input.round !== rounds.length)
             throw AppError.conflict(
               "Riwayat ronde yang telah dipakai tidak dapat diubah",

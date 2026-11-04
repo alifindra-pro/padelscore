@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { AUTH_CONFIG, generateToken } from "@/lib/auth";
 import { AppError, handleApiError } from "@/lib/errors";
+import { isTemporaryLoginEnabled } from "@/lib/temporary-login";
 
 /** Temporary, explicitly enabled access for the local preview. Account is server-selected. */
 export async function POST(request: NextRequest) {
   try {
-    if (process.env.TEMPORARY_BUTTON_LOGIN !== "true") {
+    if (!isTemporaryLoginEnabled()) {
       throw AppError.notFound("Akses sementara tidak aktif");
     }
     const origin = request.headers.get("origin");

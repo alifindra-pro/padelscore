@@ -13,7 +13,7 @@ import { UserResponse } from "@/types";
 interface AuthContextType {
   user: UserResponse | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<UserResponse>;
+  login: (identifier: string, password: string) => Promise<UserResponse>;
   register: (data: {
     email: string;
     username: string;
@@ -59,10 +59,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (identifier: string, password: string) => {
     const data = await apiFetch<{ user: UserResponse }>("/api/v1/auth/login", {
       method: "POST",
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ identifier, password }),
     });
     setUser(data.user);
     return data.user;

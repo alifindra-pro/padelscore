@@ -7,31 +7,39 @@ import {
 import sharp from "sharp";
 import { randomUUID } from "node:crypto";
 import { AppError } from "@/lib/errors";
+import { MAX_AVATAR_BYTES, AVATAR_SIZE_MESSAGE } from "@/lib/upload-limits";
 const client = () => {
-  if (
-    !process.env.S3_ENDPOINT ||
-    !process.env.S3_ACCESS_KEY ||
-    !process.env.S3_SECRET_KEY
-  )
+  const isNeon = Boolean(process.env.AWS_ENDPOINT_URL_S3);
+  const endpoint = isNeon
+    ? process.env.AWS_ENDPOINT_URL_S3
+    : process.env.S3_ENDPOINT;
+  const accessKeyId = isNeon
+    ? process.env.AWS_ACCESS_KEY_ID
+    : process.env.S3_ACCESS_KEY;
+  const secretAccessKey = isNeon
+    ? process.env.AWS_SECRET_ACCESS_KEY
+    : process.env.S3_SECRET_KEY;
+  if (!endpoint || !accessKeyId || !secretAccessKey)
     throw new AppError(
       503,
       "STORAGE_UNAVAILABLE",
       "Penyimpanan foto belum dikonfigurasi",
     );
   return new S3Client({
-    endpoint: process.env.S3_ENDPOINT,
-    region: process.env.S3_REGION ?? "us-east-1",
+    endpoint,
+    region:
+      (isNeon ? process.env.AWS_REGION : process.env.S3_REGION) ?? "us-east-1",
     forcePathStyle: true,
-    credentials: {
-      accessKeyId: process.env.S3_ACCESS_KEY,
-      secretAccessKey: process.env.S3_SECRET_KEY,
-    },
+    credentials: { accessKeyId, secretAccessKey },
   });
 };
-const bucket = () => process.env.S3_BUCKET ?? "padel";
+const bucket = () =>
+  process.env.AWS_ENDPOINT_URL_S3
+    ? "assets"
+    : (process.env.S3_BUCKET ?? "padel");
 export async function saveAvatar(file: File, userId: string) {
-  if (file.size > 5 * 1024 * 1024 || file.size === 0)
-    throw AppError.badRequest("Foto maksimal 5 MB");
+  if (file.size > MAX_AVATAR_BYTES || file.size === 0)
+    throw AppError.badRequest(AVATAR_SIZE_MESSAGE);
   const buffer = Buffer.from(await file.arrayBuffer());
   let image;
   try {

@@ -42,6 +42,7 @@ export interface MatchView {
   status: string;
   version: number;
   engineVersion?: number;
+  approvalStatus?: string;
   round: number;
   matchNumber: number;
   scheduledAt?: string | null;
@@ -61,7 +62,12 @@ export interface MatchView {
       id?: string;
       name: string;
       ruleset?: { goldenPoint?: boolean; superTiebreak?: boolean } | null;
-      tournament?: { id: string; name: string; slug: string } | null;
+      tournament?: {
+        id: string;
+        name: string;
+        slug: string;
+        timezone?: string;
+      } | null;
     } | null;
   } | null;
 }

@@ -191,7 +191,7 @@ function OfflineScoring({ params }: { params: Promise<{ matchId: string }> }) {
         <h1 className="page-heading">Konsol wasit</h1>
       </div>
       <p role="status" className="connection-status">
-        {online ? "Terhubung" : "Offline — skor disimpan di perangkat"}
+        {online ? "Terhubung" : "Offline. Skor disimpan di perangkat."}
       </p>
       {error && (
         <p role="alert" className="p-3 bg-critical/10 text-danger rounded-lg">
