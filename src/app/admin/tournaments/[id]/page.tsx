@@ -1035,6 +1035,12 @@ export default function Workspace({
           )}
         </>
       )}
+      <Link
+        className="btn-secondary"
+        href={`/admin/tournaments/${id}/community`}
+      >
+        Sponsor & sanggahan peserta
+      </Link>
       <details className="text-sm">
         <summary className="cursor-pointer text-secondary">
           Pengaturan lanjutan acara

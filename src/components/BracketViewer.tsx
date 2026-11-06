@@ -1,203 +1,348 @@
-'use client';
-
-import React from 'react';
-import Link from 'next/link';
-import { StageView } from '@/types/match';
-
-interface BracketViewerProps {
-  stages: StageView[];
-}
-
-export function BracketViewer({ stages }: BracketViewerProps) {
-  if (!stages || stages.length === 0) {
-    return (
-      <div className="py-16 text-center text-muted text-sm bg-card border border-line rounded-2xl p-6">
-        Bagan pertandingan belum diundi.
-      </div>
-    );
-  }
-
+"use client";
+import Link from "next/link";
+import { Icon } from "@/components/ui/Icon";
+import { StageView, MatchView } from "@/types/match";
+const statuses: Record<string, string> = {
+  SCHEDULED: "Terjadwal",
+  IN_PROGRESS: "Berlangsung",
+  FINISHED: "Menunggu pengesahan",
+  APPROVED: "Disahkan",
+  CANCELLED: "Dibatalkan",
+  SUSPENDED: "Ditunda",
+};
+function MatchCard({ match: m }: { match: MatchView }) {
+  const snap = m.scoreSnapshot;
+  const approved = m.approvalStatus === "APPROVED" || m.status === "APPROVED";
   return (
-    <div className="space-y-10">
-      {stages.map((stage) => {
-        // Group Stage View
-        if (stage.type === 'GROUP') {
-          return (
-            <div key={stage.id} className="space-y-6">
-              <div className="flex items-center justify-between border-b border-line pb-3">
-                <h3 className="text-base font-extrabold text-ink">{stage.name}</h3>
-                <span className="text-xs font-sans tabular-nums text-brand-strong">
-                  {stage.groups?.length || 0} grup
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {stage.groups?.map((group) => (
-                  <div
-                    key={group.id}
-                    className="bg-card border border-line rounded-2xl p-5 space-y-4 shadow-card"
-                  >
-                    <div className="flex justify-between items-center border-b border-line pb-2">
-                      <h4 className="font-extrabold text-ink text-sm">{group.name}</h4>
-                      <span className="text-[10px] text-secondary uppercase font-sans tabular-nums">
-                        Klasemen Sementara
-                      </span>
-                    </div>
-
-                    {/* Standings Table */}
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-xs">
-                        <thead>
-                          <tr className="text-[10px] text-secondary font-bold uppercase tracking-wider border-b border-line">
-                            <th className="pb-2">Pos</th>
-                            <th className="pb-2">Pasangan</th>
-                            <th className="pb-2 text-center">M</th>
-                            <th className="pb-2 text-center">K</th>
-                            <th className="pb-2 text-right">Pts</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-line">
-                          {group.standings?.map((s, idx) => (
-                            <tr key={s.id} className="hover:bg-surface-tint">
-                              <td className="py-2.5 font-bold text-secondary">
-                                {idx + 1}
-                              </td>
-                              <td className="py-2.5 font-bold text-ink truncate max-w-[140px]">
-                                {s.entry?.name || 'TBD'}
-                              </td>
-                              <td className="py-2.5 text-center text-brand-strong font-sans tabular-nums">
-                                {s.won}
-                              </td>
-                              <td className="py-2.5 text-center text-danger font-sans tabular-nums">
-                                {s.lost}
-                              </td>
-                              <td className="py-2.5 text-right font-extrabold text-warning-ink font-sans tabular-nums text-sm">
-                                {s.points}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          );
-        }
-
-        // Single Elimination Knockout Tree View
-        const matches = stage.matches || [];
-        const rounds = Array.from(new Set(matches.map((m) => m.round))).sort(
-          (a, b) => a - b
-        );
-
+    <article
+      className={`bracket-match ${m.status === "IN_PROGRESS" ? "is-live" : ""}`}
+    >
+      <header>
+        <span>Laga {m.matchNumber}</span>
+        <span>{approved ? "Disahkan" : (statuses[m.status] ?? m.status)}</span>
+      </header>
+      {[m.entryA, m.entryB].map((entry, i) => {
+        const winner = !!entry && m.winnerId === entry.id;
+        const score = snap
+          ? snap.gamesA.length
+            ? i === 0
+              ? snap.setsA
+              : snap.setsB
+            : i === 0
+              ? snap.pointsA
+              : snap.pointsB
+          : "–";
         return (
-          <div key={stage.id} className="space-y-6">
-            <div className="flex items-center justify-between border-b border-line pb-3">
-              <h3 className="text-base font-extrabold text-ink">{stage.name}</h3>
-              <span className="text-xs font-sans tabular-nums text-brand-strong">
-                {rounds.length} babak
+          <div
+            key={i}
+            className={`bracket-player ${winner ? "is-winner" : ""}`}
+          >
+            <span>
+              {winner && <Icon name="check" size={13} />}
+              <span title={entry?.name}>
+                {entry?.name ??
+                  (approved && m.winnerId ? "Bye" : "Menunggu pasangan")}
               </span>
-            </div>
-
-            {/* Bracket Horizontal Scrolling Canvas */}
-            <div className="overflow-x-auto pb-6 snap-x snap-mandatory">
-              <div className="flex items-start gap-4 md:gap-6 xl:gap-8">
-                {rounds.map((roundNumber, roundIndex) => {
-                  const roundMatches = matches.filter((m) => m.round === roundNumber);
-                  const isFinal = roundIndex === rounds.length - 1;
-
-                  return (
-                    <div key={roundNumber} className="w-[min(80vw,280px)] flex-shrink-0 snap-start space-y-4">
-                      {/* Round Header */}
-                      <div className="text-center p-2 rounded-xl bg-card border border-line text-xs font-extrabold uppercase tracking-wider text-secondary">
-                        {isFinal
-                          ? 'FINAL'
-                          : roundIndex === rounds.length - 2
-                          ? 'SEMIFINAL'
-                          : `BABAK ${roundNumber}`}
-                      </div>
-
-                      {/* Matches in Round */}
-                      <div className="space-y-6">
-                        {roundMatches.map((m) => {
-                          const snap = m.scoreSnapshot;
-                          const isAWin = m.winnerId && m.winnerId === m.entryAId;
-                          const isBWin = m.winnerId && m.winnerId === m.entryBId;
-
-                          return (
-                            <div
-                              key={m.id}
-                              className="bg-card border border-line rounded-2xl overflow-hidden shadow-card hover:border-brand-accent transition"
-                            >
-                              {/* Match Number Bar */}
-                              <div className="px-3 py-1 bg-canvas text-[10px] font-sans tabular-nums text-muted flex justify-between items-center">
-                                <span>Laga #{m.matchNumber}</span>
-                                <span
-                                  className={`font-bold ${
-                                    m.status === 'IN_PROGRESS'
-                                      ? 'status-live'
-                                      : m.status === 'FINISHED'
-                                      ? 'text-muted'
-                                      : 'text-secondary'
-                                  }`}
-                                >
-                                  {({SCHEDULED:'Terjadwal',IN_PROGRESS:'Berlangsung',FINISHED:'Selesai',APPROVED:'Disahkan',CANCELLED:'Dibatalkan'} as Record<string,string>)[m.status] ?? m.status}
-                                </span>
-                              </div>
-
-                              {/* Entry A */}
-                              <div
-                                className={`px-3 py-2.5 flex justify-between items-center text-xs border-b border-line ${
-                                  isAWin ? 'bg-surface-tint font-bold text-ink' : m.winnerId ? 'text-muted' : 'text-ink'
-                                }`}
-                              >
-                                <span className="truncate pr-2">
-                                  {m.entryA?.name || 'TBD'}
-                                </span>
-                                {snap && (
-                                  <span className="font-sans tabular-nums font-bold text-xs min-w-16 text-right shrink-0">
-                                    {snap.gamesA.length ? `${snap.setsA} (${snap.pointsA})` : snap.pointsA}
-                                  </span>
-                                )}
-                              </div>
-
-                              {/* Entry B */}
-                              <div
-                                className={`px-3 py-2.5 flex justify-between items-center text-xs ${
-                                  isBWin ? 'bg-surface-tint font-bold text-ink' : m.winnerId ? 'text-muted' : 'text-ink'
-                                }`}
-                              >
-                                <span className="truncate pr-2">
-                                  {m.entryB?.name || 'TBD'}
-                                </span>
-                                {snap && (
-                                  <span className="font-sans tabular-nums font-bold text-xs min-w-16 text-right shrink-0">
-                                    {snap.gamesB.length ? `${snap.setsB} (${snap.pointsB})` : snap.pointsB}
-                                  </span>
-                                )}
-                              </div>
-
-                              {/* Action shortcut */}
-                              <Link
-                                href={`/match/${m.id}`}
-                                className="block py-1.5 text-center text-[10px] font-bold text-brand-strong bg-canvas hover:bg-canvas transition border-t border-line"
-                              >
-                                Buka Papan Skor ↗
-                              </Link>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+            </span>
+            <strong>{score}</strong>
           </div>
         );
       })}
+      <Link
+        href={`/match/${m.id}`}
+        aria-label={`Lihat hasil laga ${m.matchNumber}`}
+      >
+        Lihat skor & detail <span aria-hidden="true">→</span>
+      </Link>
+    </article>
+  );
+}
+function GroupStage({ stage }: { stage: StageView }) {
+  return (
+    <div className="bracket-groups">
+      {stage.groups?.map((group) => {
+        const matches = (stage.matches ?? []).filter(
+          (m) => m.groupId === group.id,
+        );
+        const entries = Array.from(
+          new Map(
+            matches
+              .flatMap((m) => [m.entryA, m.entryB])
+              .filter((e) => !!e)
+              .map((e) => [e!.id, e!]),
+          ).values(),
+        );
+        const rows = group.standings?.length
+          ? [...group.standings].sort(
+              (a, b) =>
+                (a.rank || 999) - (b.rank || 999) || b.points - a.points,
+            )
+          : entries.map((entry) => ({
+              id: entry.id,
+              entry,
+              won: 0,
+              lost: 0,
+              points: 0,
+              played: 0,
+              drawn: 0,
+              rank: 0,
+            }));
+        const completed = matches.filter(
+          (m) => m.approvalStatus === "APPROVED" || m.status === "APPROVED",
+        ).length;
+        return (
+          <section className="group-card" key={group.id}>
+            <header>
+              <div>
+                <span className="page-eyebrow">FASE GRUP</span>
+                <h4>{group.name}</h4>
+              </div>
+              <span>
+                {completed}/{matches.length} laga disahkan
+              </span>
+            </header>
+            <div className="group-progress" aria-hidden="true">
+              <span
+                style={{
+                  width: `${matches.length ? (completed / matches.length) * 100 : 0}%`,
+                }}
+              />
+            </div>
+            <div
+              className="group-table-scroll"
+              tabIndex={0}
+              role="region"
+              aria-label={`Klasemen ${group.name}`}
+            >
+              <table>
+                <caption>
+                  Klasemen berdasarkan hasil yang disahkan admin
+                </caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Pos</th>
+                    <th scope="col">Pasangan</th>
+                    <th scope="col" title="Main">
+                      Main
+                    </th>
+                    <th scope="col" title="Menang">
+                      M
+                    </th>
+                    <th scope="col" title="Seri">
+                      S
+                    </th>
+                    <th scope="col" title="Kalah">
+                      K
+                    </th>
+                    <th scope="col">Poin</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row, i) => (
+                    <tr key={row.id}>
+                      <td>
+                        <span
+                          className={`rank-number ${i === 0 && row.played ? "rank-first" : ""}`}
+                        >
+                          {row.rank || i + 1}
+                        </span>
+                      </td>
+                      <th scope="row">
+                        {row.entry?.name ?? "Menunggu pasangan"}
+                      </th>
+                      <td>
+                        {row.played ?? row.won + row.lost + (row.drawn ?? 0)}
+                      </td>
+                      <td>{row.won}</td>
+                      <td>{row.drawn ?? 0}</td>
+                      <td>{row.lost}</td>
+                      <td>
+                        <strong>{row.points}</strong>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {!rows.length && (
+              <p className="p-4 text-secondary text-sm">
+                Peserta grup belum ditentukan.
+              </p>
+            )}
+            <details className="group-fixtures">
+              <summary>
+                Jadwal & hasil grup <span>{matches.length} laga</span>
+              </summary>
+              <div>
+                {matches.map((m) => (
+                  <MatchCard key={m.id} match={m} />
+                ))}
+              </div>
+            </details>
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+function Knockout({ stage }: { stage: StageView }) {
+  const matches = stage.matches ?? [];
+  const sides = ["WINNERS", "LOSERS", "FINAL", "THIRD"].filter((side) =>
+    matches.some((m) => (m.bracketSide ?? "WINNERS") === side),
+  );
+  return (
+    <div className="space-y-6">
+      {sides.map((side) => {
+        const list = matches.filter(
+          (m) => (m.bracketSide ?? "WINNERS") === side,
+        );
+        const rounds = [...new Set(list.map((m) => m.round))].sort(
+          (a, b) => a - b,
+        );
+        const columns = rounds.map((round) =>
+          list
+            .filter((m) => m.round === round)
+            .sort((a, b) => a.matchNumber - b.matchNumber),
+        );
+        const tree =
+          side === "WINNERS" &&
+          columns.every((c, i) => !i || columns[i - 1].length === c.length * 2);
+        const rowHeight = 168;
+        const height = Math.max(...columns.map((c) => c.length), 1) * rowHeight;
+        return (
+          <section key={side} className="space-y-3">
+            {sides.length > 1 && (
+              <h4 className="font-bold">
+                {
+                  (
+                    {
+                      WINNERS: "Jalur menang",
+                      LOSERS: "Jalur kesempatan kedua",
+                      FINAL: "Grand final",
+                      THIRD: "Perebutan tempat ketiga",
+                    } as Record<string, string>
+                  )[side]
+                }
+              </h4>
+            )}
+            <div
+              className="bracket-scroll"
+              tabIndex={0}
+              role="region"
+              aria-label={`Bagan ${stage.name}`}
+            >
+              <div className="bracket-tree">
+                {columns.map((column, i) => (
+                  <section className="bracket-round" key={rounds[i]}>
+                    <h4>
+                      {side === "FINAL"
+                        ? i
+                          ? "Final ulang"
+                          : "Grand final"
+                        : side === "THIRD"
+                          ? "Tempat ketiga"
+                          : side === "WINNERS" &&
+                              i === columns.length - 1 &&
+                              column.length === 1
+                            ? sides.length > 1
+                              ? "Final jalur menang"
+                              : "Final"
+                            : side === "WINNERS" && column.length === 2
+                              ? "Semifinal"
+                              : `Babak ${rounds[i]}`}
+                    </h4>
+                    <div
+                      className="bracket-round-matches"
+                      style={{ height: tree ? height : undefined }}
+                    >
+                      {column.map((m, j) => (
+                        <div
+                          key={m.id}
+                          className="bracket-node"
+                          style={
+                            tree
+                              ? {
+                                  position: "absolute",
+                                  top:
+                                    ((j + 0.5) * height) / column.length - 72,
+                                  left: 0,
+                                  right: 0,
+                                }
+                              : undefined
+                          }
+                        >
+                          {tree && i < columns.length - 1 && (
+                            <span
+                              aria-hidden="true"
+                              className={`bracket-connector ${j % 2 ? "connector-bottom" : "connector-top"}`}
+                              style={{ height: height / column.length / 2 }}
+                            />
+                          )}
+                          <MatchCard match={m} />
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                ))}
+              </div>
+            </div>
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+export function BracketViewer({
+  stages,
+  view = "ALL",
+}: {
+  stages: StageView[];
+  view?: "ALL" | "GROUP" | "KNOCKOUT";
+}) {
+  const selected = (stages ?? []).filter(
+    (stage) =>
+      view === "ALL" ||
+      (view === "GROUP" ? stage.type === "GROUP" : stage.type !== "GROUP"),
+  );
+  if (!selected.length)
+    return (
+      <div className="panel empty-state">
+        <Icon name="trophy" size={30} />
+        <p>
+          {view === "GROUP"
+            ? "Fase grup belum tersedia untuk kategori ini."
+            : view === "KNOCKOUT"
+              ? "Bagan knockout belum tersedia untuk kategori ini."
+              : "Bagan pertandingan belum diundi."}
+        </p>
+      </div>
+    );
+  return (
+    <div className="tournament-brackets space-y-8">
+      {selected.map((stage) => (
+        <section className="space-y-5" key={stage.id}>
+          <header className="bracket-stage-heading">
+            <div>
+              <p className="page-eyebrow">
+                {stage.type === "GROUP"
+                  ? "PEREBUTAN PERINGKAT"
+                  : "PERJALANAN MENUJU JUARA"}
+              </p>
+              <h3>{stage.name}</h3>
+            </div>
+            <span>
+              {stage.type === "GROUP"
+                ? `${stage.groups?.length ?? 0} grup`
+                : "Geser untuk melihat babak berikutnya →"}
+            </span>
+          </header>
+          {stage.type === "GROUP" ? (
+            <GroupStage stage={stage} />
+          ) : (
+            <Knockout stage={stage} />
+          )}
+        </section>
+      ))}
     </div>
   );
 }

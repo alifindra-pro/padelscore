@@ -1,5 +1,6 @@
 "use client";
 
+import { Sponsors } from "@/components/tournament/Sponsors";
 import { Icon } from "@/components/ui/Icon";
 
 import React, { useCallback, useEffect, useState, use, Suspense } from "react";
@@ -14,7 +15,14 @@ import {
   StageView,
 } from "@/types/match";
 
-type TabKey = "live" | "brackets" | "matches" | "entries" | "categories";
+type TabKey =
+  | "live"
+  | "brackets"
+  | "groups"
+  | "matches"
+  | "entries"
+  | "categories"
+  | "disputes";
 type MatchFilter = "ALL" | "IN_PROGRESS" | "FINISHED" | "SCHEDULED";
 
 interface PublicCategory {
@@ -127,7 +135,8 @@ function TournamentPublicContent({
 
   // Load category bracket stages when bracket tab or category changes
   useEffect(() => {
-    if (activeTab !== "brackets" || !selectedBracketCatId) return;
+    if (!["brackets", "groups"].includes(activeTab) || !selectedBracketCatId)
+      return;
     let active = true;
     apiFetch<StageView[]>(`/api/v1/categories/${selectedBracketCatId}/brackets`)
       .then((res) => {
@@ -306,6 +315,7 @@ function TournamentPublicContent({
 
       {/* Main Hub Content */}
       <main className="flex-1 page-shell py-8 space-y-8">
+        <Sponsors tournamentId={tournament.id} />
         {/* Navigation Tabs */}
         <div className="app-tabs flex border-b border-line space-x-6 overflow-x-auto pb-1">
           {[
@@ -313,7 +323,9 @@ function TournamentPublicContent({
               key: "live" as const,
               label: `Lapangan live (${liveCourts.filter((c) => c.activeMatch).length})`,
             },
-            { key: "brackets" as const, label: "Bagan & klasemen" },
+            { key: "brackets" as const, label: "Knockout" },
+            { key: "groups" as const, label: "Klasemen grup" },
+            { key: "disputes" as const, label: "Sanggah hasil" },
             {
               key: "matches" as const,
               label: `Jadwal pertandingan (${allMatches.length})`,
@@ -347,6 +359,45 @@ function TournamentPublicContent({
           ))}
         </div>
 
+        {activeTab === "disputes" && (
+          <section className="panel space-y-4">
+            <h2 className="text-xl font-bold">Sanggah hasil pertandingan</h2>
+            <p className="text-secondary">
+              Pilih laga yang sudah selesai, lalu ajukan sanggahan dari halaman
+              detail. Admin akan meninjau alasan Anda.
+            </p>
+            <div className="grid md:grid-cols-2 gap-3">
+              {allMatches
+                .filter(
+                  (m) =>
+                    ["FINISHED", "APPROVED"].includes(m.status) &&
+                    m.entryA &&
+                    m.entryB,
+                )
+                .map((m) => (
+                  <Link
+                    className="dispute-match-link"
+                    key={m.id}
+                    href={`/match/${m.id}#dispute-title`}
+                  >
+                    <span>
+                      Laga {m.matchNumber} · {m.categoryName}
+                    </span>
+                    <strong>
+                      {m.entryA?.name} vs {m.entryB?.name}
+                    </strong>
+                    <span>Lihat hasil & ajukan sanggahan →</span>
+                  </Link>
+                ))}
+            </div>
+            {!allMatches.some(
+              (m) =>
+                ["FINISHED", "APPROVED"].includes(m.status) &&
+                m.entryA &&
+                m.entryB,
+            ) && <p>Belum ada hasil pertandingan yang dapat disanggah.</p>}
+          </section>
+        )}
         {/* Tab 1: Live Courts */}
         {activeTab === "live" && (
           <div className="space-y-6">
@@ -472,7 +523,7 @@ function TournamentPublicContent({
         )}
 
         {/* Tab 2: Brackets & Standings (BracketViewer) */}
-        {activeTab === "brackets" && (
+        {["brackets", "groups"].includes(activeTab) && (
           <div className="space-y-6">
             {/* Category Select Pills */}
             <div className="flex items-center gap-2 overflow-x-auto pb-2">
@@ -510,7 +561,10 @@ function TournamentPublicContent({
                 </button>
               </div>
             ) : (
-              <BracketViewer stages={bracketStages} />
+              <BracketViewer
+                stages={bracketStages}
+                view={activeTab === "groups" ? "GROUP" : "KNOCKOUT"}
+              />
             )}
           </div>
         )}

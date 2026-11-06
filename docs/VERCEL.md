@@ -208,3 +208,32 @@ sinkronisasi, TV, PDF, dan tampilan ponsel/desktop. PDF diperiksa memuat skor
 poin, bukan skor set. Alur pengaturan Americano dan game/set juga tetap lulus.
 Penyimpanan poin langsung 32 lalu 24 poin pada pengaturan lanjutan dan halaman
 kelola turnamen juga lulus. Seluruh fixture uji dibersihkan setelah pemeriksaan.
+
+## Sponsor, sanggahan, dan bracket — 6 November 2026
+
+Admin membuka **Kelola turnamen → Sponsor & sanggahan peserta** untuk mengunggah
+logo sponsor dan meninjau sanggahan. Setiap turnamen memiliki daftar sendiri,
+maksimal 12 sponsor. JPEG/PNG/WebP maksimal 4 MB diproses menjadi WebP tanpa
+mengubah proporsi logo. Sponsor draf hanya terlihat bagi pengguna berizin.
+
+Peserta membuka **Sanggah hasil**, memilih laga selesai, lalu mengisi nama,
+kontak, dan alasan. Identitas pengaju bersifat pernyataan peserta dan perlu
+diperiksa panitia. Kontak serta alasan tidak ditampilkan dalam daftar publik.
+Kode pelacakan rahasia diberikan sekali; peserta menyimpannya untuk melihat
+keputusan dan tanggapan admin. Pengajuan dibatasi lima per alamat jaringan per
+jam dan satu sanggahan tertunda per kontak/laga. Tidak ada pengiriman email.
+Keputusan menerima/menolak tidak otomatis mengubah skor atau kemajuan bracket.
+
+Halaman publik memisahkan knockout dan klasemen grup. Bagan menampilkan ronde,
+garis penghubung, pemenang, dan tautan detail laga; grup menampilkan klasemen,
+progres pengesahan, serta jadwal yang dapat dibuka. Tampilan diuji pada lebar
+390 dan 1440 piksel. Implementasi dibuat sendiri berdasarkan pengamatan halaman
+publik; tidak memakai REA atau aset situs referensi.
+
+Build/TypeScript, lint, tiga tes integrasi API, serta alur browser lokal dan
+production lulus. Tes mencakup isolasi sponsor, hak akses admin, privasi draf,
+validasi gambar, duplikasi/batas pengajuan, tinjauan, pelacakan rahasia, dan skor
+tetap utuh. Seluruh fixture browser dibersihkan setelah pengujian.
+Migrasi tambahan telah diuji di development dan diterapkan ke production.
+Deployment: `dpl_6v286j86GSzh7sbrQe5gRTsCQ7Eu`.
+Vercel Hobby dan Neon Free tetap digunakan tanpa layanan berbayar tambahan.

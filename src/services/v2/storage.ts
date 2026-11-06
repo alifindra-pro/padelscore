@@ -78,3 +78,36 @@ export async function readAvatar(key: string) {
 export async function deleteAvatar(key: string) {
   await client().send(new DeleteObjectCommand({ Bucket: bucket(), Key: key }));
 }
+
+export async function saveSponsorLogo(file: File, tournamentId: string) {
+  if (file.size === 0 || file.size > MAX_AVATAR_BYTES)
+    throw AppError.badRequest("Logo maksimal 4 MB");
+  let image: Buffer;
+  try {
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const metadata = await sharp(buffer, {
+      limitInputPixels: 25000000,
+    }).metadata();
+    if (!["jpeg", "png", "webp"].includes(metadata.format ?? ""))
+      throw new Error();
+    image = await sharp(buffer, { limitInputPixels: 25000000 })
+      .rotate()
+      .resize(800, 400, { fit: "inside", withoutEnlargement: true })
+      .webp({ quality: 90 })
+      .toBuffer();
+  } catch {
+    throw AppError.badRequest(
+      "Logo harus berupa JPEG, PNG, atau WebP yang valid",
+    );
+  }
+  const key = `sponsors/${tournamentId}/${randomUUID()}.webp`;
+  await client().send(
+    new PutObjectCommand({
+      Bucket: bucket(),
+      Key: key,
+      Body: image,
+      ContentType: "image/webp",
+    }),
+  );
+  return key;
+}

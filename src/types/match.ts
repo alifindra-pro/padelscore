@@ -38,6 +38,8 @@ export interface MatchEventView {
 }
 
 export interface MatchView {
+  groupId?: string | null;
+  bracketSide?: string | null;
   id: string;
   status: string;
   version: number;
@@ -97,6 +99,9 @@ export function playerNames(entry?: EntryView | null): string {
 }
 
 export interface StandingView {
+  played?: number;
+  drawn?: number;
+  rank?: number;
   id: string;
   entry?: EntryView | null;
   won: number;

@@ -134,6 +134,8 @@ model User {
 }
 
 model Tournament {
+  sponsors TournamentSponsor[]
+  disputes MatchDispute[]
   organizationId String?
   organization Organization? @relation(fields: [organizationId], references: [id])
   handbookUrl String?
@@ -325,6 +327,7 @@ model Group {
 }
 
 model Match {
+  disputes MatchDispute[]
   engineVersion Int @default(1)
   rulesSnapshot Json?
   stateV2 Json?
@@ -603,4 +606,40 @@ model StaffInvitation {
   expiresAt DateTime
   acceptedAt DateTime?
   createdAt DateTime @default(now())
+}
+
+
+model TournamentSponsor {
+  id String @id @default(uuid())
+  tournamentId String
+  name String
+  tier String @default("PARTNER")
+  website String?
+  logoKey String
+  createdAt DateTime @default(now())
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  @@index([tournamentId, createdAt])
+  @@map("tournament_sponsors")
+}
+
+model MatchDispute {
+  id String @id @default(uuid())
+  tournamentId String
+  matchId String
+  reporterName String
+  contact String
+  reason String
+  status String @default("PENDING")
+  response String?
+  reviewedBy String?
+  reviewedAt DateTime?
+  scoreVersion Int
+  receiptHash String @unique
+  submitterHash String
+  createdAt DateTime @default(now())
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  @@index([tournamentId, status, createdAt])
+  @@index([submitterHash, createdAt])
+  @@map("match_disputes")
 }

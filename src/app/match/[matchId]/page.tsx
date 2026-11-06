@@ -1,5 +1,6 @@
 "use client";
 
+import { DisputeForm } from "@/components/tournament/DisputeForm";
 import { Icon } from "@/components/ui/Icon";
 
 import React, { useEffect, useState, use, Suspense } from "react";
@@ -340,6 +341,13 @@ function MatchScoreboardContent({
             </span>
           </button>
         </div>
+        {["FINISHED", "APPROVED"].includes(match.status) &&
+          match.stage?.category?.tournament?.id && (
+            <DisputeForm
+              tournamentId={match.stage.category.tournament.id}
+              matchId={match.id}
+            />
+          )}
       </main>
 
       {/* Broadcast Footer */}

@@ -102,6 +102,12 @@ fisik.
 
 ## Lingkungan pengembangan sebelumnya
 
+Pembaruan 6 November 2026 menambahkan migrasi ketiga,
+`20261106020000_tournament_sponsors_disputes`, untuk sponsor per turnamen dan
+sanggahan hasil. Migrasi diuji pada branch development sebelum diterapkan ke
+production. Logo memakai bucket aset yang sudah ada, dengan prefix sponsor
+per turnamen; tidak ada layanan atau paket berbayar baru.
+
 Branch `dev-neon-setup` (`br-round-cell-azzw7ax2`) memiliki masa berlaku sampai
 **7 November 2026 pukul 19.00 WIB**. Salinan env-nya tersedia lokal di
 `.env.neon-development`. Untuk kembali, pilih branch tersebut dan pulihkan
