@@ -23,7 +23,8 @@ const schema = z.object({
   timezone: z.enum(["Asia/Jakarta", "Asia/Makassar", "Asia/Jayapura"]),
   category: z.string().trim().min(2).max(100),
   courts: z.number().int().min(1).max(16),
-  preset: z.enum(["SINGLE", "STANDARD", "SHORT"]),
+  preset: z.enum(["SINGLE", "STANDARD", "SHORT", "POINTS"]),
+  totalPoints: z.number().int().min(1).max(200).optional(),
   deuce: z.enum(["ADVANTAGE", "GOLDEN_POINT", "STAR_POINT"]).optional(),
   format: z.enum(["SINGLE_ELIMINATION", "ROUND_ROBIN"]),
   pairs: z
@@ -223,6 +224,9 @@ export async function POST(req: NextRequest) {
             rulesV2: JSON.parse(
               JSON.stringify({
                 ...PRESETS[body.preset],
+                ...(body.preset === "POINTS"
+                  ? { totalPoints: body.totalPoints ?? 24 }
+                  : {}),
                 ...(body.deuce ? { deuce: body.deuce } : {}),
               }),
             ),

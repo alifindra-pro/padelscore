@@ -106,6 +106,12 @@ function Screen({ params }: { params: Promise<{ matchId: string }> }) {
                       : "MENUNGGU PERTANDINGAN"}
             </span>
           </div>
+          {match.state?.rules.mode === "POINTS" && (
+            <p className="tv-result">
+              Poin langsung · total {match.state.rules.totalPoints} poin
+              {match.state.decidingPoint ? " · Seri: satu poin penentu" : ""}
+            </p>
+          )}
           <section className="tv-board" aria-label="Skor pertandingan">
             {[match.entryA, match.entryB].map((team, i) => (
               <div

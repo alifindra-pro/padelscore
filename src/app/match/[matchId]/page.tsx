@@ -135,6 +135,7 @@ function MatchScoreboardContent({
   const snapshot = match.scoreSnapshot ?? EMPTY_SNAPSHOT;
 
   const isGoldenPoint =
+    snapshot.gamesA.length > 0 &&
     match.stage?.category?.ruleset?.goldenPoint &&
     snapshot.pointsA === "40" &&
     snapshot.pointsB === "40";
@@ -212,7 +213,9 @@ function MatchScoreboardContent({
           {/* Table Header */}
           <div className="grid grid-cols-12 bg-canvas px-6 py-3 text-xs font-extrabold text-secondary uppercase tracking-wider border-b border-line">
             <span className="col-span-7">Pasangan</span>
-            <span className="col-span-2 text-center">Set</span>
+            <span className="col-span-2 text-center">
+              {snapshot.gamesA.length ? "Set" : ""}
+            </span>
             <span className="col-span-3 text-right">Poin</span>
           </div>
 
@@ -235,7 +238,7 @@ function MatchScoreboardContent({
             </div>
 
             <div className="col-span-2 text-center font-sans tabular-nums text-3xl font-extrabold text-ink">
-              {snapshot.setsA}
+              {snapshot.gamesA.length ? snapshot.setsA : ""}
             </div>
 
             <div className="col-span-3 text-right font-sans tabular-nums text-4xl md:text-6xl font-extrabold text-brand-strong tracking-tight transition-all">
@@ -262,7 +265,7 @@ function MatchScoreboardContent({
             </div>
 
             <div className="col-span-2 text-center font-sans tabular-nums text-3xl font-extrabold text-ink">
-              {snapshot.setsB}
+              {snapshot.gamesB.length ? snapshot.setsB : ""}
             </div>
 
             <div className="col-span-3 text-right font-sans tabular-nums text-4xl md:text-6xl font-extrabold text-brand-strong tracking-tight transition-all">

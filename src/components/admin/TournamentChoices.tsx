@@ -95,6 +95,12 @@ export const PRESET_OPTIONS = [
     icon: "calendar",
   },
   {
+    value: "POINTS",
+    label: "Poin langsung",
+    description: "Total poin gabungan dengan satu poin penentu jika seri.",
+    icon: "court",
+  },
+  {
     value: "CUSTOM",
     label: "Kustom",
     description:
@@ -337,6 +343,70 @@ export function SocialSettings({
           ]}
         />
       )}
+    </div>
+  );
+}
+
+export const SCORING_OPTIONS = [
+  {
+    value: "SETS",
+    label: "Game & set",
+    description: "Hitungan 0–15–30–40, lalu game dan set.",
+  },
+  {
+    value: "POINTS",
+    label: "Poin langsung",
+    description:
+      "Setiap reli bernilai satu poin. Tetapkan total poin kedua pasangan; seri diakhiri satu poin penentu.",
+  },
+];
+
+export function DirectPointsSettings({
+  value,
+  onChange,
+  disabled = false,
+}: {
+  value: number;
+  onChange: (value: number) => void;
+  disabled?: boolean;
+}) {
+  const a = Math.ceil(value * 0.625);
+  return (
+    <div className="space-y-4">
+      <label className="field">
+        Total poin per pertandingan
+        <input
+          type="number"
+          min={1}
+          max={200}
+          required
+          value={value || ""}
+          disabled={disabled}
+          onChange={(e) => onChange(Number(e.target.value))}
+        />
+      </label>
+      <div className="flex flex-wrap gap-2">
+        {[16, 24, 32].map((target) => (
+          <button
+            key={target}
+            type="button"
+            className={value === target ? "btn-primary" : "btn-secondary"}
+            aria-pressed={value === target}
+            disabled={disabled}
+            onClick={() => onChange(target)}
+          >
+            {target} poin
+          </button>
+        ))}
+      </div>
+      <p className="scoring-example">
+        {value > 0
+          ? `Contoh: ${a}–${value - a}, total ${value} poin. `
+          : "Pilih total 1–200 poin. "}
+        Jika seri, mainkan satu poin tambahan untuk menentukan pemenang.
+        Pasangan tetap; servis berganti setiap 4 poin dan tukar sisi setiap 8
+        poin.
+      </p>
     </div>
   );
 }

@@ -4,6 +4,8 @@ import Link from "next/link";
 import { apiFetch } from "@/lib/api-client";
 import {
   OptionCards,
+  SCORING_OPTIONS,
+  DirectPointsSettings,
   PRESET_OPTIONS,
   DEUCE_OPTIONS,
 } from "@/components/admin/TournamentChoices";
@@ -157,18 +159,43 @@ function Competition({ params }: { params: Promise<{ id: string }> }) {
             </h2>
             <div className="md:col-span-3">
               <OptionCards
-                legend="Pilih dasar aturan"
-                name="preset"
-                value={
-                  Object.keys(PRESETS).find(
-                    (key) => PRESETS[key].name === rules.name,
-                  ) ?? "CUSTOM"
+                legend="Cara hitung skor"
+                name="scoringMode"
+                value={rules.mode === "POINTS" ? "POINTS" : "SETS"}
+                options={SCORING_OPTIONS}
+                onChange={(mode) =>
+                  setRules({
+                    ...PRESETS[mode === "POINTS" ? "POINTS" : "STANDARD"],
+                  })
                 }
-                options={PRESET_OPTIONS}
-                onChange={(key) => setRules({ ...PRESETS[key] })}
                 compact
                 disabled={busy}
               />
+              {rules.mode === "POINTS" ? (
+                <DirectPointsSettings
+                  value={rules.totalPoints ?? 24}
+                  onChange={(totalPoints) =>
+                    setRules({ ...rules, totalPoints })
+                  }
+                  disabled={busy}
+                />
+              ) : (
+                <OptionCards
+                  legend="Pilih dasar aturan"
+                  name="preset"
+                  value={
+                    Object.keys(PRESETS).find(
+                      (key) => PRESETS[key].name === rules.name,
+                    ) ?? "CUSTOM"
+                  }
+                  options={PRESET_OPTIONS.filter(
+                    (option) => option.value !== "POINTS",
+                  )}
+                  onChange={(key) => setRules({ ...PRESETS[key] })}
+                  compact
+                  disabled={busy}
+                />
+              )}
             </div>
             <label className="field">
               Berlaku pada
@@ -194,74 +221,78 @@ function Competition({ params }: { params: Promise<{ id: string }> }) {
                 onChange={(e) => setRound(e.target.value)}
               />
             </label>
-            <div className="md:col-span-3">
-              <OptionCards
-                legend="Aturan deuce"
-                name="deuce"
-                value={rules.deuce}
-                options={DEUCE_OPTIONS}
-                onChange={(deuce) =>
-                  setRules({ ...rules, deuce: deuce as Rules["deuce"] })
-                }
-                compact
-                disabled={busy}
-              />
-            </div>
-            <p className="setting-help md:col-span-3">
-              Pengaturan berikut mengubah rincian pilihan di atas. Set adalah
-              kumpulan game; tie-break menentukan set saat game imbang. Pilih
-              lingkup kategori atau babak sebelum menyimpan.
-            </p>
-            {(
-              [
-                ["setsToWin", "Set untuk menang"],
-                ["gamesPerSet", "Target game per set"],
-                ["tiebreakAt", "Tie-break pada game"],
-                ["tiebreakPoints", "Target tie-break"],
-                ["matchTiebreakPoints", "Target match tie-break"],
-                ["durationMinutes", "Durasi (menit)"],
-              ] as const
-            ).map(([key, label]) => (
-              <label className="field" key={key}>
-                {label}
-                <input
-                  type="number"
-                  min={1}
-                  max={120}
-                  value={rules[key]}
-                  onChange={(e) =>
-                    setRules({
-                      ...rules,
-                      [key]: Number(e.target.value),
-                      source: "LOCAL",
-                    })
-                  }
-                />
-              </label>
-            ))}
-            <label className="flex gap-2 items-center">
-              <input
-                type="checkbox"
-                checked={rules.decidingMatchTiebreak}
-                onChange={(e) =>
-                  setRules({
-                    ...rules,
-                    decidingMatchTiebreak: e.target.checked,
-                  })
-                }
-              />
-              Match tie-break set penentu
-            </label>
-            <label className="flex gap-2 items-center">
-              <input
-                type="checkbox"
-                checked={rules.allowDraw}
-                onChange={(e) =>
-                  setRules({ ...rules, allowDraw: e.target.checked })
-                }
-              />
-              Izinkan seri (timed grup)
-            </label>
+            {rules.mode !== "POINTS" && (
+              <>
+                <div className="md:col-span-3">
+                  <OptionCards
+                    legend="Aturan deuce"
+                    name="deuce"
+                    value={rules.deuce}
+                    options={DEUCE_OPTIONS}
+                    onChange={(deuce) =>
+                      setRules({ ...rules, deuce: deuce as Rules["deuce"] })
+                    }
+                    compact
+                    disabled={busy}
+                  />
+                </div>
+                <p className="setting-help md:col-span-3">
+                  Pengaturan berikut mengubah rincian pilihan di atas. Set
+                  adalah kumpulan game; tie-break menentukan set saat game
+                  imbang. Pilih lingkup kategori atau babak sebelum menyimpan.
+                </p>
+                {(
+                  [
+                    ["setsToWin", "Set untuk menang"],
+                    ["gamesPerSet", "Target game per set"],
+                    ["tiebreakAt", "Tie-break pada game"],
+                    ["tiebreakPoints", "Target tie-break"],
+                    ["matchTiebreakPoints", "Target match tie-break"],
+                    ["durationMinutes", "Durasi (menit)"],
+                  ] as const
+                ).map(([key, label]) => (
+                  <label className="field" key={key}>
+                    {label}
+                    <input
+                      type="number"
+                      min={1}
+                      max={120}
+                      value={rules[key]}
+                      onChange={(e) =>
+                        setRules({
+                          ...rules,
+                          [key]: Number(e.target.value),
+                          source: "LOCAL",
+                        })
+                      }
+                    />
+                  </label>
+                ))}
+                <label className="flex gap-2 items-center">
+                  <input
+                    type="checkbox"
+                    checked={rules.decidingMatchTiebreak}
+                    onChange={(e) =>
+                      setRules({
+                        ...rules,
+                        decidingMatchTiebreak: e.target.checked,
+                      })
+                    }
+                  />
+                  Match tie-break set penentu
+                </label>
+                <label className="flex gap-2 items-center">
+                  <input
+                    type="checkbox"
+                    checked={rules.allowDraw}
+                    onChange={(e) =>
+                      setRules({ ...rules, allowDraw: e.target.checked })
+                    }
+                  />
+                  Izinkan seri (timed grup)
+                </label>
+              </>
+            )}
             <button className="btn-primary" disabled={busy}>
               Simpan aturan
             </button>

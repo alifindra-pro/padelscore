@@ -210,7 +210,11 @@ function OfflineScoring({ params }: { params: Promise<{ matchId: string }> }) {
         <>
           <div className="scoring-card bg-card border border-line rounded-xl p-5 space-y-4">
             <p className="text-xs text-secondary">
-              {match.rules.name} · {match.rules.deuce} · {match.state.status}
+              {match.rules.name} ·{" "}
+              {match.rules.mode === "POINTS"
+                ? `Total ${match.rules.totalPoints} poin`
+                : match.rules.deuce}{" "}
+              · {match.state.status}
             </p>
             {[match.teamA, match.teamB].map((name, i) => (
               <div key={i} className="flex justify-between items-center gap-4">
@@ -220,16 +224,24 @@ function OfflineScoring({ params }: { params: Promise<{ matchId: string }> }) {
                 </strong>
               </div>
             ))}
-            <p>
-              Set:{" "}
-              {match.state.sets
-                .map((s) =>
-                  s.kind === "MATCH_TIEBREAK"
-                    ? `MTB ${s.tiebreak.join("–")}`
-                    : s.games.join("–"),
-                )
-                .join(" / ")}
-            </p>
+            {match.rules.mode === "POINTS" ? (
+              <p role="status">
+                {match.state.decidingPoint
+                  ? "Seri — satu poin berikutnya menentukan pemenang."
+                  : `Total ${match.state.points[0] + match.state.points[1]} dari ${match.rules.totalPoints} poin`}
+              </p>
+            ) : (
+              <p>
+                Set:{" "}
+                {match.state.sets
+                  .map((s) =>
+                    s.kind === "MATCH_TIEBREAK"
+                      ? `MTB ${s.tiebreak.join("–")}`
+                      : s.games.join("–"),
+                  )
+                  .join(" / ")}
+              </p>
+            )}
             <p className="text-sm">
               Servis {server?.server} ·{" "}
               {server?.side === "RIGHT" ? "kanan" : "kiri"} · percobaan{" "}

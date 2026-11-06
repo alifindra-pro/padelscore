@@ -115,7 +115,12 @@ export async function GET(
     line(`Pemenang: ${m.winner?.name ?? "Seri"}`, 15);
     y -= 10;
     const state = m.stateV2 as unknown as ScoreState | null;
-    if (state)
+    if (state?.rules.mode === "POINTS") {
+      line(`Poin langsung: ${state.points[0]} : ${state.points[1]}`, 16);
+      line(
+        `Total ${state.rules.totalPoints} poin; satu poin tambahan jika seri.`,
+      );
+    } else if (state)
       state.sets.forEach((set, i) =>
         line(
           set.kind === "MATCH_TIEBREAK"
@@ -128,7 +133,10 @@ export async function GET(
       m.scoreSnapshot?.gamesA.forEach((a, i) =>
         line(`Set ${i + 1}: ${a} : ${m.scoreSnapshot?.gamesB[i] ?? 0}`, 13),
       );
-    if (state) line(`Aturan: ${state.rules.name} (${state.rules.deuce})`);
+    if (state)
+      line(
+        `Aturan: ${state.rules.name}${state.rules.mode === "POINTS" ? "" : ` (${state.rules.deuce})`}`,
+      );
     line(`Status hasil: ${state?.status ?? m.status}`);
     y -= 10;
     line(`Jadwal: ${date(m.scheduledAt)}`);
@@ -147,13 +155,16 @@ export async function GET(
     line(`ID pertandingan: ${m.id}`, 9);
     line(`Versi skor: ${m.version} | Dicetak: ${date(new Date())}`, 9);
     pdf.getPages().forEach((p, i) =>
-      p.drawText(`Padel Score by Padel Addictive | Hasil disahkan | ${i + 1}/${pages}`, {
-        x: 50,
-        y: 30,
-        font,
-        size: 9,
-        color: navy,
-      }),
+      p.drawText(
+        `Padel Score by Padel Addictive | Hasil disahkan | ${i + 1}/${pages}`,
+        {
+          x: 50,
+          y: 30,
+          font,
+          size: 9,
+          color: navy,
+        },
+      ),
     );
     return new Response(Buffer.from(await pdf.save()), {
       headers: {

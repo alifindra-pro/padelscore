@@ -7,7 +7,10 @@ const { randomUUID } = require("node:crypto");
 const { mkdir, writeFile } = require("node:fs/promises");
 const prisma = new PrismaClient();
 const base = process.env.TEST_BASE_URL || "http://localhost:3100";
-const output = "/tmp/padel-quick-flow";
+const directPoints = process.env.TEST_DIRECT_POINTS === "1";
+const output = directPoints
+  ? "/tmp/padel-direct-points"
+  : "/tmp/padel-quick-flow";
 
 (async () => {
   let userId, orgId, tournamentId, browser;
@@ -70,6 +73,16 @@ const output = "/tmp/padel-quick-flow";
       .getByLabel("Mulai pertandingan", { exact: true })
       .fill("2026-11-01T08:00");
     await page.getByLabel("Lokasi", { exact: true }).fill("Venue pengujian");
+    if (directPoints) {
+      await page
+        .getByRole("radio", { name: "Poin langsung", exact: true })
+        .check();
+      await page.getByRole("button", { name: "24 poin", exact: true }).click();
+      await expect(
+        page.getByRole("radio", { name: "Sistem gugur", exact: true }),
+      ).toBeChecked();
+      await expect(page.getByText("Jika skor 40–40 (deuce)")).toHaveCount(0);
+    }
     await page
       .getByText("Aturan dan pengaturan lainnya", { exact: false })
       .click();
@@ -164,19 +177,36 @@ const output = "/tmp/padel-quick-flow";
       .getByRole("button", { name: "Mulai pertandingan", exact: true })
       .click();
     await scorer.getByRole("button", { name: /^\+1 / }).first().click();
-    await expect(tv.locator(".tv-points strong").first()).toHaveText("15", {
-      timeout: 15000,
-    });
+    await expect(tv.locator(".tv-points strong").first()).toHaveText(
+      directPoints ? "1" : "15",
+      {
+        timeout: 15000,
+      },
+    );
     await viewer.setOffline(true);
     await expect(
       tv.getByText("Koneksi terganggu. Menampilkan skor terakhir.", {
         exact: false,
       }),
     ).toBeVisible({ timeout: 15000 });
-    await expect(tv.locator(".tv-points strong").first()).toHaveText("15");
+    await expect(tv.locator(".tv-points strong").first()).toHaveText(
+      directPoints ? "1" : "15",
+    );
     await viewer.setOffline(false);
     for (let i = 1; i < 24; i++)
-      await scorer.getByRole("button", { name: /^\+1 / }).first().click();
+      await scorer
+        .getByRole("button", { name: /^\+1 / })
+        .nth(directPoints && i >= 12 ? 1 : 0)
+        .click();
+    if (directPoints) {
+      await expect(
+        scorer.getByText("Seri — satu poin berikutnya menentukan pemenang."),
+      ).toBeVisible();
+      await expect(
+        scorer.getByRole("button", { name: "Finalisasi hasil", exact: true }),
+      ).toHaveCount(0);
+      await scorer.getByRole("button", { name: /^\+1 / }).last().click();
+    }
     await expect(scorer.getByText(/0 aksi tersimpan di perangkat/)).toBeVisible(
       { timeout: 15000 },
     );
@@ -200,8 +230,13 @@ const output = "/tmp/padel-quick-flow";
     await expect(tv.getByText("Disahkan admin", { exact: false })).toBeVisible({
       timeout: 15000,
     });
-    await expect(tv.locator(".tv-result")).toContainText(/WITA|GMT\+8/);
-    await expect(tv.locator(".tv-sets strong").first()).toHaveText("6");
+    await expect(
+      tv.locator(".tv-result").filter({ hasText: "Hasil diterima server" }),
+    ).toContainText(/WITA|GMT\+8/);
+    if (directPoints) {
+      await expect(tv.locator(".tv-sets strong")).toHaveCount(0);
+      await expect(tv.locator(".tv-points strong")).toHaveText(["12", "13"]);
+    } else await expect(tv.locator(".tv-sets strong").first()).toHaveText("6");
     for (const width of [390, 768, 1920]) {
       await tv.setViewportSize({ width, height: 1080 });
       await tv.evaluate(() => window.scrollTo(0, 0));

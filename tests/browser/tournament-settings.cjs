@@ -247,6 +247,43 @@ const output = "/tmp/padel-tournament-settings";
       page.getByRole("radio", { name: "Golden Point", exact: true }),
     ).toBeChecked();
     await capture("advanced-rules");
+    await page
+      .getByRole("radio", { name: "Poin langsung", exact: true })
+      .check();
+    await page.getByRole("button", { name: "32 poin", exact: true }).click();
+    const pointsSaved = page.waitForResponse(
+      (response) =>
+        response.request().method() === "PATCH" &&
+        response.url().includes("/api/v2/categories/"),
+    );
+    await page
+      .getByRole("button", { name: "Simpan aturan", exact: true })
+      .click();
+    assert.equal((await pointsSaved).status(), 200);
+    await page.goto(`${base}/admin/tournaments/${classicId}?step=2`);
+    await expect(
+      page.getByRole("radio", { name: "Poin langsung", exact: true }),
+    ).toBeChecked();
+    await expect(
+      page.getByLabel("Total poin per pertandingan", { exact: true }),
+    ).toHaveValue("32");
+    await page.getByRole("button", { name: "24 poin", exact: true }).click();
+    const updated = page.waitForResponse(
+      (response) =>
+        response.request().method() === "PATCH" &&
+        response.url().includes("/api/v2/categories/"),
+    );
+    await page
+      .getByRole("button", { name: "Simpan aturan pertandingan", exact: true })
+      .click();
+    assert.equal((await updated).status(), 200);
+    const pointCategory = await prisma.category.findUniqueOrThrow({
+      where: { id: category.id },
+    });
+    assert.equal(pointCategory.rulesV2.mode, "POINTS");
+    assert.equal(pointCategory.rulesV2.totalPoints, 24);
+    await capture("workspace-direct-points");
+
     await page.goto(`${base}/admin/tournaments/new?format=MEXICANO`);
     await expect(
       page.getByRole("radio", { name: "Mexicano", exact: true }),

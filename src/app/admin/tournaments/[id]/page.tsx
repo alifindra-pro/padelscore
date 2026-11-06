@@ -6,6 +6,8 @@ import { Icon } from "@/components/ui/Icon";
 import { BracketViewer } from "@/components/BracketViewer";
 import {
   OptionCards,
+  SCORING_OPTIONS,
+  DirectPointsSettings,
   FORMAT_OPTIONS,
   EXTRA_FORMAT_OPTIONS,
   PRESET_OPTIONS,
@@ -647,34 +649,61 @@ export default function Workspace({
                 <div>
                   <h2 className="panel-title">Pilih aturan skor</h2>
                   <p className="text-sm text-secondary mt-2">
-                    Skor tenis: 0–15–30–40, lalu game dan set. Pilih jumlah set
-                    dan cara menentukan pemenang saat 40–40.
+                    Pilih cara hitung skor secara terpisah dari sistem turnamen.
+                    Sistem gugur dapat memakai game/set maupun poin langsung.
                   </p>
                 </div>
                 <OptionCards
-                  legend="Jumlah set dan durasi"
-                  name="preset"
-                  value={
-                    Object.keys(PRESETS).find(
-                      (key) => PRESETS[key].name === rules.name,
-                    ) ?? "CUSTOM"
-                  }
-                  options={PRESET_OPTIONS}
-                  onChange={(key) => setRules({ ...PRESETS[key] })}
-                  compact
-                  disabled={busy}
-                />
-                <OptionCards
-                  legend="Jika skor 40–40 (deuce)"
-                  name="deuce"
-                  value={rules.deuce}
-                  options={DEUCE_OPTIONS}
-                  onChange={(deuce) =>
-                    setRules({ ...rules, deuce: deuce as Rules["deuce"] })
+                  legend="Cara hitung skor"
+                  name="scoringMode"
+                  value={rules.mode === "POINTS" ? "POINTS" : "SETS"}
+                  options={SCORING_OPTIONS}
+                  onChange={(mode) =>
+                    setRules({
+                      ...PRESETS[mode === "POINTS" ? "POINTS" : "STANDARD"],
+                    })
                   }
                   compact
                   disabled={busy}
                 />
+                {rules.mode === "POINTS" ? (
+                  <DirectPointsSettings
+                    value={rules.totalPoints ?? 24}
+                    onChange={(totalPoints) =>
+                      setRules({ ...rules, totalPoints })
+                    }
+                    disabled={busy}
+                  />
+                ) : (
+                  <OptionCards
+                    legend="Jumlah set dan durasi"
+                    name="preset"
+                    value={
+                      Object.keys(PRESETS).find(
+                        (key) => PRESETS[key].name === rules.name,
+                      ) ?? "CUSTOM"
+                    }
+                    options={PRESET_OPTIONS.filter(
+                      (option) => option.value !== "POINTS",
+                    )}
+                    onChange={(key) => setRules({ ...PRESETS[key] })}
+                    compact
+                    disabled={busy}
+                  />
+                )}
+                {rules.mode !== "POINTS" && (
+                  <OptionCards
+                    legend="Jika skor 40–40 (deuce)"
+                    name="deuce"
+                    value={rules.deuce}
+                    options={DEUCE_OPTIONS}
+                    onChange={(deuce) =>
+                      setRules({ ...rules, deuce: deuce as Rules["deuce"] })
+                    }
+                    compact
+                    disabled={busy}
+                  />
+                )}
                 <p className="setting-help">
                   Perubahan berlaku untuk pertandingan yang belum dimulai. Untuk
                   nilai game atau set kustom, buka pengaturan rinci di bawah.

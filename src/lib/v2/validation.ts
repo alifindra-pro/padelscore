@@ -11,7 +11,8 @@ export const rulesSchema = z.object({
   deuce: z.enum(["ADVANTAGE", "GOLDEN_POINT", "STAR_POINT"]),
   decidingMatchTiebreak: z.boolean(),
   matchTiebreakPoints: z.number().int().min(2).max(100),
-  mode: z.enum(["SETS", "TIMED"]),
+  mode: z.enum(["SETS", "TIMED", "POINTS"]),
+  totalPoints: z.number().int().min(1).max(200).optional(),
   durationMinutes: z.number().int().min(1).max(120),
   allowDraw: z.boolean(),
 });

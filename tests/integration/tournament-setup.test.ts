@@ -139,6 +139,72 @@ describe("Quick setup and approved PDF integration", () => {
     ).toBe(409);
   });
 
+  it("advances a direct-points knockout winner only after a deciding point and approval", async () => {
+    const body = { ...payload(4), preset: "POINTS", totalPoints: 24 };
+    expect((await setup(request(body))).status).toBe(201);
+    const list = await matches(body.requestId);
+    const semi = list.find((m) => m.round === 1)!;
+    const final = list.find((m) => m.round === 2)!;
+    const user = { userId, role: "ORGANIZER" as const };
+    const deviceId = randomUUID();
+    const claimed = await claimMatch(user, semi.id, deviceId);
+    expect(claimed.rulesSnapshot).toMatchObject({
+      mode: "POINTS",
+      totalPoints: 24,
+    });
+    let sequence = 0;
+    let version = claimed.version;
+    const send = async (
+      actions: import("../../packages/core/src").Action[],
+    ) => {
+      const result = await syncActions(user, semi.id, {
+        deviceId,
+        ownershipVersion: claimed.ownershipVersion,
+        rulesVersion: 2,
+        events: actions.map((action) => ({
+          id: randomUUID(),
+          sequence: ++sequence,
+          baseVersion: version++,
+          action,
+        })),
+      });
+      return result;
+    };
+    const tied = await send([
+      { type: "START_MATCH", at: Date.now() },
+      ...Array.from({ length: 24 }, (_, i) => ({
+        type: "AWARD_POINT" as const,
+        team: i % 2 ? ("B" as const) : ("A" as const),
+      })),
+    ]);
+    expect(tied.state.decidingPoint).toBe(true);
+    expect(tied.snapshot.pointsA).toBe("12");
+    expect(tied.snapshot.gamesA).toEqual([]);
+    await expect(approveV2(user, semi.id)).rejects.toThrow();
+    expect(
+      (await prisma.match.findUniqueOrThrow({ where: { id: final.id } }))
+        .entryAId,
+    ).toBeNull();
+    const won = await send([
+      { type: "AWARD_POINT", team: "A" },
+      { type: "FINALIZE_MATCH" },
+    ]);
+    expect(won.state.points).toEqual([13, 12]);
+    await approveV2(user, semi.id);
+    const advanced = await prisma.match.findUniqueOrThrow({
+      where: { id: final.id },
+    });
+    expect([advanced.entryAId, advanced.entryBId]).toContain(semi.entryAId);
+    expect((await pdf(semi.id, token)).status).toBe(200);
+    expect(
+      (
+        await setup(
+          request({ ...payload(2), preset: "POINTS", totalPoints: 201 }),
+        )
+      ).status,
+    ).toBe(400);
+  });
+
   it("creates distinct round-robin rounds with no overlapping player or court reservations", async () => {
     const body = { ...payload(4, "ROUND_ROBIN"), deuce: "GOLDEN_POINT" };
     expect((await setup(request(body))).status).toBe(201);

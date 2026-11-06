@@ -6,6 +6,8 @@ import { apiFetch } from "@/lib/api-client";
 import { Icon } from "@/components/ui/Icon";
 import {
   OptionCards,
+  SCORING_OPTIONS,
+  DirectPointsSettings,
   SocialSettings,
   FORMAT_OPTIONS,
   PRESET_OPTIONS,
@@ -30,6 +32,7 @@ function NewTournament() {
     category: "Ganda terbuka",
     courts: 1,
     preset: "SINGLE",
+    totalPoints: 24,
     format: ["AMERICANO", "MEXICANO"].includes(searchParams.get("format") || "")
       ? searchParams.get("format")!
       : "SINGLE_ELIMINATION",
@@ -43,6 +46,10 @@ function NewTournament() {
   const [pairText, setPairText] = useState("");
   const [playerText, setPlayerText] = useState("");
   const isSocial = ["AMERICANO", "MEXICANO"].includes(data.format);
+  const directPoints = data.preset === "POINTS";
+  const scoreDescription = directPoints
+    ? `Poin langsung · total ${data.totalPoints} poin`
+    : PRESET_OPTIONS.find((option) => option.value === data.preset)!.label;
   const players = playerText
     .split("\n")
     .map((name) => name.trim())
@@ -53,7 +60,6 @@ function NewTournament() {
     .filter(Boolean)
     .map((line) => line.split("/").map((name) => name.trim()));
   const format = FORMAT_OPTIONS.find((option) => option.value === data.format)!;
-  const preset = PRESET_OPTIONS.find((option) => option.value === data.preset)!;
   const steps = [
     "Acara & aturan",
     isSocial ? "Pemain peserta" : "Pasangan peserta",
@@ -327,22 +333,46 @@ function NewTournament() {
                   ) : (
                     <>
                       <OptionCards
-                        legend="Format skor"
-                        help="Tentukan jumlah set yang harus dimenangkan oleh satu pasangan."
-                        name="preset"
-                        value={data.preset}
-                        options={PRESET_OPTIONS.slice(0, 3)}
-                        onChange={(preset) => setData({ ...data, preset })}
+                        legend="Cara hitung skor"
+                        name="scoringMode"
+                        value={directPoints ? "POINTS" : "SETS"}
+                        options={SCORING_OPTIONS}
+                        onChange={(mode) =>
+                          setData({
+                            ...data,
+                            preset: mode === "POINTS" ? "POINTS" : "SINGLE",
+                          })
+                        }
                         compact
                       />
-                      <OptionCards
-                        legend="Jika skor 40–40 (deuce)"
-                        name="deuce"
-                        value={data.deuce}
-                        options={DEUCE_OPTIONS}
-                        onChange={(deuce) => setData({ ...data, deuce })}
-                        compact
-                      />
+                      {directPoints ? (
+                        <DirectPointsSettings
+                          value={data.totalPoints}
+                          onChange={(totalPoints) =>
+                            setData({ ...data, totalPoints })
+                          }
+                        />
+                      ) : (
+                        <>
+                          <OptionCards
+                            legend="Format skor"
+                            help="Tentukan jumlah set yang harus dimenangkan oleh satu pasangan."
+                            name="preset"
+                            value={data.preset}
+                            options={PRESET_OPTIONS.slice(0, 3)}
+                            onChange={(preset) => setData({ ...data, preset })}
+                            compact
+                          />
+                          <OptionCards
+                            legend="Jika skor 40–40 (deuce)"
+                            name="deuce"
+                            value={data.deuce}
+                            options={DEUCE_OPTIONS}
+                            onChange={(deuce) => setData({ ...data, deuce })}
+                            compact
+                          />
+                        </>
+                      )}
                     </>
                   )}
                 </section>
@@ -525,19 +555,27 @@ function NewTournament() {
                     <dd>
                       {isSocial
                         ? `${social.target} poin per laga · ${social.rounds} ronde`
-                        : preset.label}
+                        : scoreDescription}
                     </dd>
                   </div>
                   <div>
-                    <dt>{isSocial ? "Peringkat" : "Deuce"}</dt>
+                    <dt>
+                      {isSocial
+                        ? "Peringkat"
+                        : directPoints
+                          ? "Jika seri"
+                          : "Deuce"}
+                    </dt>
                     <dd>
                       {isSocial
                         ? social.ranking === "TOTAL"
                           ? "Total poin"
                           : "Rata-rata poin"
-                        : DEUCE_OPTIONS.find(
-                            (option) => option.value === data.deuce,
-                          )?.label}
+                        : directPoints
+                          ? "Satu poin penentu"
+                          : DEUCE_OPTIONS.find(
+                              (option) => option.value === data.deuce,
+                            )?.label}
                     </dd>
                   </div>
                   {!isSocial && (
@@ -613,16 +651,21 @@ function NewTournament() {
             <div>
               <dt>Skor</dt>
               <dd>
-                {isSocial ? `${social.target} poin per laga` : preset.label}
+                {isSocial ? `${social.target} poin per laga` : scoreDescription}
               </dd>
             </div>
             <div>
-              <dt>{isSocial ? "Ronde" : "Deuce"}</dt>
+              <dt>
+                {isSocial ? "Ronde" : directPoints ? "Jika seri" : "Deuce"}
+              </dt>
               <dd>
                 {isSocial
                   ? social.rounds
-                  : DEUCE_OPTIONS.find((option) => option.value === data.deuce)
-                      ?.label}
+                  : directPoints
+                    ? "Satu poin penentu"
+                    : DEUCE_OPTIONS.find(
+                        (option) => option.value === data.deuce,
+                      )?.label}
               </dd>
             </div>
             <div>

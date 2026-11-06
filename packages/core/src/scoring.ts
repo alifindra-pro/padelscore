@@ -23,7 +23,8 @@ export interface Rules {
   deuce: Deuce;
   decidingMatchTiebreak: boolean;
   matchTiebreakPoints: number;
-  mode: "SETS" | "TIMED";
+  mode: "SETS" | "TIMED" | "POINTS";
+  totalPoints?: number;
   durationMinutes: number;
   allowDraw: boolean;
 }
@@ -74,15 +75,33 @@ export const PRESETS: Record<string, Rules> = {
     mode: "TIMED",
     allowDraw: true,
   },
+  POINTS: {
+    ...base,
+    name: "Poin langsung",
+    source: "COMMUNITY",
+    mode: "POINTS",
+    totalPoints: 24,
+    setsToWin: 1,
+  },
   CUSTOM: { ...base, name: "Format Kustom", source: "LOCAL" },
 };
 export function validateRules(r: Rules): Rules {
   if (
     r.version !== 2 ||
     !["ADVANTAGE", "GOLDEN_POINT", "STAR_POINT"].includes(r.deuce) ||
-    !["SETS", "TIMED"].includes(r.mode)
+    !["SETS", "TIMED", "POINTS"].includes(r.mode)
   )
     throw new Error("Format aturan tidak dikenal");
+  if (
+    r.mode === "POINTS" &&
+    (!Number.isInteger(r.totalPoints) ||
+      r.totalPoints! < 1 ||
+      r.totalPoints! > 200 ||
+      r.allowDraw)
+  )
+    throw new Error(
+      "Poin langsung memerlukan total 1–200 poin dan satu poin penentu jika seri",
+    );
   for (const key of [
     "setsToWin",
     "gamesPerSet",
@@ -209,7 +228,8 @@ export function isTiebreak(s: ScoreState) {
   );
 }
 export function pointLabels(s: ScoreState): [string, string] {
-  if (isTiebreak(s)) return s.points.map(String) as [string, string];
+  if (s.rules.mode === "POINTS" || isTiebreak(s))
+    return s.points.map(String) as [string, string];
   const [a, b] = s.points;
   if (a >= 3 && b >= 3)
     return a === b ? ["40", "40"] : a > b ? ["AD", "40"] : ["40", "AD"];
@@ -221,11 +241,14 @@ export function pointLabels(s: ScoreState): [string, string] {
 export function serviceInfo(s: ScoreState) {
   const count = s.points[0] + s.points[1];
   const tb = isTiebreak(s);
-  const serverIndex = tb
-    ? (s.tiebreakFirstServer +
-        (count === 0 ? 0 : 1 + Math.floor((count - 1) / 2))) %
-      4
-    : s.serverIndex;
+  const serverIndex =
+    s.rules.mode === "POINTS"
+      ? (s.serverIndex + Math.floor(count / 4)) % 4
+      : tb
+        ? (s.tiebreakFirstServer +
+            (count === 0 ? 0 : 1 + Math.floor((count - 1) / 2))) %
+          4
+        : s.serverIndex;
   const side = s.goldenReceiverSide ?? (count % 2 === 0 ? "RIGHT" : "LEFT");
   const servingTeam: Team = s.serviceOrder[serverIndex].startsWith("A")
     ? "A"
@@ -263,6 +286,18 @@ function award(s: ScoreState, team: Team) {
   s.faults = 0;
   s.goldenReceiverSide = null;
   s.changeEnds = false;
+  if (s.rules.mode === "POINTS") {
+    const total = s.points[0] + s.points[1];
+    s.changeEnds = total % 8 === 0;
+    if (total >= s.rules.totalPoints!) {
+      s.decidingPoint = s.points[0] === s.points[1];
+      if (!s.decidingPoint) {
+        s.winner = s.points[0] > s.points[1] ? "A" : "B";
+        s.status = "COMPLETED";
+      }
+    }
+    return;
+  }
   if (s.rules.mode === "TIMED" && s.decidingPoint) {
     s.winner = team;
     s.status = "COMPLETED";
@@ -377,6 +412,7 @@ export function applyAction(previous: ScoreState, action: Action): ScoreState {
     case "SELECT_RECEIVER_SIDE":
       active();
       if (
+        s.rules.mode === "POINTS" ||
         s.points[0] !== s.points[1] ||
         s.points[0] < 3 ||
         !(
@@ -416,7 +452,8 @@ export function applyAction(previous: ScoreState, action: Action): ScoreState {
         [...action.points, ...action.games].some(
           (x) => !Number.isInteger(x) || x < 0,
         ) ||
-        (action.points[0] !== action.points[1] &&
+        (s.rules.mode !== "POINTS" &&
+          action.points[0] !== action.points[1] &&
           Math.max(...action.points) >= 4 &&
           Math.abs(action.points[0] - action.points[1]) >= 2 &&
           !isTiebreak(s))
@@ -424,6 +461,19 @@ export function applyAction(previous: ScoreState, action: Action): ScoreState {
         throw new Error(
           "Koreksi tidak valid atau sudah melewati kemenangan game",
         );
+      if (s.rules.mode === "POINTS") {
+        const total = action.points[0] + action.points[1];
+        if (
+          action.games.some(Boolean) ||
+          total > s.rules.totalPoints! ||
+          (total === s.rules.totalPoints &&
+            action.points[0] !== action.points[1])
+        )
+          throw new Error(
+            "Koreksi poin melewati akhir laga. Batalkan aksi untuk memperbaiki hasil.",
+          );
+        s.decidingPoint = total === s.rules.totalPoints;
+      }
       s.points = action.points;
       s.sets.at(-1)!.games = action.games;
       s.faults = 0;

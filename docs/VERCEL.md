@@ -54,7 +54,7 @@ melalui route aplikasi. Jangan menyalin `NODE_ENV`, token CLI/OIDC, atau
 Preview perlu branch Neon serta konfigurasi service tersendiri. Jangan
 menyalin kredensial production ke environment Preview secara otomatis.
 
-## Status deployment 4 November 2026
+## Status deployment 6 November 2026
 
 Login Vercel dan link proyek berhasil. Build produksi, TypeScript, 11 tes
 proteksi login, lint berkas yang diubah, dan `git diff --check` lulus.
@@ -69,7 +69,7 @@ sedangkan file tepat 4 MB diteruskan ke validasi isi gambar.
 
 Setelah pengguna menyetujui transfer kredensial dan publikasi, seluruh 14
 variabel pada tabel tersimpan di environment Production. Deployment
-`dpl_EnBVFywkfAwkgsKZFHHAHGFB3VRQ` berstatus `READY` dan domain publik di atas
+`dpl_2zmXxdwGmwAPeQuiS4JgwUik9bPJ` berstatus `READY` dan domain publik di atas
 dapat diakses tanpa login Vercel. Halaman login mengembalikan HTTP 200 dan
 login sementara HTTP 404. URL deployment khusus tetap memakai proteksi Vercel.
 
@@ -184,3 +184,27 @@ Uji browser lokal dan production Vercel memeriksa branding pada ponsel/desktop, 
 kata sandi lama salah, konfirmasi berbeda, penyimpanan hash, serta login dengan
 kata sandi baru. Akun fixture dibersihkan. Login akun khusus dan akses ke
 organisasi Padel Score juga diverifikasi tanpa mengganti kata sandinya.
+
+## Sistem gugur dengan poin langsung — 6 November 2026
+
+Pilihan **Cara hitung skor** terpisah dari sistem pertandingan. Sistem gugur
+dengan pasangan tetap dapat memakai game/set atau poin langsung. Total poin
+gabungan dapat diatur 1–200, dengan tombol 16/24/32 poin. Semua poin dimainkan;
+contoh total 24 menghasilkan 15–9. Pada 12–12, satu poin tambahan menghasilkan
+pemenang 13–12. Servis berganti setiap empat poin dan sisi lapangan setiap
+delapan poin. Ini aturan komunitas yang ditampilkan pada pengaturan acara.
+
+Pengaturan tersedia pada pembuatan turnamen, menu atur pertandingan, dan
+pengaturan lanjutan kategori/babak. Mesin skor mendukung replay, undo, fault,
+koreksi, dan finalisasi. Skor numerik disimpan tanpa game/set fiktif, lalu
+ditampilkan pada konsol wasit, bagan, detail laga, TV, dan PDF. Pengesahan admin
+tetap diperlukan sebelum pemenang masuk ke babak berikutnya. Tidak ada migrasi
+database atau layanan berbayar tambahan.
+
+Sebanyak 49 tes core dan delapan tes integrasi lulus, termasuk seri/poin penentu,
+batas konfigurasi, servis, undo, serta kemajuan bagan setelah pengesahan.
+Uji browser lokal dan production mencakup pembuatan turnamen gugur 24 poin, hasil 12–13,
+sinkronisasi, TV, PDF, dan tampilan ponsel/desktop. PDF diperiksa memuat skor
+poin, bukan skor set. Alur pengaturan Americano dan game/set juga tetap lulus.
+Penyimpanan poin langsung 32 lalu 24 poin pada pengaturan lanjutan dan halaman
+kelola turnamen juga lulus. Seluruh fixture uji dibersihkan setelah pemeriksaan.

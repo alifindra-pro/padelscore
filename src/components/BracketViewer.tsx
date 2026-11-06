@@ -158,7 +158,7 @@ export function BracketViewer({ stages }: BracketViewerProps) {
                                 </span>
                                 {snap && (
                                   <span className="font-sans tabular-nums font-bold text-xs min-w-16 text-right shrink-0">
-                                    {snap.setsA} ({snap.pointsA})
+                                    {snap.gamesA.length ? `${snap.setsA} (${snap.pointsA})` : snap.pointsA}
                                   </span>
                                 )}
                               </div>
@@ -174,7 +174,7 @@ export function BracketViewer({ stages }: BracketViewerProps) {
                                 </span>
                                 {snap && (
                                   <span className="font-sans tabular-nums font-bold text-xs min-w-16 text-right shrink-0">
-                                    {snap.setsB} ({snap.pointsB})
+                                    {snap.gamesB.length ? `${snap.setsB} (${snap.pointsB})` : snap.pointsB}
                                   </span>
                                 )}
                               </div>
