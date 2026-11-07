@@ -25,15 +25,15 @@ async function handleGET(
                 groups: {
                   include: {
                     standings: {
-                      include: { entry: true },
+                      include: { entry: { include: { players: { select: { player: { select: { id: true, fullName: true } } } } } } },
                       orderBy: [{ points: 'desc' }, { rank: 'asc' }],
                     },
                   },
                 },
                 matches: {
                   include: {
-                    entryA: true,
-                    entryB: true,
+                    entryA: { include: { players: { select: { player: { select: { id: true, fullName: true } } } } } },
+                    entryB: { include: { players: { select: { player: { select: { id: true, fullName: true } } } } } },
                     court: true,
                     scoreSnapshot: true,
                     winner: true,

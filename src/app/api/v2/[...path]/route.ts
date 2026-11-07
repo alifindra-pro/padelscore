@@ -541,103 +541,132 @@ async function dispatch(req: NextRequest, context: Context): Promise<Response> {
       if (operation === "qualify" && method === "POST") {
         if (category.format !== "GROUP_KNOCKOUT")
           throw AppError.badRequest("Kategori bukan grup + knockout");
-        const unapproved = await prisma.match.count({
-          where: {
-            stage: { categoryId: id, type: "GROUP" },
-            NOT: {
-              OR: [{ approvalStatus: "APPROVED" }, { status: "APPROVED" }],
-            },
-          },
-        });
-        if (unapproved)
-          throw AppError.conflict("Sahkan semua hasil grup terlebih dahulu");
-        const groups = await categoryStandings(id);
-        const policy = category.qualificationPolicy as {
-          perGroup: number;
-          bestRunnersUp: number;
-          normalization: string;
-        } | null;
-        if (!policy)
-          throw AppError.badRequest("Atur kebijakan kelolosan dahulu");
-        if (groups.some((g) => g.standings.some((r) => r.needsPlayoff)))
-          throw AppError.conflict(
-            "Masih ada peringkat seri: selesaikan playoff/keputusan admin dahulu",
-          );
-        const qualified = groups.flatMap((g) =>
-          g.standings.slice(0, policy.perGroup),
-        );
-        const candidates = groups
-          .map((g) => g.standings[policy.perGroup])
-          .filter(Boolean);
-        if (
-          policy.bestRunnersUp &&
-          new Set(candidates.map((c) => c.played)).size > 1 &&
-          policy.normalization === "NONE"
-        )
-          throw AppError.badRequest(
-            "Pilih normalisasi untuk grup yang tidak seimbang",
-          );
-        candidates.sort((a, b) =>
-          policy.normalization === "PER_MATCH"
-            ? b.points / Math.max(1, b.played) -
-              a.points / Math.max(1, a.played)
-            : b.points - a.points,
-        );
-        if (
-          policy.bestRunnersUp > 0 &&
-          candidates[policy.bestRunnersUp] &&
-          candidates[policy.bestRunnersUp - 1].points /
-            Math.max(1, candidates[policy.bestRunnersUp - 1].played) ===
-            candidates[policy.bestRunnersUp].points /
-              Math.max(1, candidates[policy.bestRunnersUp].played)
-        )
-          throw AppError.conflict(
-            "Batas best runners-up masih seri; perlu playoff",
-          );
-        qualified.push(...candidates.slice(0, policy.bestRunnersUp));
-        const nodes = draw(
-          qualified.map((r, i) => ({ id: r.id, seed: i + 1 })),
-          "SINGLE_ELIMINATION",
-          "SEEDED",
-          Array.from(
-            { length: qualified.length },
-            () => randomInt(0, 0x1000000) / 0x1000000,
-          ),
-        );
         return ok(
-          await prisma.$transaction(async (tx) => {
-            await tx.$queryRaw`SELECT id FROM categories WHERE id = ${id} FOR UPDATE`;
-            if (
-              await tx.stage.count({
-                where: { categoryId: id, type: "SINGLE_ELIMINATION" },
-              })
-            )
-              throw AppError.conflict("Babak kelolosan sudah dibuat");
-            const stage = await tx.stage.create({
-              data: {
-                categoryId: id,
-                name: "Babak Gugur",
-                type: "SINGLE_ELIMINATION",
-                order: 2,
-                config: json({ draw: nodes }),
-              },
-            });
-            for (const n of nodes)
-              await tx.match.create({
-                data: {
-                  stageId: stage.id,
-                  round: n.round,
-                  matchNumber: n.number,
-                  entryAId: n.a,
-                  entryBId: n.b,
-                  bracketSide: n.side,
-                  status: n.bye ? "APPROVED" : "SCHEDULED",
-                  approvalStatus: n.bye ? "APPROVED" : "PENDING",
-                  winnerId: n.bye ? (n.a ?? n.b) : null,
+          await prisma.$transaction(
+            async (tx) => {
+              await tx.$queryRaw`SELECT id FROM categories WHERE id = ${id} FOR UPDATE`;
+              const unapproved = await tx.match.count({
+                where: {
+                  stage: { categoryId: id, type: "GROUP" },
+                  NOT: {
+                    OR: [
+                      { approvalStatus: "APPROVED" },
+                      { status: "APPROVED" },
+                    ],
+                  },
                 },
               });
-            return stage;
-          }),
+              if (unapproved)
+                throw AppError.conflict(
+                  "Sahkan semua hasil grup terlebih dahulu",
+                );
+              const groups = await categoryStandings(id, tx);
+              const latestCategory = await tx.category.findUniqueOrThrow({
+                where: { id },
+              });
+              const policy = latestCategory.qualificationPolicy as {
+                perGroup: number;
+                bestRunnersUp: number;
+                normalization: string;
+              } | null;
+              if (!policy)
+                throw AppError.badRequest("Atur kebijakan kelolosan dahulu");
+              if (groups.some((g) => g.standings.some((r) => r.needsPlayoff)))
+                throw AppError.conflict(
+                  "Masih ada peringkat seri: selesaikan playoff/keputusan admin dahulu",
+                );
+              if (
+                !groups.length ||
+                groups.some((g) => g.standings.length < policy.perGroup)
+              )
+                throw AppError.badRequest(
+                  "Belum ada grup atau kuota lolos melebihi peserta grup",
+                );
+              const qualified = Array.from(
+                { length: policy.perGroup },
+                (_, rank) => groups.map((g) => g.standings[rank]),
+              ).flat();
+              const candidates = groups
+                .map((g) => g.standings[policy.perGroup])
+                .filter(Boolean);
+              if (
+                policy.bestRunnersUp &&
+                new Set(candidates.map((c) => c.played)).size > 1 &&
+                policy.normalization === "NONE"
+              )
+                throw AppError.badRequest(
+                  "Pilih normalisasi untuk grup yang tidak seimbang",
+                );
+              candidates.sort((a, b) =>
+                policy.normalization === "PER_MATCH"
+                  ? b.points / Math.max(1, b.played) -
+                    a.points / Math.max(1, a.played)
+                  : b.points - a.points,
+              );
+              if (policy.bestRunnersUp > candidates.length)
+                throw AppError.badRequest(
+                  "Kuota runner-up melebihi kandidat yang tersedia",
+                );
+              const runnerValue = (r: (typeof candidates)[number]) =>
+                policy.normalization === "PER_MATCH"
+                  ? r.points / Math.max(1, r.played)
+                  : r.points;
+              if (
+                policy.bestRunnersUp > 0 &&
+                candidates[policy.bestRunnersUp] &&
+                runnerValue(candidates[policy.bestRunnersUp - 1]) ===
+                  runnerValue(candidates[policy.bestRunnersUp])
+              )
+                throw AppError.conflict(
+                  "Batas best runners-up masih seri; perlu playoff",
+                );
+              qualified.push(...candidates.slice(0, policy.bestRunnersUp));
+              if (qualified.length < 2)
+                throw AppError.badRequest(
+                  "Knockout memerlukan minimal dua pasangan",
+                );
+              const nodes = draw(
+                qualified.map((r, i) => ({ id: r.id, seed: i + 1 })),
+                "SINGLE_ELIMINATION",
+                "SEEDED",
+                Array.from(
+                  { length: qualified.length },
+                  () => randomInt(0, 0x1000000) / 0x1000000,
+                ),
+              );
+              if (
+                await tx.stage.count({
+                  where: { categoryId: id, type: "SINGLE_ELIMINATION" },
+                })
+              )
+                throw AppError.conflict("Babak kelolosan sudah dibuat");
+              const stage = await tx.stage.create({
+                data: {
+                  categoryId: id,
+                  name: "Babak Gugur",
+                  type: "SINGLE_ELIMINATION",
+                  order: 2,
+                  config: json({ draw: nodes }),
+                },
+              });
+              for (const n of nodes)
+                await tx.match.create({
+                  data: {
+                    stageId: stage.id,
+                    round: n.round,
+                    matchNumber: n.number,
+                    entryAId: n.a,
+                    entryBId: n.b,
+                    bracketSide: n.side,
+                    status: n.bye ? "APPROVED" : "SCHEDULED",
+                    approvalStatus: n.bye ? "APPROVED" : "PENDING",
+                    winnerId: n.bye ? (n.a ?? n.b) : null,
+                  },
+                });
+              return stage;
+            },
+            { timeout: 30000 },
+          ),
           201,
         );
       }
@@ -647,7 +676,7 @@ async function dispatch(req: NextRequest, context: Context): Promise<Response> {
             mode: z.enum(["RANDOM", "SEEDED", "MANUAL"]).default("SEEDED"),
             entryOrder: z.array(uuid).optional(),
             thirdPlace: z.boolean().default(false),
-            groups: z.number().int().min(1).max(16).default(2),
+            groups: z.number().int().min(1).max(16).optional(),
           })
           .parse(await req.json());
         const participants = category.entries.filter((e) =>
@@ -682,6 +711,21 @@ async function dispatch(req: NextRequest, context: Context): Promise<Response> {
           if (started)
             throw AppError.conflict(
               "Bagan sudah digunakan; buat kategori baru atau selesaikan dampak perubahan",
+            );
+          const groupCount =
+            input.groups ??
+            ((await tx.group.count({ where: { stage: { categoryId: id } } })) ||
+              2);
+          const perGroup =
+            (category.qualificationPolicy as { perGroup?: number } | null)
+              ?.perGroup ?? 2;
+          if (
+            category.format === "GROUP_KNOCKOUT" &&
+            (entries.length < groupCount * 2 ||
+              perGroup > Math.floor(entries.length / groupCount))
+          )
+            throw AppError.badRequest(
+              "Jumlah grup atau kuota lolos tidak sesuai jumlah pasangan",
             );
           await tx.stage.deleteMany({ where: { categoryId: id } });
           if (
@@ -740,8 +784,8 @@ async function dispatch(req: NextRequest, context: Context): Promise<Response> {
                     },
                   ]
                 : generateGroupStageWithKnockout(entries, {
-                    numGroups: input.groups,
-                    advancePerGroup: 2,
+                    numGroups: groupCount,
+                    advancePerGroup: perGroup,
                   }).groups;
             const stage = await tx.stage.create({
               data: {
@@ -1062,10 +1106,14 @@ async function dispatch(req: NextRequest, context: Context): Promise<Response> {
     return handleApiError(error);
   }
 }
-async function categoryStandings(id: string) {
-  const category = await prisma.category.findUniqueOrThrow({ where: { id } });
-  const groups = await prisma.group.findMany({
+async function categoryStandings(
+  id: string,
+  db: Pick<typeof prisma, "category" | "group"> = prisma,
+) {
+  const category = await db.category.findUniqueOrThrow({ where: { id } });
+  const groups = await db.group.findMany({
     where: { stage: { categoryId: id } },
+    orderBy: { name: "asc" },
     include: {
       matches: {
         include: { scoreSnapshot: true },
@@ -1088,8 +1136,14 @@ async function categoryStandings(id: string) {
         winner: m.winnerId,
         setsA: m.scoreSnapshot?.setsA ?? 0,
         setsB: m.scoreSnapshot?.setsB ?? 0,
-        gamesA: m.scoreSnapshot?.gamesA.reduce((a, b) => a + b, 0) ?? 0,
-        gamesB: m.scoreSnapshot?.gamesB.reduce((a, b) => a + b, 0) ?? 0,
+        gamesA:
+          (category.rulesV2 as { mode?: string } | null)?.mode === "POINTS"
+            ? Number(m.scoreSnapshot?.pointsA ?? 0)
+            : (m.scoreSnapshot?.gamesA.reduce((a, b) => a + b, 0) ?? 0),
+        gamesB:
+          (category.rulesV2 as { mode?: string } | null)?.mode === "POINTS"
+            ? Number(m.scoreSnapshot?.pointsB ?? 0)
+            : (m.scoreSnapshot?.gamesB.reduce((a, b) => a + b, 0) ?? 0),
       }));
     return {
       id: g.id,

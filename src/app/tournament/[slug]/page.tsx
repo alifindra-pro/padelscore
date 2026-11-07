@@ -5,6 +5,7 @@ import { Icon } from "@/components/ui/Icon";
 
 import React, { useCallback, useEffect, useState, use, Suspense } from "react";
 import Link from "next/link";
+import { PlayerPhoto } from "@/components/PlayerPhoto";
 import { apiFetch } from "@/lib/api-client";
 import { useSSE } from "@/hooks/useSSE";
 import { BracketViewer } from "@/components/BracketViewer";
@@ -654,7 +655,19 @@ function TournamentPublicContent({
                   className="p-4 bg-card border border-line rounded-2xl space-y-1 shadow-card"
                 >
                   <div className="flex justify-between items-center">
-                    <span className="font-bold text-ink text-sm">{e.name}</span>
+                    <span className="font-bold text-ink text-sm flex items-center gap-2">
+                      {e.players?.map(
+                        ({ player }) =>
+                          player && (
+                            <PlayerPhoto
+                              key={player.id}
+                              id={player.id}
+                              name={player.fullName}
+                            />
+                          ),
+                      )}
+                      {e.name}
+                    </span>
                     {e.seed && (
                       <span className="text-[10px] font-mono font-bold text-warning-ink bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
                         Unggulan #{e.seed}

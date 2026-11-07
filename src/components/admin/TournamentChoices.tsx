@@ -6,6 +6,15 @@ import type { SocialConfig } from "../../../packages/core/src";
 
 export const FORMAT_OPTIONS = [
   {
+    value: "GROUP_KNOCKOUT",
+    label: "Grup + gugur",
+    description:
+      "Bermain di grup dahulu. Peserta yang lolos melanjutkan ke babak gugur.",
+    detail: "Pasangan tetap · Grup lalu final",
+    icon: "grid",
+  },
+
+  {
     value: "SINGLE_ELIMINATION",
     label: "Sistem gugur",
     description:
@@ -39,13 +48,6 @@ export const FORMAT_OPTIONS = [
   },
 ];
 export const EXTRA_FORMAT_OPTIONS = [
-  {
-    value: "GROUP_KNOCKOUT",
-    label: "Grup + gugur",
-    description:
-      "Bermain di grup dahulu. Peserta yang lolos melanjutkan ke babak gugur.",
-    icon: "grid",
-  },
   {
     value: "DOUBLE_ELIMINATION",
     label: "Dua kali kalah gugur",

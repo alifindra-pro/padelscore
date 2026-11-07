@@ -237,3 +237,48 @@ tetap utuh. Seluruh fixture browser dibersihkan setelah pengujian.
 Migrasi tambahan telah diuji di development dan diterapkan ke production.
 Deployment: `dpl_6v286j86GSzh7sbrQe5gRTsCQ7Eu`.
 Vercel Hobby dan Neon Free tetap digunakan tanpa layanan berbayar tambahan.
+
+## Grup menuju knockout dan foto pemain — 7 November 2026
+
+Pembuatan turnamen cepat mendukung **Grup + gugur**, jumlah grup 1–16 dan
+kuota lolos 1–4 per grup. Setiap grup minimal dua pasangan; kuota tidak boleh
+melebihi ukuran grup terkecil dan total peserta knockout minimal dua.
+Pasangan dibagi merata secara acak. Aturan game/set maupun poin langsung
+tersedia untuk format ini. Formulir membuat jadwal grup dahulu.
+
+Setelah semua hasil grup disahkan, buka **Atur pertandingan → Buat knockout
+dari hasil grup**, lalu jadwalkan babak baru. Kelolosan dikunci bila masih ada
+peringkat seri yang belum terselesaikan. Penekanan bersamaan tidak membuat
+babak ganda. Seed disusun menurut peringkat antargrup; dua grup dengan dua
+pasangan lolos menghasilkan juara grup melawan runner-up grup lain. Selisih
+poin langsung ikut perhitungan pemecah seri; poin klasemen tetap berdasarkan
+menang/seri/kalah. Undian ulang mempertahankan jumlah grup yang sudah dipilih.
+
+Foto tersimpan pada **pemain**, bukan pasangan. Menu **Pemain** menyediakan
+edit profil dan unggah JPEG/PNG/WebP maksimal 4 MB. Foto diproses menjadi WebP
+persegi 512 piksel pada penyimpanan yang sudah ada. Pada langkah peserta
+turnamen, pilih dua pemain tersimpan untuk membentuk pasangan. ID pemain,
+foto, dan riwayat tetap sama ketika pasangan berubah; nama baru yang diketik
+membuat pemain baru. Nama yang sama tidak otomatis digabungkan karena belum
+tentu orang yang sama. Profil digunakan lintas turnamen dalam organisasi yang
+sama; foto publik hanya tersedia setelah pemain terdaftar pada acara publik.
+Nama pasangan pada turnamen lama tetap menjadi catatan saat pendaftaran.
+Pemilihan pemain tersimpan ini tersedia pada turnamen pasangan tetap.
+
+Build/TypeScript dan lint lulus. Sebelas tes integrasi mencakup pembuatan,
+regresi skor, kelolosan, undian ulang, pemakaian ulang pemain, dan privasi foto.
+Uji browser lokal memeriksa unggah lalu muat ulang, pembuatan melalui formulir,
+kelolosan sebelum/sesudah pengesahan, serta tampilan 390/1440 piksel.
+Satu pengulangan tes database melampaui 30 detik; setelah batas tes dinaikkan
+menjadi 60 detik, seluruh tes lulus dalam 18 detik. Tidak ada batas waktu
+transaksi aplikasi yang dinaikkan.
+
+Dua migrasi lokal dipertahankan urutannya karena sudah diuji pada development:
+model pasangan sementara dibuat lalu dihapus; skema akhir hanya menambah
+`Player.photoKey`. Model sementara tidak pernah dipakai pada website publik.
+Keduanya telah diterapkan pada production. Tidak ada perubahan paket layanan.
+
+Deployment `dpl_6yuSFN1ehTYfznu6Mny9k6WWeyS3` aktif pada domain production.
+Uji browser production juga lulus, termasuk penyimpanan edit profil, foto
+setelah muat ulang, pemilihan pemain lama, grup → knockout, dan foto publik.
+Seluruh fixture dibersihkan setelah pengujian.

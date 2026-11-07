@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { PlayerPhoto } from "@/components/PlayerPhoto";
 import { Icon } from "@/components/ui/Icon";
 import { StageView, MatchView } from "@/types/match";
 const statuses: Record<string, string> = {
@@ -38,6 +39,16 @@ function MatchCard({ match: m }: { match: MatchView }) {
             className={`bracket-player ${winner ? "is-winner" : ""}`}
           >
             <span>
+              {entry?.players?.map(
+                ({ player }) =>
+                  player && (
+                    <PlayerPhoto
+                      key={player.id}
+                      id={player.id}
+                      name={player.fullName}
+                    />
+                  ),
+              )}
               {winner && <Icon name="check" size={13} />}
               <span title={entry?.name}>
                 {entry?.name ??
@@ -148,7 +159,19 @@ function GroupStage({ stage }: { stage: StageView }) {
                         </span>
                       </td>
                       <th scope="row">
-                        {row.entry?.name ?? "Menunggu pasangan"}
+                        <span className="flex items-center gap-2">
+                          {row.entry?.players?.map(
+                            ({ player }) =>
+                              player && (
+                                <PlayerPhoto
+                                  key={player.id}
+                                  id={player.id}
+                                  name={player.fullName}
+                                />
+                              ),
+                          )}
+                          {row.entry?.name ?? "Menunggu pasangan"}
+                        </span>
                       </th>
                       <td>
                         {row.played ?? row.won + row.lost + (row.drawn ?? 0)}

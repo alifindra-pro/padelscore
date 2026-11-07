@@ -141,3 +141,13 @@ Frontend Vercel diterbitkan pada 3 November 2026 di
 tetap Free. Organisasi Padel Score dan akun pemiliknya sudah aktif. Admin
 membuat akun wasit/staf dari menu **Akun & organisasi**; alurnya dijelaskan di
 [panduan Vercel](VERCEL.md#akun-admin-dan-tim).
+
+## Foto per pemain — 7 November 2026
+
+Lima migrasi telah diterapkan pada development dan production. Dua migrasi
+terakhir mempertahankan urutan eksperimen development: `saved_pairs` sementara
+dibuat lalu dihapus saat kebutuhan dikoreksi menjadi foto per orang.
+Skema akhir menambahkan kolom nullable `players.photoKey` tanpa mengubah data
+pemain atau pertandingan yang sudah ada. Foto menggunakan bucket `assets`
+yang sudah tersedia, dengan key `avatars/players-{id}/...`; tidak ada layanan
+penyimpanan baru. Foto draf memerlukan akses organisasi.

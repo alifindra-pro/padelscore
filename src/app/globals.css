@@ -2422,3 +2422,20 @@
   .group-fixtures > div { display: grid; gap: 12px; padding-top: 16px; }
   @media(max-width:600px) { .bracket-round { width: 240px; } .sponsor-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } .sponsor-tile { padding: 14px; } .sponsor-tile img { height: 70px; } }
 }
+
+.player-photo { width: 32px; height: 32px; flex-shrink: 0; border-radius: 50%; object-fit: cover; }
+
+.player-photo-initial { display: inline-flex; align-items: center; justify-content: center; background: var(--color-surface-tint); color: var(--color-ink); font-size: 12px; }
+
+.player-directory-table { table-layout: auto; }
+.player-directory-table input[type="file"] { width: 100%; max-width: 300px; }
+@media (max-width: 767px) {
+  .player-directory-table, .player-directory-table tbody { display: block; }
+  .player-directory-table thead { display: none; }
+  .player-directory-table tr { display: grid; grid-template-columns: 1fr 1fr; padding: 16px; gap: 12px; }
+  .admin-content .player-directory-table td { display: block; padding: 0; text-align: left; overflow-wrap: break-word; }
+  .player-directory-table td:first-child, .player-directory-table td:last-child, .player-directory-table td:nth-child(2) { grid-column: 1 / -1; }
+  .player-directory-table td:first-child { font-size: 16px; }
+  .player-directory-table td:nth-child(3)::before { content: "Rating: "; }
+  .player-directory-table td:last-child { border-top: 1px solid var(--color-line); padding-top: 12px; }
+}

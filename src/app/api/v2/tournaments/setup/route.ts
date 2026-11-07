@@ -13,7 +13,10 @@ import {
 } from "../../../../../../packages/core/src";
 import { socialConfigSchema } from "@/lib/v2/validation";
 import { scheduleMatches } from "@/engines/scheduling/scheduling-engine";
-import { generateRoundRobinSchedule } from "@/engines/tournament/tournament-engine";
+import {
+  generateRoundRobinSchedule,
+  generateGroupStageWithKnockout,
+} from "@/engines/tournament/tournament-engine";
 
 const schema = z.object({
   requestId: z.string().uuid(),
@@ -26,7 +29,9 @@ const schema = z.object({
   preset: z.enum(["SINGLE", "STANDARD", "SHORT", "POINTS"]),
   totalPoints: z.number().int().min(1).max(200).optional(),
   deuce: z.enum(["ADVANTAGE", "GOLDEN_POINT", "STAR_POINT"]).optional(),
-  format: z.enum(["SINGLE_ELIMINATION", "ROUND_ROBIN"]),
+  format: z.enum(["SINGLE_ELIMINATION", "ROUND_ROBIN", "GROUP_KNOCKOUT"]),
+  groups: z.number().int().min(1).max(16).default(2),
+  advancePerGroup: z.number().int().min(1).max(4).default(2),
   pairs: z
     .array(
       z.tuple([
@@ -36,6 +41,12 @@ const schema = z.object({
     )
     .min(2)
     .max(64),
+  playerIds: z
+    .array(
+      z.tuple([z.string().uuid().nullable(), z.string().uuid().nullable()]),
+    )
+    .max(64)
+    .optional(),
   duration: z.number().int().min(15).max(180),
   rest: z.number().int().min(0).max(180),
 });
@@ -157,6 +168,17 @@ export async function POST(req: NextRequest) {
         { status: 201 },
       );
     }
+    if (
+      body.format === "GROUP_KNOCKOUT" &&
+      (body.pairs.length < body.groups * 2 ||
+        body.advancePerGroup > Math.floor(body.pairs.length / body.groups) ||
+        body.groups * body.advancePerGroup < 2)
+    )
+      throw AppError.badRequest(
+        "Setiap grup perlu minimal dua pasangan, kuota lolos tidak boleh melebihi ukuran grup, dan knockout perlu minimal dua pasangan.",
+      );
+    if (body.playerIds && body.playerIds.length !== body.pairs.length)
+      throw AppError.badRequest("Daftar pemain tersimpan tidak sesuai peserta");
     const names = body.pairs.flat().map((n) => n.toLocaleLowerCase("id"));
     if (new Set(names).size !== names.length)
       throw AppError.badRequest(
@@ -221,6 +243,14 @@ export async function POST(req: NextRequest) {
             tournamentId: t.id,
             name: body.category,
             format: body.format,
+            qualificationPolicy:
+              body.format === "GROUP_KNOCKOUT"
+                ? {
+                    perGroup: body.advancePerGroup,
+                    bestRunnersUp: 0,
+                    normalization: "NONE",
+                  }
+                : undefined,
             rulesV2: JSON.parse(
               JSON.stringify({
                 ...PRESETS[body.preset],
@@ -246,12 +276,30 @@ export async function POST(req: NextRequest) {
         const entries: Prisma.EntryGetPayload<{
           include: { players: true };
         }>[] = [];
-        for (const pair of body.pairs) {
+        for (const [pairIndex, pair] of body.pairs.entries()) {
           const players = [];
-          for (const fullName of pair)
+          for (const [playerIndex, fullName] of pair.entries()) {
+            const playerId = body.playerIds?.[pairIndex]?.[playerIndex];
+            const saved = playerId
+              ? await tx.player.findFirst({
+                  where: { id: playerId, organizationId },
+                })
+              : null;
+            if (playerId && !saved)
+              throw AppError.notFound(
+                "Pemain tersimpan tidak ditemukan di organisasi ini",
+              );
+            if (saved && saved.fullName !== fullName)
+              throw AppError.conflict(
+                "Nama pemain berubah. Pilih ulang pemain dari direktori.",
+              );
             players.push(
-              await tx.player.create({ data: { organizationId, fullName } }),
+              saved ??
+                (await tx.player.create({
+                  data: { organizationId, fullName },
+                })),
             );
+          }
           entries.push(
             await tx.entry.create({
               data: {
@@ -263,6 +311,26 @@ export async function POST(req: NextRequest) {
             }),
           );
         }
+        const shuffled = [...entries];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+          const j = randomInt(i + 1);
+          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        const pools =
+          body.format === "GROUP_KNOCKOUT"
+            ? generateGroupStageWithKnockout(shuffled, {
+                numGroups: body.groups,
+                advancePerGroup: body.advancePerGroup,
+              }).groups
+            : body.format === "ROUND_ROBIN"
+              ? [
+                  {
+                    groupName: "Grup A",
+                    matches: generateRoundRobinSchedule(entries),
+                  },
+                ]
+              : [];
+        let number = 0;
         const nodes =
           body.format === "SINGLE_ELIMINATION"
             ? draw(
@@ -270,41 +338,52 @@ export async function POST(req: NextRequest) {
                 "SINGLE_ELIMINATION",
                 "RANDOM",
                 entries.map(() => randomInt(0, 0x1000000) / 0x1000000),
-              )
-            : generateRoundRobinSchedule(entries).map((match, i) => ({
-                a: match.entryA?.id ?? null,
-                b: match.entryB?.id ?? null,
-                round: match.round,
-                number: i + 1,
-                bye: false,
-                side: "WINNERS" as const,
-                winnerTo: undefined,
-                loserTo: undefined,
-              }));
+              ).map((n) => ({ ...n, groupIndex: -1 }))
+            : pools.flatMap((pool, groupIndex) =>
+                pool.matches.map((m) => ({
+                  a: m.entryA?.id ?? null,
+                  b: m.entryB?.id ?? null,
+                  round: m.round,
+                  number: ++number,
+                  bye: false,
+                  side: "WINNERS" as const,
+                  winnerTo: undefined,
+                  loserTo: undefined,
+                  groupIndex,
+                })),
+              );
         const stage = await tx.stage.create({
           data: {
             categoryId: c.id,
             name:
-              body.format === "ROUND_ROBIN" ? "Semua pasangan" : "Bagan utama",
+              body.format === "SINGLE_ELIMINATION"
+                ? "Bagan utama"
+                : "Penyisihan grup",
             type:
-              body.format === "ROUND_ROBIN" ? "GROUP" : "SINGLE_ELIMINATION",
+              body.format === "SINGLE_ELIMINATION"
+                ? "SINGLE_ELIMINATION"
+                : "GROUP",
             order: 1,
             config: JSON.parse(JSON.stringify({ draw: nodes })),
           },
         });
-        const group =
-          body.format === "ROUND_ROBIN"
-            ? await tx.group.create({
-                data: { stageId: stage.id, name: "Grup A" },
-              })
-            : null;
+        const groups = [];
+        for (const [i] of pools.entries())
+          groups.push(
+            await tx.group.create({
+              data: {
+                stageId: stage.id,
+                name: `Grup ${String.fromCharCode(65 + i)}`,
+              },
+            }),
+          );
         const matches = [];
         for (const n of nodes)
           matches.push(
             await tx.match.create({
               data: {
                 stageId: stage.id,
-                groupId: group?.id,
+                groupId: groups[n.groupIndex]?.id,
                 round: n.round,
                 matchNumber: n.number,
                 entryAId: n.a,

@@ -1,5 +1,5 @@
 "use client";
-import { Suspense, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiFetch } from "@/lib/api-client";
@@ -39,10 +39,39 @@ function NewTournament() {
     deuce: "ADVANTAGE",
     duration: 60,
     rest: 30,
+    groups: 2,
+    advancePerGroup: 2,
   });
   const [social, setSocial] = useState<
     Pick<SocialConfig, "target" | "rounds" | "ranking" | "pairing">
   >({ target: 32, rounds: 7, ranking: "TOTAL", pairing: "BALANCED" });
+  const [savedPlayers, setSavedPlayers] = useState<
+    { id: string; fullName: string }[]
+  >([]);
+  const [selectedPlayers, setSelectedPlayers] = useState<
+    Record<string, string>
+  >({});
+  const [chosenA, setChosenA] = useState("");
+  const [chosenB, setChosenB] = useState("");
+  const [playerSearch, setPlayerSearch] = useState("");
+  useEffect(() => {
+    let active = true;
+    const timer = setTimeout(() => {
+      apiFetch<{ items: typeof savedPlayers }>("/api/v1/players", {
+        params: { search: playerSearch, limit: 100 },
+      })
+        .then((r) => {
+          if (active) setSavedPlayers(r.items);
+        })
+        .catch((e) => {
+          if (active) setError(e.message);
+        });
+    }, 200);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [playerSearch]);
   const [pairText, setPairText] = useState("");
   const [playerText, setPlayerText] = useState("");
   const isSocial = ["AMERICANO", "MEXICANO"].includes(data.format);
@@ -74,6 +103,15 @@ function NewTournament() {
     } else {
       if (pairs.length < 2 || pairs.length > 64)
         throw Error("Masukkan 2 sampai 64 pasangan.");
+      if (
+        data.format === "GROUP_KNOCKOUT" &&
+        (pairs.length < data.groups * 2 ||
+          data.advancePerGroup > Math.floor(pairs.length / data.groups) ||
+          data.groups * data.advancePerGroup < 2)
+      )
+        throw Error(
+          "Periksa jumlah grup dan kuota lolos. Setiap grup minimal dua pasangan; knockout minimal dua pasangan.",
+        );
       if (pairs.some((pair) => pair.length !== 2))
         throw Error(
           "Gunakan satu pasangan per baris: Nama pemain 1 / Nama pemain 2.",
@@ -119,7 +157,14 @@ function NewTournament() {
           body: JSON.stringify({
             ...data,
             start: new Date(`${data.start}:00${offset}`).toISOString(),
-            ...(isSocial ? { players, ...social } : { pairs }),
+            ...(isSocial
+              ? { players, ...social }
+              : {
+                  pairs,
+                  playerIds: pairs.map((pair) =>
+                    pair.map((name) => selectedPlayers[name] ?? null),
+                  ),
+                }),
             requestId: key,
           }),
         },
@@ -322,6 +367,45 @@ function NewTournament() {
                     options={FORMAT_OPTIONS}
                     onChange={(format) => setData({ ...data, format })}
                   />
+                  {data.format === "GROUP_KNOCKOUT" && (
+                    <div className="grid sm:grid-cols-2 gap-4 mt-5">
+                      <label className="field">
+                        Jumlah grup
+                        <input
+                          type="number"
+                          min={1}
+                          max={16}
+                          value={data.groups}
+                          onChange={(e) =>
+                            setData({ ...data, groups: Number(e.target.value) })
+                          }
+                          required
+                        />
+                      </label>
+                      <label className="field">
+                        Lolos per grup
+                        <input
+                          type="number"
+                          min={1}
+                          max={4}
+                          value={data.advancePerGroup}
+                          onChange={(e) =>
+                            setData({
+                              ...data,
+                              advancePerGroup: Number(e.target.value),
+                            })
+                          }
+                          required
+                        />
+                      </label>
+                      <p className="text-secondary sm:col-span-2">
+                        Pasangan dibagi merata secara acak.{" "}
+                        {data.advancePerGroup} terbaik tiap grup lolos ke
+                        knockout setelah seluruh hasil grup disahkan. Babak
+                        knockout dibuat melalui kelola turnamen.
+                      </p>
+                    </div>
+                  )}
                 </section>
                 <section className="setup-section">
                   {isSocial ? (
@@ -462,6 +546,87 @@ function NewTournament() {
                   <strong>{count}</strong>
                   <span>{isSocial ? "pemain" : "pasangan"} terisi</span>
                 </div>
+                {!isSocial && (
+                  <div className="space-y-3 mb-4">
+                    <label className="field">
+                      Cari pemain tersimpan
+                      <input
+                        value={playerSearch}
+                        onChange={(e) => {
+                          setPlayerSearch(e.target.value);
+                          setChosenA("");
+                          setChosenB("");
+                        }}
+                        placeholder="Nama pemain"
+                      />
+                    </label>
+                    <div className="grid sm:grid-cols-2 gap-3">
+                      {[
+                        {
+                          label: "Pemain pertama",
+                          value: chosenA,
+                          set: setChosenA,
+                        },
+                        {
+                          label: "Pemain kedua",
+                          value: chosenB,
+                          set: setChosenB,
+                        },
+                      ].map((field) => (
+                        <label className="field" key={field.label}>
+                          {field.label}
+                          <select
+                            aria-label={field.label}
+                            value={field.value}
+                            onChange={(e) => field.set(e.target.value)}
+                          >
+                            <option value="">Pilih pemain</option>
+                            {savedPlayers.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.fullName} · {p.id.slice(0, 6)}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      disabled={!chosenA || !chosenB || chosenA === chosenB}
+                      onClick={() => {
+                        const a = savedPlayers.find((p) => p.id === chosenA)!;
+                        const b = savedPlayers.find((p) => p.id === chosenB)!;
+                        setPairText((t) =>
+                          [t.trim(), `${a.fullName} / ${b.fullName}`]
+                            .filter(Boolean)
+                            .join("\n"),
+                        );
+                        setSelectedPlayers((v) => ({
+                          ...v,
+                          [a.fullName]: a.id,
+                          [b.fullName]: b.id,
+                        }));
+                        setChosenA("");
+                        setChosenB("");
+                      }}
+                    >
+                      Tambahkan pasangan dari pemain
+                    </button>
+                    <Link
+                      href="/admin/players"
+                      target="_blank"
+                      className="block text-primary"
+                    >
+                      Kelola nama dan foto pemain ↗
+                    </Link>
+                    <p className="setting-help">
+                      Foto dan riwayat mengikuti pemain, meskipun pasangannya
+                      berubah. Nama baru yang diketik di bawah disimpan ke
+                      direktori setelah turnamen dibuat.
+                    </p>
+                  </div>
+                )}
                 <div className="field">
                   <label htmlFor="setup-participants">
                     {isSocial

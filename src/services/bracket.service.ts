@@ -209,21 +209,21 @@ export class BracketService {
       where: { categoryId },
       include: {
         bracketSlots: {
-          include: { entry: true },
+          include: { entry: { include: { players: { select: { player: { select: { id: true, fullName: true } } } } } } },
           orderBy: [{ round: 'asc' }, { position: 'asc' }],
         },
         groups: {
           include: {
             standings: {
-              include: { entry: true },
+              include: { entry: { include: { players: { select: { player: { select: { id: true, fullName: true } } } } } } },
               orderBy: [{ points: 'desc' }, { rank: 'asc' }],
             },
           },
         },
         matches: {
           include: {
-            entryA: true,
-            entryB: true,
+            entryA: { include: { players: { select: { player: { select: { id: true, fullName: true } } } } } },
+            entryB: { include: { players: { select: { player: { select: { id: true, fullName: true } } } } } },
             court: true,
             winner: true,
             scoreSnapshot: true,

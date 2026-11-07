@@ -748,10 +748,6 @@ export default function Workspace({
                                 mode: entries.some((e) => e.seed)
                                   ? "SEEDED"
                                   : "RANDOM",
-                                groups: Math.max(
-                                  1,
-                                  Math.min(2, Math.floor(entries.length / 2)),
-                                ),
                               }),
                             }),
                           "Bagan siap. Selanjutnya atur jadwal.",
@@ -768,6 +764,37 @@ export default function Workspace({
                     Atur bagan secara rinci
                   </Link>
                 </div>
+                {category.format === "GROUP_KNOCKOUT" && (
+                  <div className="space-y-3">
+                    <p className="text-secondary">
+                      Selesaikan dan sahkan seluruh laga grup, lalu bentuk
+                      knockout dari peringkat grup. Jika peringkat masih seri,
+                      kelolosan ditahan untuk ditinjau panitia. Jadwalkan laga
+                      knockout setelah bagan terbentuk.
+                    </p>
+                    <button
+                      className="btn-primary"
+                      disabled={
+                        busy ||
+                        stages.some((s) => s.type === "SINGLE_ELIMINATION")
+                      }
+                      onClick={() =>
+                        run(
+                          () =>
+                            apiFetch(`/api/v2/categories/${selected}/qualify`, {
+                              method: "POST",
+                              body: "{}",
+                            }),
+                          "Babak knockout dibuat. Atur jadwal laga berikutnya.",
+                        )
+                      }
+                    >
+                      {stages.some((s) => s.type === "SINGLE_ELIMINATION")
+                        ? "Knockout sudah dibuat"
+                        : "Buat knockout dari hasil grup"}
+                    </button>
+                  </div>
+                )}
                 {stages.length > 0 && <BracketViewer stages={stages} />}
               </section>
               <section className="panel space-y-4">

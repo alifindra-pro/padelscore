@@ -31,8 +31,16 @@ export async function refreshGroupStandings(
       winner: m.winnerId,
       setsA: m.scoreSnapshot?.setsA ?? 0,
       setsB: m.scoreSnapshot?.setsB ?? 0,
-      gamesA: m.scoreSnapshot?.gamesA.reduce((a, b) => a + b, 0) ?? 0,
-      gamesB: m.scoreSnapshot?.gamesB.reduce((a, b) => a + b, 0) ?? 0,
+      gamesA:
+        (group.stage.category.rulesV2 as { mode?: string } | null)?.mode ===
+        "POINTS"
+          ? Number(m.scoreSnapshot?.pointsA ?? 0)
+          : (m.scoreSnapshot?.gamesA.reduce((a, b) => a + b, 0) ?? 0),
+      gamesB:
+        (group.stage.category.rulesV2 as { mode?: string } | null)?.mode ===
+        "POINTS"
+          ? Number(m.scoreSnapshot?.pointsB ?? 0)
+          : (m.scoreSnapshot?.gamesB.reduce((a, b) => a + b, 0) ?? 0),
     }));
   const rows = standings(
     ids,

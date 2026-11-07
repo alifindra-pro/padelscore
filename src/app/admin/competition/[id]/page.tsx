@@ -430,7 +430,6 @@ function Competition({ params }: { params: Promise<{ id: string }> }) {
                             body: JSON.stringify({
                               mode,
                               thirdPlace: true,
-                              groups: 2,
                             }),
                           }),
                         "Bagan yang ditampilkan telah disimpan",

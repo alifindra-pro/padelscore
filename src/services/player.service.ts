@@ -1,6 +1,6 @@
-import prisma from '@/lib/db';
-import { Prisma } from '@prisma/client';
-import { AppError } from '@/lib/errors';
+import prisma from "@/lib/db";
+import { Prisma } from "@prisma/client";
+import { AppError } from "@/lib/errors";
 
 export interface CreatePlayerParams {
   organizationId?: string;
@@ -33,7 +33,9 @@ export class PlayerService {
         where: { email: params.email },
       });
       if (existing) {
-        throw AppError.conflict(`Player with email '${params.email}' already exists`);
+        throw AppError.conflict(
+          `Player with email '${params.email}' already exists`,
+        );
       }
     }
 
@@ -59,7 +61,14 @@ export class PlayerService {
               include: {
                 category: {
                   include: {
-                    tournament: { select: { id: true, name: true, slug: true, status: true } },
+                    tournament: {
+                      select: {
+                        id: true,
+                        name: true,
+                        slug: true,
+                        status: true,
+                      },
+                    },
                   },
                 },
               },
@@ -81,12 +90,14 @@ export class PlayerService {
     const limit = Math.min(100, Math.max(1, params.limit || 20));
     const skip = (page - 1) * limit;
 
-    const where: Prisma.PlayerWhereInput = { organizationId: params.organizationId };
+    const where: Prisma.PlayerWhereInput = {
+      organizationId: params.organizationId,
+    };
     if (params.search) {
       where.OR = [
-        { fullName: { contains: params.search, mode: 'insensitive' } },
-        { email: { contains: params.search, mode: 'insensitive' } },
-        { phone: { contains: params.search, mode: 'insensitive' } },
+        { fullName: { contains: params.search, mode: "insensitive" } },
+        { email: { contains: params.search, mode: "insensitive" } },
+        { phone: { contains: params.search, mode: "insensitive" } },
       ];
     }
 
@@ -96,7 +107,7 @@ export class PlayerService {
         where,
         skip,
         take: limit,
-        orderBy: { fullName: 'asc' },
+        orderBy: { fullName: "asc" },
         include: {
           _count: { select: { entryPlayers: true } },
         },
@@ -123,7 +134,9 @@ export class PlayerService {
         },
       });
       if (duplicate) {
-        throw AppError.conflict(`Email '${params.email}' is already taken by another player`);
+        throw AppError.conflict(
+          `Email '${params.email}' is already taken by another player`,
+        );
       }
     }
 
@@ -131,10 +144,13 @@ export class PlayerService {
       where: { id },
       data: {
         fullName: params.fullName?.trim(),
-        email: params.email?.trim() || null,
-        phone: params.phone?.trim() || null,
+        email:
+          params.email === undefined ? undefined : params.email?.trim() || null,
+        phone:
+          params.phone === undefined ? undefined : params.phone?.trim() || null,
         rating: params.rating,
-        notes: params.notes?.trim() || null,
+        notes:
+          params.notes === undefined ? undefined : params.notes?.trim() || null,
       },
     });
   }
