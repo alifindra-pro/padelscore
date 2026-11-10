@@ -345,3 +345,25 @@ Deploy production `dpl_D7kebykWBfD4Pq96BsSMgLAW7Yrn` READY; uji browser pada
 https://padelscore-swart.vercel.app lulus termasuk cadangan, diskualifikasi,
 konfirmasi masuk utama, dan tampilan admin/publik 390/1440 px. Fixture telah
 dibersihkan. Empat tes integrasi lulus; paket Vercel/Neon tidak diubah.
+
+## Header dan warna tema per turnamen — 10 November 2026
+
+Menu **Header, sponsor & sanggahan** menyediakan banner/foto, logo, judul
+khusus, deskripsi singkat, serta warna tema. Judul tidak mengganti nama/slug.
+Gambar JPEG/PNG/WebP maksimal 4 MB divalidasi dan dikonversi ke WebP, tanpa
+memotong proporsi. Banner disarankan 1600 × 600 px. Gambar dapat diganti atau
+dihapus; objek lama dibersihkan setelah perubahan database berhasil.
+
+Pengaturan dan gambar draft mengikuti hak akses turnamen. Hanya admin yang
+bisa mengubah header. Endpoint publik tidak mengungkap storage key. Warna
+harus berupa hex enam digit; aksen mengikuti pilihan, sementara warna teks
+dan tombol disesuaikan untuk kontras. Ada tombol kembali ke biru bawaan.
+
+Build webpack/TypeScript, lint, tes kontras, dan uji browser lokal lulus.
+Browser memeriksa unggah, reload, isolasi antarturnamen, akses draft/publik,
+penolakan gambar dan warna tidak valid, reset warna, penghapusan, fallback
+judul, dan tampilan publik 390/1440 px. Fixture dibersihkan.
+
+Production deploy `dpl_MdBv9SWeh3i33CZiRQ5gtD83Ds5w` READY. Uji browser
+pada https://padelscore-swart.vercel.app lulus untuk seluruh alur header dan
+tema, termasuk penghapusan dan reset. Fixture database/gambar telah dibersihkan.

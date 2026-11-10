@@ -168,3 +168,17 @@ pendaftaran baru ditetapkan setelah penguncian kategori agar konsisten saat
 permintaan bersamaan. Tidak menambah layanan atau mengubah paket.
 Migrasi yang sama berhasil diterapkan ke production setelah empat tes integrasi
 lulus di development. Tidak ada data turnamen lama yang dihapus.
+
+## Header dan tema turnamen — 10 November 2026
+
+Migrasi `20261110010000_tournament_header` dan
+`20261110020000_tournament_theme` menambahkan field opsional untuk judul,
+deskripsi, banner, logo, dan warna tema; nama/slug turnamen tetap terpisah.
+Branch `dev-registration` kedaluwarsa pukul 19.00 WIB. Pengujian dilanjutkan
+pada `dev-tournament-header` (`br-shiny-moon-az084c6p`), berakhir otomatis
+12 November 2026 pukul 19.00 WIB. Kedua migrasi lulus pada branch tersebut.
+Unggahan memakai storage yang sudah ada dengan prefix khusus turnamen;
+gambar fixture dibuat dan dibersihkan terpisah dari gambar pengguna.
+Tidak ada upgrade paket atau layanan baru.
+Kedua migrasi juga berhasil diterapkan ke production setelah uji browser lokal
+lengkap (termasuk tema) lulus. Semua kolom baru nullable untuk kompatibilitas.

@@ -1232,7 +1232,7 @@ export default function Workspace({
         className="btn-secondary"
         href={`/admin/tournaments/${id}/community`}
       >
-        Sponsor & sanggahan peserta
+        Header, sponsor & sanggahan
       </Link>
       <details className="text-sm">
         <summary className="cursor-pointer text-secondary">

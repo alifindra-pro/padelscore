@@ -6,6 +6,10 @@ import { Icon } from "@/components/ui/Icon";
 import React, { useCallback, useEffect, useState, use, Suspense } from "react";
 import Link from "next/link";
 import { entryStatusLabel } from "@/lib/entry-status";
+import {
+  TournamentHeader,
+  TournamentTheme,
+} from "@/components/tournament/TournamentHeader";
 import { RegistrationForm } from "@/components/tournament/RegistrationForm";
 import { PlayerPhoto } from "@/components/PlayerPhoto";
 import { apiFetch } from "@/lib/api-client";
@@ -250,50 +254,39 @@ function TournamentPublicContent({
   });
 
   return (
-    <div className="event-public-page bg-canvas text-ink flex flex-col">
+    <TournamentTheme id={tournament.id}>
       {/* Tournament Header */}
       <header className="event-context-header border-b border-line">
-        <div className="page-shell py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <Link
-              href="/"
-              className="stat-icon"
-              aria-label="Kembali ke beranda"
-            >
-              <Icon name="court" size={20} />
-            </Link>
-            <div>
-              <div className="flex flex-wrap items-center gap-3">
-                <h1 className="page-heading">{tournament.name}</h1>
-                <span
-                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
-                    tournament.status === "IN_PROGRESS"
-                      ? "status-live"
-                      : tournament.status === "COMPLETED"
-                        ? "bg-surface-tint text-secondary border border-line"
-                        : "bg-brand-soft text-brand border border-brand-accent"
-                  }`}
-                >
-                  {(
-                    {
-                      DRAFT: "Draf",
-                      REGISTRATION: "Pendaftaran",
-                      PUBLISHED: "Akan datang",
-                      IN_PROGRESS: "Berlangsung",
-                      COMPLETED: "Selesai",
-                      ARCHIVED: "Arsip",
-                    } as Record<string, string>
-                  )[tournament.status] ?? tournament.status}
-                </span>
-              </div>
+        <div className="page-shell py-5 space-y-4">
+          <TournamentHeader id={tournament.id} name={tournament.name}>
+            <div className="mt-3 flex flex-wrap gap-3 items-center">
+              <span
+                className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                  tournament.status === "IN_PROGRESS"
+                    ? "status-live"
+                    : tournament.status === "COMPLETED"
+                      ? "bg-surface-tint text-secondary border border-line"
+                      : "bg-brand-soft text-brand border border-brand-accent"
+                }`}
+              >
+                {(
+                  {
+                    DRAFT: "Draf",
+                    REGISTRATION: "Pendaftaran",
+                    PUBLISHED: "Akan datang",
+                    IN_PROGRESS: "Berlangsung",
+                    COMPLETED: "Selesai",
+                    ARCHIVED: "Arsip",
+                  } as Record<string, string>
+                )[tournament.status] ?? tournament.status}
+              </span>
               <p className="text-xs text-secondary mt-0.5">
                 {tournament.location || "Venue TBA"} &bull;{" "}
                 {new Date(tournament.startDate).toLocaleDateString()} -{" "}
                 {new Date(tournament.endDate).toLocaleDateString()}
               </p>
             </div>
-          </div>
-
+          </TournamentHeader>
           {/* SSE Connection Pill & Referee Link */}
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-card border border-line text-xs">
@@ -752,7 +745,7 @@ function TournamentPublicContent({
       <footer className="border-t border-line py-6 text-center text-xs text-muted">
         Padel Tournament OS &bull; Live Spectator &amp; Broadcast Portal
       </footer>
-    </div>
+    </TournamentTheme>
   );
 }
 

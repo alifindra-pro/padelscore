@@ -135,6 +135,11 @@ model User {
 }
 
 model Tournament {
+  headerThemeColor String?
+  headerTitle String?
+  headerDescription String?
+  headerBannerKey String?
+  headerLogoKey String?
   sponsors TournamentSponsor[]
   disputes MatchDispute[]
   organizationId String?

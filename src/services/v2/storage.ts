@@ -111,3 +111,41 @@ export async function saveSponsorLogo(file: File, tournamentId: string) {
   );
   return key;
 }
+
+export async function saveTournamentHeader(
+  file: File,
+  tournamentId: string,
+  kind: "banner" | "logo",
+) {
+  if (!file.size || file.size > MAX_AVATAR_BYTES)
+    throw AppError.badRequest("Gambar maksimal 4 MB");
+  let image: Buffer;
+  try {
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const metadata = await sharp(buffer, {
+      limitInputPixels: 25000000,
+    }).metadata();
+    if (!["jpeg", "png", "webp"].includes(metadata.format ?? ""))
+      throw new Error();
+    image = await sharp(buffer, { limitInputPixels: 25000000 })
+      .rotate()
+      .resize(kind === "banner" ? 1600 : 400, kind === "banner" ? 600 : 400, {
+        fit: "inside",
+        withoutEnlargement: true,
+      })
+      .webp({ quality: 85 })
+      .toBuffer();
+  } catch {
+    throw AppError.badRequest("Gambar harus JPEG, PNG, atau WebP yang valid");
+  }
+  const key = `tournament-headers/${tournamentId}/${kind}-${randomUUID()}.webp`;
+  await client().send(
+    new PutObjectCommand({
+      Bucket: bucket(),
+      Key: key,
+      Body: image,
+      ContentType: "image/webp",
+    }),
+  );
+  return key;
+}
