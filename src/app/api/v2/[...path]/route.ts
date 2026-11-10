@@ -712,9 +712,16 @@ async function dispatch(req: NextRequest, context: Context): Promise<Response> {
             throw AppError.conflict(
               "Bagan sudah digunakan; buat kategori baru atau selesaikan dampak perubahan",
             );
+          const currentTournament = await tx.tournament.findUniqueOrThrow({
+            where: { id: category.tournamentId },
+          });
+          if (currentTournament.status === "REGISTRATION")
+            throw AppError.conflict("Tutup pendaftaran sebelum membuat bagan");
           const groupCount =
             input.groups ??
             ((await tx.group.count({ where: { stage: { categoryId: id } } })) ||
+              (category.qualificationPolicy as { groups?: number } | null)
+                ?.groups ||
               2);
           const perGroup =
             (category.qualificationPolicy as { perGroup?: number } | null)

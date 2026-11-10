@@ -100,7 +100,8 @@ export const updatePlayerSchema = z.object({
 
 export const createEntrySchema = z.object({
   name: z.string().min(2, 'Entry name must be at least 2 characters').max(100),
-  playerIds: z.array(z.string().uuid()).min(1).max(2),
+  playerIds: z.array(z.string().uuid()).max(2).default([]),
+  playerNames: z.tuple([z.string().trim().min(2).max(100), z.string().trim().min(2).max(100)]).optional(),
   seed: z.number().int().min(1).optional().nullable(),
 });
 

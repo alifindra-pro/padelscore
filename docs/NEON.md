@@ -151,3 +151,10 @@ Skema akhir menambahkan kolom nullable `players.photoKey` tanpa mengubah data
 pemain atau pertandingan yang sudah ada. Foto menggunakan bucket `assets`
 yang sudah tersedia, dengan key `avatars/players-{id}/...`; tidak ada layanan
 penyimpanan baru. Foto draf memerlukan akses organisasi.
+
+## Branch pengujian pendaftaran — 8 November 2026
+
+Branch sebelumnya telah kedaluwarsa. Pengujian baru memakai `dev-registration`
+(`br-floral-smoke-azk1z9u7`), turunan production, dengan masa berlaku sampai
+10 November 2026 pukul 19.00 WIB. `.env.neon-development` menyimpan URL baru.
+Tidak ada perubahan paket atau migrasi skema untuk alur slot/pendaftaran.

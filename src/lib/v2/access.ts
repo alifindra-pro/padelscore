@@ -7,6 +7,7 @@ import {
 } from "@/middleware/auth.middleware";
 import { AppError, handleApiError } from "@/lib/errors";
 export const PUBLIC_STATUSES = [
+  "REGISTRATION",
   "PUBLISHED",
   "IN_PROGRESS",
   "COMPLETED",
@@ -86,6 +87,7 @@ const allowed = new Set([
   "endDate",
   "status",
   "format",
+  "maxEntries",
   "seed",
   "round",
   "order",

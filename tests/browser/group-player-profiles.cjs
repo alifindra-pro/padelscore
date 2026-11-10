@@ -135,6 +135,9 @@ const base = process.env.TEST_BASE_URL || "http://127.0.0.1:3199";
       .getByRole("radio", { name: "Poin langsung", exact: true })
       .check();
     await page.getByRole("button", { name: "Lanjut", exact: true }).click();
+    await page
+      .getByLabel("Isi nama peserta sekarang (opsional)", { exact: true })
+      .check();
     await page.getByLabel("Pemain pertama", { exact: true }).selectOption(a.id);
     await page.getByLabel("Pemain kedua", { exact: true }).selectOption(b.id);
     await page

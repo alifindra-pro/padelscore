@@ -282,3 +282,41 @@ Deployment `dpl_6yuSFN1ehTYfznu6Mny9k6WWeyS3` aktif pada domain production.
 Uji browser production juga lulus, termasuk penyimpanan edit profil, foto
 setelah muat ulang, pemilihan pemain lama, grup → knockout, dan foto publik.
 Seluruh fixture dibersihkan setelah pengujian.
+
+## Buat slot dahulu, daftar kemudian — 8 November 2026
+
+Tombol **Buat turnamen** di dashboard sekarang menuju `/admin/tournaments/new`.
+Tautan lama `?new=1` juga dialihkan ke formulir ini. Untuk turnamen pasangan
+tetap, pilihan awal adalah membuat 2–64 slot kosong. Nama tidak wajib diisi.
+Pilihan **Isi nama peserta sekarang (opsional)** mempertahankan alur cepat bagi
+panitia yang sudah memiliki daftar lengkap. Turnamen kosong menyimpan kategori,
+aturan, lapangan, kapasitas, dan kuota grup tanpa membuat pemain/laga fiktif.
+
+Setelah dibuat, halaman **Peserta** memperlihatkan slot kosong dan menerima
+pendaftaran admin. Tombol **Buka pendaftaran publik** mengubah status menjadi
+REGISTRATION; acara kini terlihat publik dengan formulir nama dua pemain dan
+nomor WhatsApp penghubung. Kontak tidak masuk proyeksi publik. Pendaftaran
+publik langsung mengisi slot, tanpa login atau tahap persetujuan tambahan.
+Identitas peserta merupakan isian sendiri, bukan akun pemain terverifikasi.
+
+Admin dapat memilih pemain lama atau mengetik nama baru. Pembuatan pemain dan
+pasangan berlangsung atomik. Penguncian kategori mencegah slot berlebih saat
+pendaftaran bersamaan. Nama berulang dan pemain yang sudah terdaftar ditolak.
+Pendaftaran publik dibatasi lima per alamat jaringan per jam dan memakai
+honeypot; alamat jaringan disimpan sebagai HMAC dalam audit. Setelah ditutup,
+formulir publik hilang. Bagan harus dibuat setelah pendaftaran ditutup;
+pembuatan bagan mengunci penambahan peserta agar bagan tidak tertinggal.
+Jumlah grup dari pembuatan awal dipertahankan ketika bagan baru disusun.
+
+Tidak ada migrasi skema. Build/TypeScript, lint, tiga tes integrasi pendaftaran,
+dan delapan tes regresi pembuatan turnamen lulus. Uji browser lokal memeriksa
+tombol dashboard, slot kosong, pendaftaran admin/publik, slot penuh, penutupan,
+undian, tautan lama, serta tampilan 390/1440 piksel. Gangguan koneksi pooled
+branch development menyebabkan percobaan tes awal gagal; regresi kemudian
+lulus melalui koneksi direct development tanpa perubahan koneksi production.
+
+Deploy final pada 10 November 2026: `dpl_CHDpkjw79Yu5LpsxqNNr5jf22JPs`
+(READY), alias https://padelscore-swart.vercel.app. Uji browser production
+lulus untuk dashboard, slot kosong, pendaftaran admin/publik, kapasitas penuh,
+penutupan, pembuatan bagan, dan pengalihan tautan lama. Fixture dibersihkan.
+Tidak ada upgrade paket atau penambahan layanan berbayar.

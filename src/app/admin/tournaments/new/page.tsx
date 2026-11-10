@@ -39,6 +39,7 @@ function NewTournament() {
     deuce: "ADVANTAGE",
     duration: 60,
     rest: 30,
+    slotCount: 8,
     groups: 2,
     advancePerGroup: 2,
   });
@@ -72,6 +73,7 @@ function NewTournament() {
       clearTimeout(timer);
     };
   }, [playerSearch]);
+  const [registrationLater, setRegistrationLater] = useState(true);
   const [pairText, setPairText] = useState("");
   const [playerText, setPlayerText] = useState("");
   const isSocial = ["AMERICANO", "MEXICANO"].includes(data.format);
@@ -91,12 +93,31 @@ function NewTournament() {
   const format = FORMAT_OPTIONS.find((option) => option.value === data.format)!;
   const steps = [
     "Acara & aturan",
-    isSocial ? "Pemain peserta" : "Pasangan peserta",
+    isSocial ? "Pemain peserta" : "Slot peserta",
     "Periksa & buat",
   ];
   const count = isSocial ? players.length : pairs.length;
   const names = isSocial ? players : pairs.flat();
   function checkParticipants() {
+    if (!isSocial && registrationLater) {
+      if (
+        !Number.isInteger(data.slotCount) ||
+        data.slotCount < 2 ||
+        data.slotCount > 64
+      )
+        throw Error("Pilih 2 sampai 64 slot pasangan.");
+      if (
+        data.format === "GROUP_KNOCKOUT" &&
+        (data.slotCount < data.groups * 2 ||
+          data.advancePerGroup > Math.floor(data.slotCount / data.groups) ||
+          data.groups * data.advancePerGroup < 2)
+      )
+        throw Error(
+          "Jumlah slot belum cukup untuk jumlah grup dan kuota lolos ini.",
+        );
+      return;
+    }
+
     if (isSocial) {
       if (players.length < 4 || players.length > 128)
         throw Error("Masukkan 4 sampai 128 pemain, satu nama per baris.");
@@ -160,8 +181,12 @@ function NewTournament() {
             ...(isSocial
               ? { players, ...social }
               : {
-                  pairs,
-                  playerIds: pairs.map((pair) =>
+                  registrationLater,
+                  slotCount: registrationLater
+                    ? data.slotCount
+                    : Math.max(data.slotCount, pairs.length),
+                  pairs: registrationLater ? [] : pairs,
+                  playerIds: (registrationLater ? [] : pairs).map((pair) =>
                     pair.map((name) => selectedPlayers[name] ?? null),
                   ),
                 }),
@@ -172,7 +197,7 @@ function NewTournament() {
       router.push(
         result.kind === "SOCIAL"
           ? `/admin/social?id=${result.id}`
-          : `/admin/tournaments/${result.id}?step=3`,
+          : `/admin/tournaments/${result.id}?step=${registrationLater ? 1 : 3}`,
       );
     } catch (e) {
       setError((e as Error).message);
@@ -194,8 +219,7 @@ function NewTournament() {
             Siapkan pertandingannya.
           </h1>
           <p>
-            Pilih sistem bermain, masukkan peserta, lalu periksa aturan sebelum
-            mulai.
+            Pilih sistem bermain dan siapkan slot. Peserta bisa didaftarkan setelah turnamen dibuat.
           </p>
         </div>
         <div className="setup-header-note">
@@ -541,146 +565,195 @@ function NewTournament() {
               </>
             ) : step === 1 ? (
               <section className="setup-section">
-                <div className="participant-counter">
-                  <Icon name="users" />
-                  <strong>{count}</strong>
-                  <span>{isSocial ? "pemain" : "pasangan"} terisi</span>
-                </div>
                 {!isSocial && (
-                  <div className="space-y-3 mb-4">
+                  <div className="space-y-4 mb-5">
                     <label className="field">
-                      Cari pemain tersimpan
+                      Jumlah slot pasangan
                       <input
-                        value={playerSearch}
-                        onChange={(e) => {
-                          setPlayerSearch(e.target.value);
-                          setChosenA("");
-                          setChosenB("");
-                        }}
-                        placeholder="Nama pemain"
+                        type="number"
+                        min={2}
+                        max={64}
+                        value={data.slotCount}
+                        required
+                        onChange={(e) =>
+                          setData({
+                            ...data,
+                            slotCount: Number(e.target.value),
+                          })
+                        }
                       />
                     </label>
-                    <div className="grid sm:grid-cols-2 gap-3">
-                      {[
-                        {
-                          label: "Pemain pertama",
-                          value: chosenA,
-                          set: setChosenA,
-                        },
-                        {
-                          label: "Pemain kedua",
-                          value: chosenB,
-                          set: setChosenB,
-                        },
-                      ].map((field) => (
-                        <label className="field" key={field.label}>
-                          {field.label}
-                          <select
-                            aria-label={field.label}
-                            value={field.value}
-                            onChange={(e) => field.set(e.target.value)}
-                          >
-                            <option value="">Pilih pemain</option>
-                            {savedPlayers.map((p) => (
-                              <option key={p.id} value={p.id}>
-                                {p.fullName} · {p.id.slice(0, 6)}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                      ))}
-                    </div>
-                    <button
-                      type="button"
-                      className="btn-secondary"
-                      disabled={!chosenA || !chosenB || chosenA === chosenB}
-                      onClick={() => {
-                        const a = savedPlayers.find((p) => p.id === chosenA)!;
-                        const b = savedPlayers.find((p) => p.id === chosenB)!;
-                        setPairText((t) =>
-                          [t.trim(), `${a.fullName} / ${b.fullName}`]
-                            .filter(Boolean)
-                            .join("\n"),
-                        );
-                        setSelectedPlayers((v) => ({
-                          ...v,
-                          [a.fullName]: a.id,
-                          [b.fullName]: b.id,
-                        }));
-                        setChosenA("");
-                        setChosenB("");
-                      }}
-                    >
-                      Tambahkan pasangan dari pemain
-                    </button>
-                    <Link
-                      href="/admin/players"
-                      target="_blank"
-                      className="block text-primary"
-                    >
-                      Kelola nama dan foto pemain ↗
-                    </Link>
                     <p className="setting-help">
-                      Foto dan riwayat mengikuti pemain, meskipun pasangannya
-                      berubah. Nama baru yang diketik di bawah disimpan ke
-                      direktori setelah turnamen dibuat.
+                      Satu slot untuk dua pemain. Simpan turnamen dahulu, lalu
+                      daftarkan pasangan dari halaman turnamen. Tidak perlu
+                      mengisi nama sekarang.
                     </p>
+                    <label className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={!registrationLater}
+                        onChange={(e) =>
+                          setRegistrationLater(!e.target.checked)
+                        }
+                      />
+                      Isi nama peserta sekarang (opsional)
+                    </label>
                   </div>
                 )}
-                <div className="field">
-                  <label htmlFor="setup-participants">
-                    {isSocial
-                      ? "Satu pemain per baris"
-                      : "Satu pasangan per baris"}
-                  </label>
-                  <textarea
-                    id="setup-participants"
-                    name="participants"
-                    rows={9}
-                    required
-                    value={isSocial ? playerText : pairText}
-                    onChange={(e) =>
-                      isSocial
-                        ? setPlayerText(e.target.value)
-                        : setPairText(e.target.value)
-                    }
-                    placeholder={
-                      isSocial
-                        ? "Andi Pratama\nBudi Santoso\nCitra Dewi\nDeni Putra"
-                        : "Andi Pratama / Budi Santoso\nCitra Dewi / Deni Putra"
-                    }
-                    aria-describedby="participant-help"
-                  />
-                </div>
-                <p id="participant-help" className="setting-help">
-                  {isSocial
-                    ? "Minimal 4 pemain. Pasangan disusun otomatis, jadi cukup tulis nama individu."
-                    : "Minimal 2 pasangan. Pisahkan dua nama dengan tanda /."}{" "}
-                  Gunakan nama yang berbeda untuk setiap pemain. Nama di kolom
-                  hanya contoh.
-                </p>
-                {isSocial && players.length >= 4 && (
-                  <div className="setup-callout">
-                    <Icon name="court" />
-                    <p>
-                      <strong>
-                        {Math.min(data.courts, Math.floor(players.length / 4))}{" "}
-                        lapangan terpakai per ronde.
-                      </strong>{" "}
-                      {players.length -
-                        Math.min(data.courts, Math.floor(players.length / 4)) *
-                          4}{" "}
-                      pemain menunggu giliran.{" "}
-                      {social.ranking === "AVERAGE"
-                        ? "Peringkat memakai rata-rata poin tiap laga."
-                        : "Peringkat memakai total poin; pastikan jatah bermain sesuai kebutuhan acara."}
+                {(!registrationLater || isSocial) && (
+                  <>
+                    <div className="participant-counter">
+                      <Icon name="users" />
+                      <strong>{count}</strong>
+                      <span>{isSocial ? "pemain" : "pasangan"} terisi</span>
+                    </div>
+                    {!isSocial && (
+                      <div className="space-y-3 mb-4">
+                        <label className="field">
+                          Cari pemain tersimpan
+                          <input
+                            value={playerSearch}
+                            onChange={(e) => {
+                              setPlayerSearch(e.target.value);
+                              setChosenA("");
+                              setChosenB("");
+                            }}
+                            placeholder="Nama pemain"
+                          />
+                        </label>
+                        <div className="grid sm:grid-cols-2 gap-3">
+                          {[
+                            {
+                              label: "Pemain pertama",
+                              value: chosenA,
+                              set: setChosenA,
+                            },
+                            {
+                              label: "Pemain kedua",
+                              value: chosenB,
+                              set: setChosenB,
+                            },
+                          ].map((field) => (
+                            <label className="field" key={field.label}>
+                              {field.label}
+                              <select
+                                aria-label={field.label}
+                                value={field.value}
+                                onChange={(e) => field.set(e.target.value)}
+                              >
+                                <option value="">Pilih pemain</option>
+                                {savedPlayers.map((p) => (
+                                  <option key={p.id} value={p.id}>
+                                    {p.fullName} · {p.id.slice(0, 6)}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                          ))}
+                        </div>
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          disabled={!chosenA || !chosenB || chosenA === chosenB}
+                          onClick={() => {
+                            const a = savedPlayers.find(
+                              (p) => p.id === chosenA,
+                            )!;
+                            const b = savedPlayers.find(
+                              (p) => p.id === chosenB,
+                            )!;
+                            setPairText((t) =>
+                              [t.trim(), `${a.fullName} / ${b.fullName}`]
+                                .filter(Boolean)
+                                .join("\n"),
+                            );
+                            setSelectedPlayers((v) => ({
+                              ...v,
+                              [a.fullName]: a.id,
+                              [b.fullName]: b.id,
+                            }));
+                            setChosenA("");
+                            setChosenB("");
+                          }}
+                        >
+                          Tambahkan pasangan dari pemain
+                        </button>
+                        <Link
+                          href="/admin/players"
+                          target="_blank"
+                          className="block text-primary"
+                        >
+                          Kelola nama dan foto pemain ↗
+                        </Link>
+                        <p className="setting-help">
+                          Foto dan riwayat mengikuti pemain, meskipun
+                          pasangannya berubah. Nama baru yang diketik di bawah
+                          disimpan ke direktori setelah turnamen dibuat.
+                        </p>
+                      </div>
+                    )}
+                    <div className="field">
+                      <label htmlFor="setup-participants">
+                        {isSocial
+                          ? "Satu pemain per baris"
+                          : "Satu pasangan per baris"}
+                      </label>
+                      <textarea
+                        id="setup-participants"
+                        name="participants"
+                        rows={9}
+                        required
+                        value={isSocial ? playerText : pairText}
+                        onChange={(e) =>
+                          isSocial
+                            ? setPlayerText(e.target.value)
+                            : setPairText(e.target.value)
+                        }
+                        placeholder={
+                          isSocial
+                            ? "Andi Pratama\nBudi Santoso\nCitra Dewi\nDeni Putra"
+                            : "Andi Pratama / Budi Santoso\nCitra Dewi / Deni Putra"
+                        }
+                        aria-describedby="participant-help"
+                      />
+                    </div>
+                    <p id="participant-help" className="setting-help">
+                      {isSocial
+                        ? "Minimal 4 pemain. Pasangan disusun otomatis, jadi cukup tulis nama individu."
+                        : "Minimal 2 pasangan. Pisahkan dua nama dengan tanda /."}{" "}
+                      Gunakan nama yang berbeda untuk setiap pemain. Nama di
+                      kolom hanya contoh.
                     </p>
-                  </div>
+                    {isSocial && players.length >= 4 && (
+                      <div className="setup-callout">
+                        <Icon name="court" />
+                        <p>
+                          <strong>
+                            {Math.min(
+                              data.courts,
+                              Math.floor(players.length / 4),
+                            )}{" "}
+                            lapangan terpakai per ronde.
+                          </strong>{" "}
+                          {players.length -
+                            Math.min(
+                              data.courts,
+                              Math.floor(players.length / 4),
+                            ) *
+                              4}{" "}
+                          pemain menunggu giliran.{" "}
+                          {social.ranking === "AVERAGE"
+                            ? "Peringkat memakai rata-rata poin tiap laga."
+                            : "Peringkat memakai total poin; pastikan jatah bermain sesuai kebutuhan acara."}
+                        </p>
+                      </div>
+                    )}
+                    <p className="setting-help">
+                      Alur ini menambahkan nama sebagai pemain baru dalam
+                      organisasi Anda.
+                    </p>
+                  </>
                 )}
-                <p className="setting-help">
-                  Alur ini menambahkan nama sebagai pemain baru dalam organisasi
-                  Anda.
-                </p>
               </section>
             ) : (
               <section className="setup-section">
@@ -697,7 +770,9 @@ function NewTournament() {
                   <div>
                     <dt>Peserta</dt>
                     <dd>
-                      {count} {isSocial ? "pemain" : "pasangan"}
+                      {!isSocial && registrationLater
+                        ? `${data.slotCount} slot kosong`
+                        : `${count} ${isSocial ? "pemain" : "pasangan"}`}
                     </dd>
                   </div>
                   <div>
@@ -752,31 +827,35 @@ function NewTournament() {
                     </div>
                   )}
                 </dl>
-                <details className="setup-details">
-                  <summary>
-                    <Icon name="users" size={18} />
-                    <span>Periksa daftar peserta</span>
-                    <Icon name="plus" size={18} />
-                  </summary>
-                  <ol className="setup-participant-list">
-                    {(isSocial
-                      ? players
-                      : pairs.map((pair) => pair.join(" / "))
-                    ).map((name, index) => (
-                      <li key={index}>
-                        <span>{index + 1}</span>
-                        {name}
-                      </li>
-                    ))}
-                  </ol>
-                </details>
+                {(!registrationLater || isSocial) && (
+                  <details className="setup-details">
+                    <summary>
+                      <Icon name="users" size={18} />
+                      <span>Periksa daftar peserta</span>
+                      <Icon name="plus" size={18} />
+                    </summary>
+                    <ol className="setup-participant-list">
+                      {(isSocial
+                        ? players
+                        : pairs.map((pair) => pair.join(" / "))
+                      ).map((name, index) => (
+                        <li key={index}>
+                          <span>{index + 1}</span>
+                          {name}
+                        </li>
+                      ))}
+                    </ol>
+                  </details>
+                )}
                 <div className="setup-callout">
                   <Icon name="check" />
                   <p>
                     <strong>Disimpan sebagai draf.</strong>{" "}
                     {isSocial
                       ? "Ronde pertama langsung disiapkan. Anda bisa memeriksa pasangan lalu mempublikasikan acara."
-                      : "Bagan dan jadwal dibuat otomatis. Berikutnya, tugaskan wasit dan publikasikan acara."}
+                      : registrationLater
+                        ? "Slot peserta masih kosong. Berikutnya daftarkan pasangan pada halaman turnamen, lalu buat bagan dan jadwal."
+                        : "Bagan dan jadwal dibuat otomatis. Berikutnya, tugaskan wasit dan publikasikan acara."}
                   </p>
                 </div>
               </section>
@@ -797,7 +876,9 @@ function NewTournament() {
                 : step === 2
                   ? isSocial
                     ? `Buat ${format.label} & ronde pertama`
-                    : "Buat turnamen, bagan & jadwal"
+                    : registrationLater
+                      ? "Buat turnamen dengan slot kosong"
+                      : "Buat turnamen, bagan & jadwal"
                   : "Lanjut"}
               <Icon name="arrow" size={18} />
             </button>

@@ -33,6 +33,7 @@ async function handlePOST(
       categoryId: id,
       name: validated.name,
       playerIds: validated.playerIds,
+      playerNames: validated.playerNames,
       seed: validated.seed,
       userId: user.userId,
     });

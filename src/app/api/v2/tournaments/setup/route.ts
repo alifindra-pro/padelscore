@@ -32,6 +32,8 @@ const schema = z.object({
   format: z.enum(["SINGLE_ELIMINATION", "ROUND_ROBIN", "GROUP_KNOCKOUT"]),
   groups: z.number().int().min(1).max(16).default(2),
   advancePerGroup: z.number().int().min(1).max(4).default(2),
+  registrationLater: z.boolean().default(false),
+  slotCount: z.number().int().min(2).max(64).optional(),
   pairs: z
     .array(
       z.tuple([
@@ -39,8 +41,8 @@ const schema = z.object({
         z.string().trim().min(2).max(100),
       ]),
     )
-    .min(2)
-    .max(64),
+    .max(64)
+    .default([]),
   playerIds: z
     .array(
       z.tuple([z.string().uuid().nullable(), z.string().uuid().nullable()]),
@@ -168,10 +170,25 @@ export async function POST(req: NextRequest) {
         { status: 201 },
       );
     }
+    const capacity =
+      body.slotCount ?? (body.registrationLater ? 8 : body.pairs.length);
+    if (body.registrationLater && body.pairs.length)
+      throw AppError.badRequest("Pilih isi peserta sekarang atau daftar nanti");
+    if (!body.registrationLater && body.pairs.length < 2)
+      throw AppError.badRequest(
+        "Minimal dua pasangan untuk membuat bagan langsung",
+      );
+    if (body.pairs.length > capacity)
+      throw AppError.badRequest("Jumlah pasangan melebihi kapasitas slot");
     if (
       body.format === "GROUP_KNOCKOUT" &&
-      (body.pairs.length < body.groups * 2 ||
-        body.advancePerGroup > Math.floor(body.pairs.length / body.groups) ||
+      ((body.registrationLater ? capacity : body.pairs.length) <
+        body.groups * 2 ||
+        body.advancePerGroup >
+          Math.floor(
+            (body.registrationLater ? capacity : body.pairs.length) /
+              body.groups,
+          ) ||
         body.groups * body.advancePerGroup < 2)
     )
       throw AppError.badRequest(
@@ -243,10 +260,12 @@ export async function POST(req: NextRequest) {
             tournamentId: t.id,
             name: body.category,
             format: body.format,
+            maxEntries: capacity,
             qualificationPolicy:
               body.format === "GROUP_KNOCKOUT"
                 ? {
                     perGroup: body.advancePerGroup,
+                    groups: body.groups,
                     bestRunnersUp: 0,
                     normalization: "NONE",
                   }
@@ -273,6 +292,19 @@ export async function POST(req: NextRequest) {
               },
             }),
           );
+        if (body.registrationLater) {
+          await tx.auditLog.create({
+            data: {
+              userId: user.userId,
+              tournamentId: t.id,
+              action: "CREATE_TOURNAMENT_SETUP",
+              entityType: "Tournament",
+              entityId: t.id,
+              after: { requestHash, capacity, registrationLater: true },
+            },
+          });
+          return t;
+        }
         const entries: Prisma.EntryGetPayload<{
           include: { players: true };
         }>[] = [];

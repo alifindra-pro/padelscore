@@ -23,6 +23,7 @@ interface Category {
   name: string;
   format: string;
   rulesV2?: Rules;
+  maxEntries?: number | null;
 }
 interface Tournament {
   id: string;
@@ -480,6 +481,52 @@ export default function Workspace({
             </section>
           ) : step === 1 ? (
             <>
+              <section className="panel space-y-3">
+                <h2 className="panel-title">Pendaftaran peserta</h2>
+                <p>
+                  Admin bisa mengisi slot di bawah. Buka pendaftaran publik agar
+                  peserta juga bisa mendaftarkan pasangan sendiri.
+                </p>
+                <div className="action-row">
+                  {["DRAFT", "PUBLISHED", "REGISTRATION"].includes(t.status) &&
+                    !stages.length && (
+                      <button
+                        className="btn-primary"
+                        disabled={busy}
+                        onClick={() =>
+                          run(
+                            () =>
+                              apiFetch(`/api/v1/tournaments/${id}/status`, {
+                                method: "POST",
+                                body: JSON.stringify({
+                                  status:
+                                    t.status === "REGISTRATION"
+                                      ? "PUBLISHED"
+                                      : "REGISTRATION",
+                                }),
+                              }),
+                            t.status === "REGISTRATION"
+                              ? "Pendaftaran ditutup. Bagan siap dibuat setelah peserta lengkap."
+                              : "Pendaftaran publik dibuka.",
+                          )
+                        }
+                      >
+                        {t.status === "REGISTRATION"
+                          ? "Tutup pendaftaran"
+                          : "Buka pendaftaran publik"}
+                      </button>
+                    )}
+                  {["REGISTRATION", "PUBLISHED"].includes(t.status) && (
+                    <Link
+                      className="btn-secondary"
+                      href={`/tournament/${t.slug}#registration`}
+                      target="_blank"
+                    >
+                      Buka halaman pendaftaran ↗
+                    </Link>
+                  )}
+                </div>
+              </section>
               <div className="grid xl:grid-cols-[1fr_1.2fr] gap-5">
                 <section className="panel space-y-5">
                   <div>
@@ -515,30 +562,19 @@ export default function Workspace({
                       const f = new FormData(e.currentTarget);
                       const form = e.currentTarget;
                       void run(async () => {
-                        const ids: string[] = [];
-                        const names: string[] = [];
-                        for (const key of ["one", "two"]) {
-                          if (addExisting) {
-                            const pid = String(f.get(key));
-                            ids.push(pid);
-                            names.push(
-                              players.find((p) => p.id === pid)?.fullName ?? "",
-                            );
-                          } else {
-                            const p = await apiFetch<Player>(
-                              "/api/v1/players",
-                              {
-                                method: "POST",
-                                body: JSON.stringify({
-                                  fullName: f.get(key),
-                                  organizationId: t.organizationId,
-                                }),
-                              },
-                            );
-                            ids.push(p.id);
-                            names.push(p.fullName);
-                          }
-                        }
+                        const ids = addExisting
+                          ? [String(f.get("one")), String(f.get("two"))]
+                          : [];
+                        const names = addExisting
+                          ? ids.map(
+                              (pid) =>
+                                players.find((p) => p.id === pid)?.fullName ??
+                                "",
+                            )
+                          : [
+                              String(f.get("one")).trim(),
+                              String(f.get("two")).trim(),
+                            ];
                         await apiFetch(
                           `/api/v1/categories/${selected}/entries`,
                           {
@@ -546,6 +582,7 @@ export default function Workspace({
                             body: JSON.stringify({
                               name: names.join(" / "),
                               playerIds: ids,
+                              playerNames: addExisting ? undefined : names,
                               seed: f.get("seed")
                                 ? Number(f.get("seed"))
                                 : undefined,
@@ -589,7 +626,15 @@ export default function Workspace({
                         <input type="number" name="seed" min={1} />
                       </label>
                     </details>
-                    <button className="btn-primary w-full" disabled={busy}>
+                    <button
+                      className="btn-primary w-full"
+                      disabled={
+                        busy ||
+                        !!stages.length ||
+                        (!!category.maxEntries &&
+                          entries.length >= category.maxEntries)
+                      }
+                    >
                       {busy ? "Menambahkan…" : "Tambah pasangan"}
                       <Icon name="plus" size={16} />
                     </button>
@@ -599,9 +644,28 @@ export default function Workspace({
                   <div className="flex justify-between items-center mb-4">
                     <h2 className="panel-title">Peserta {category.name}</h2>
                     <span className="status-pill">
-                      {entries.length} pasangan
+                      {entries.length}/{category.maxEntries ?? "∞"} slot terisi
                     </span>
                   </div>
+                  {Array.from(
+                    {
+                      length: Math.max(
+                        0,
+                        (category.maxEntries ?? 0) - entries.length,
+                      ),
+                    },
+                    (_, i) => (
+                      <div
+                        key={`empty-${i}`}
+                        className="py-3 flex gap-3 items-center border-t border-line text-secondary"
+                      >
+                        <span className="profile-initial">
+                          {entries.length + i + 1}
+                        </span>
+                        <span>Slot kosong · belum ada pasangan</span>
+                      </div>
+                    ),
+                  )}
                   {entries.length ? (
                     entries.map((e, i) => (
                       <div
@@ -902,9 +966,9 @@ export default function Workspace({
                       onClick={advanceStatus}
                     >
                       {t.status === "DRAFT"
-                        ? "Buka persiapan peserta"
+                        ? "Buka pendaftaran publik"
                         : t.status === "REGISTRATION"
-                          ? "Publikasikan acara"
+                          ? "Tutup pendaftaran & lanjutkan"
                           : t.status === "PUBLISHED"
                             ? "Mulai turnamen"
                             : "Selesaikan turnamen"}

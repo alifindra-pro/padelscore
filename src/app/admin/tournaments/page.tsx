@@ -57,14 +57,14 @@ export default function Tournaments() {
       .then((x) => {
         setEvents(x.items);
         const params = new URLSearchParams(location.search);
-        setCreating(params.get("new") === "1");
+        if (params.get("new") === "1") router.replace("/admin/tournaments/new");
         const requestedStatus = params.get("status");
         if (requestedStatus && requestedStatus in statuses)
           setFilter(requestedStatus);
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-  }, []);
+  }, [router]);
   async function create(form: HTMLFormElement) {
     const f = new FormData(form);
     setBusy(true);
@@ -122,7 +122,7 @@ export default function Tournaments() {
         {!creating && (
           <div className="action-row">
             <Link className="btn-primary" href="/admin/tournaments/new">
-              Buat turnamen & jadwal
+              Buat turnamen baru
             </Link>
             <button className="btn-secondary" onClick={() => setCreating(true)}>
               <Icon name="plus" size={18} />

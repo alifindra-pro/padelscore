@@ -5,6 +5,7 @@ import { Icon } from "@/components/ui/Icon";
 
 import React, { useCallback, useEffect, useState, use, Suspense } from "react";
 import Link from "next/link";
+import { RegistrationForm } from "@/components/tournament/RegistrationForm";
 import { PlayerPhoto } from "@/components/PlayerPhoto";
 import { apiFetch } from "@/lib/api-client";
 import { useSSE } from "@/hooks/useSSE";
@@ -27,6 +28,7 @@ type TabKey =
 type MatchFilter = "ALL" | "IN_PROGRESS" | "FINISHED" | "SCHEDULED";
 
 interface PublicCategory {
+  maxEntries?: number | null;
   id: string;
   name: string;
   format: string;
@@ -316,6 +318,16 @@ function TournamentPublicContent({
 
       {/* Main Hub Content */}
       <main className="flex-1 page-shell py-8 space-y-8">
+        {tournament.status === "REGISTRATION" && (
+          <RegistrationForm
+            categories={tournament.categories ?? []}
+            onRegistered={() => {
+              void fetchTournament(slug).then((data) =>
+                setTournament(data.tournament),
+              );
+            }}
+          />
+        )}
         <Sponsors tournamentId={tournament.id} />
         {/* Navigation Tabs */}
         <div className="app-tabs flex border-b border-line space-x-6 overflow-x-auto pb-1">

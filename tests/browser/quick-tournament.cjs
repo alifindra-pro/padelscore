@@ -64,7 +64,7 @@ const output = directPoints
     page.on("pageerror", (e) => errors.push(e.message));
     await page.goto(`${base}/admin/tournaments`);
     await page
-      .getByRole("link", { name: "Buat turnamen & jadwal", exact: true })
+      .getByRole("link", { name: "Buat turnamen baru", exact: true })
       .click();
     await page
       .getByLabel("Nama turnamen", { exact: true })
@@ -101,6 +101,9 @@ const output = directPoints
       });
     }
     await page.getByRole("button", { name: "Lanjut", exact: true }).click();
+    await page
+      .getByLabel("Isi nama peserta sekarang (opsional)", { exact: true })
+      .check();
     await page
       .getByLabel("Satu pasangan per baris")
       .fill("Andi / Budi\nAndi / Deni");
@@ -147,10 +150,13 @@ const output = directPoints
       page.getByText("Wasit ditugaskan", { exact: true }),
     ).toBeVisible();
     await page
-      .getByRole("button", { name: "Buka persiapan peserta", exact: true })
+      .getByRole("button", { name: "Buka pendaftaran publik", exact: true })
       .click();
     await page
-      .getByRole("button", { name: "Publikasikan acara", exact: true })
+      .getByRole("button", {
+        name: "Tutup pendaftaran & lanjutkan",
+        exact: true,
+      })
       .click();
     await expect(
       page.getByRole("link", { name: "Buka layar TV", exact: true }),

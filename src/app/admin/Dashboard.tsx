@@ -107,7 +107,7 @@ export default function Dashboard() {
             Periksa turnamen aktif atau pilih menu untuk mengelola acara.
           </p>
         </div>
-        <Link href="/admin/tournaments?new=1" className="btn-primary">
+        <Link href="/admin/tournaments/new" className="btn-primary">
           <Icon name="plus" size={18} /> Buat turnamen
         </Link>
       </div>
@@ -126,7 +126,7 @@ export default function Dashboard() {
             Americano atau Mexicano, buka sesi sosial.
           </p>
           <div className="flex flex-wrap gap-3">
-            <Link href="/admin/tournaments?new=1" className="btn-kinetic">
+            <Link href="/admin/tournaments/new" className="btn-kinetic">
               Buat turnamen <Icon name="arrow" size={17} />
             </Link>
             <Link href="/admin/social" className="hero-secondary">
@@ -137,7 +137,8 @@ export default function Dashboard() {
         <div className="dashboard-court-scene" aria-hidden="true">
           <CourtScene className="dashboard-vector" />
           <span className="court-caption">
-            PADEL SCORE by PADEL ADDICTIVE <span>TURNAMEN & PERTANDINGAN SOSIAL</span>
+            PADEL SCORE by PADEL ADDICTIVE{" "}
+            <span>TURNAMEN & PERTANDINGAN SOSIAL</span>
           </span>
         </div>
       </section>
@@ -223,7 +224,7 @@ export default function Dashboard() {
             <p>
               Buat turnamen untuk menambahkan kategori, peserta, dan jadwal.
             </p>
-            <Link href="/admin/tournaments?new=1" className="btn-primary">
+            <Link href="/admin/tournaments/new" className="btn-primary">
               <Icon name="plus" size={17} /> Buat turnamen pertama
             </Link>
           </div>
@@ -232,7 +233,9 @@ export default function Dashboard() {
       <div className="dashboard-footer">
         <Icon name="court" size={17} />
         <span>Peserta dan hasil pertandingan dikelola oleh admin.</span>
-        <span className="ml-auto font-bold">PADEL SCORE by PADEL ADDICTIVE</span>
+        <span className="ml-auto font-bold">
+          PADEL SCORE by PADEL ADDICTIVE
+        </span>
       </div>
     </div>
   );

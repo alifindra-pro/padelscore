@@ -1,15 +1,18 @@
-import { validateEligibility, Eligibility } from '../../packages/core/src';
-import prisma from '@/lib/db';
-import { EntryStatus, Prisma } from '@prisma/client';
-import { AppError } from '@/lib/errors';
-import { createAuditLog } from './audit.service';
+import { validateEligibility, Eligibility } from "../../packages/core/src";
+import prisma from "@/lib/db";
+import { EntryStatus, Prisma } from "@prisma/client";
+import { AppError } from "@/lib/errors";
+import { createAuditLog } from "./audit.service";
 
 export interface CreateEntryParams {
   categoryId: string;
   name?: string;
   playerIds: string[];
+  playerNames?: string[];
+  contact?: string;
+  publicSubmitter?: string;
   seed?: number | null;
-  userId: string;
+  userId: string | null;
 }
 
 export interface UpdateEntryParams {
@@ -29,85 +32,159 @@ export interface ImportEntryItem {
 
 export class EntryService {
   static async createEntry(params: CreateEntryParams) {
-    const category = await prisma.category.findUnique({
-      where: { id: params.categoryId },
-      include: {
-        tournament: true,
-        _count: { select: { entries: true } },
-      },
-    });
-
-    if (!category) {
-      throw AppError.notFound(`Category '${params.categoryId}' not found`);
-    }
-
-    if (category.maxEntries && category._count.entries >= category.maxEntries) {
-      throw AppError.badRequest(`Category has reached maximum entries limit (${category.maxEntries})`);
-    }
-
-    if (!params.playerIds || params.playerIds.length === 0) {
-      throw AppError.badRequest('At least 1 player is required for an entry');
-    }
-
-    // Check player existence
-    const players = await prisma.player.findMany({
-      where: { id: { in: params.playerIds }, ...(category.tournament.organizationId ? { organizationId: category.tournament.organizationId } : {}) },
-    });
-
-    if (players.length !== params.playerIds.length) {
-      throw AppError.badRequest('One or more player IDs are invalid');
-    }
-
-    try { validateEligibility(players, (category.eligibility as Eligibility) ?? {}, category.tournament.startDate, category.tournament.timezone); }
-    catch (error) { throw AppError.badRequest((error as Error).message); }
-
-    // Check if any player is already entered in this category
-    const alreadyEntered = await prisma.entryPlayer.findFirst({
-      where: {
-        playerId: { in: params.playerIds },
-        entry: { categoryId: params.categoryId },
-      },
-      include: { player: true },
-    });
-
-    if (alreadyEntered) {
-      throw AppError.conflict(
-        `Player '${alreadyEntered.player.fullName}' is already registered in this category`
-      );
-    }
-
-    const defaultName = players.map((p) => p.fullName).join(' / ');
-    const entryName = params.name?.trim() || defaultName;
-
-    return await prisma.$transaction(async (tx) => {
-      const entry = await tx.entry.create({
-        data: {
-          categoryId: params.categoryId,
-          name: entryName,
-          seed: params.seed || null,
-          status: EntryStatus.REGISTERED,
-          players: {
-            create: params.playerIds.map((playerId) => ({
-              playerId,
-            })),
+    return prisma.$transaction(
+      async (tx) => {
+        await tx.$queryRaw`SELECT id FROM categories WHERE id = ${params.categoryId} FOR UPDATE`;
+        const category = await tx.category.findUnique({
+          where: { id: params.categoryId },
+          include: {
+            tournament: true,
+            _count: { select: { entries: true, stages: true } },
           },
-        },
-        include: {
-          players: { include: { player: true } },
-        },
-      });
-
-      await createAuditLog({
-        userId: params.userId,
-        tournamentId: category.tournamentId,
-        action: 'CREATE_ENTRY',
-        entityType: 'Entry',
-        entityId: entry.id,
-        after: entry,
-      }, tx);
-
-      return entry;
-    });
+        });
+        if (!category) throw AppError.notFound("Kategori tidak ditemukan");
+        await tx.$queryRaw`SELECT id FROM tournaments WHERE id = ${category.tournamentId} FOR UPDATE`;
+        const currentTournament = await tx.tournament.findUniqueOrThrow({
+          where: { id: category.tournamentId },
+        });
+        if (
+          params.publicSubmitter &&
+          currentTournament.status !== "REGISTRATION"
+        )
+          throw AppError.conflict(
+            "Pendaftaran belum dibuka atau sudah ditutup",
+          );
+        if (
+          ["IN_PROGRESS", "COMPLETED", "ARCHIVED"].includes(
+            currentTournament.status,
+          ) ||
+          category._count.stages
+        )
+          throw AppError.conflict(
+            "Peserta dikunci karena bagan sudah dibuat atau turnamen telah berjalan",
+          );
+        if (
+          category.maxEntries &&
+          category._count.entries >= category.maxEntries
+        )
+          throw AppError.conflict("Slot peserta sudah penuh");
+        if (params.publicSubmitter) {
+          await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${params.publicSubmitter}))`;
+          const recent = await tx.auditLog.count({
+            where: {
+              action: "PUBLIC_REGISTER",
+              ipAddress: params.publicSubmitter,
+              createdAt: { gte: new Date(Date.now() - 3600000) },
+            },
+          });
+          if (recent >= 5)
+            throw new AppError(
+              429,
+              "RATE_LIMITED",
+              "Terlalu banyak pendaftaran. Coba lagi dalam satu jam.",
+            );
+        }
+        const ids = [...params.playerIds];
+        if (params.playerNames) {
+          if (
+            params.playerNames.length !== 2 ||
+            new Set(
+              params.playerNames.map((n) => n.trim().toLocaleLowerCase("id")),
+            ).size !== 2
+          )
+            throw AppError.badRequest("Masukkan dua nama pemain yang berbeda");
+          const duplicate = await tx.entryPlayer.findFirst({
+            where: {
+              entry: { categoryId: category.id },
+              player: {
+                OR: params.playerNames.map((fullName) => ({
+                  fullName: {
+                    equals: fullName.trim(),
+                    mode: "insensitive" as const,
+                  },
+                })),
+              },
+            },
+          });
+          if (duplicate)
+            throw AppError.conflict(
+              "Nama pemain sudah terdaftar. Hubungi admin jika ada pemain berbeda dengan nama sama.",
+            );
+          for (const fullName of params.playerNames)
+            ids.push(
+              (
+                await tx.player.create({
+                  data: {
+                    organizationId: category.tournament.organizationId,
+                    fullName: fullName.trim(),
+                    phone: params.contact,
+                  },
+                })
+              ).id,
+            );
+        }
+        if (!ids.length || ids.length > 2 || new Set(ids).size !== ids.length)
+          throw AppError.badRequest("Pemain dalam pasangan harus berbeda");
+        const players = await tx.player.findMany({
+          where: {
+            id: { in: ids },
+            ...(category.tournament.organizationId
+              ? { organizationId: category.tournament.organizationId }
+              : {}),
+          },
+        });
+        if (players.length !== ids.length)
+          throw AppError.badRequest(
+            "Pemain tidak ditemukan dalam organisasi ini",
+          );
+        try {
+          validateEligibility(
+            players,
+            (category.eligibility as Eligibility) ?? {},
+            category.tournament.startDate,
+            category.tournament.timezone,
+          );
+        } catch (e) {
+          throw AppError.badRequest((e as Error).message);
+        }
+        if (
+          await tx.entryPlayer.findFirst({
+            where: {
+              playerId: { in: ids },
+              entry: { categoryId: category.id },
+            },
+          })
+        )
+          throw AppError.conflict("Pemain sudah terdaftar pada kategori ini");
+        const entry = await tx.entry.create({
+          data: {
+            categoryId: category.id,
+            name:
+              params.name?.trim() ||
+              ids
+                .map((id) => players.find((p) => p.id === id)!.fullName)
+                .join(" / "),
+            seed: params.seed ?? null,
+            status: EntryStatus.REGISTERED,
+            players: { create: ids.map((playerId) => ({ playerId })) },
+          },
+          include: { players: { include: { player: true } } },
+        });
+        await tx.auditLog.create({
+          data: {
+            userId: params.userId,
+            tournamentId: category.tournamentId,
+            action: params.publicSubmitter ? "PUBLIC_REGISTER" : "CREATE_ENTRY",
+            entityType: "Entry",
+            entityId: entry.id,
+            ipAddress: params.publicSubmitter,
+            after: { name: entry.name },
+          },
+        });
+        return entry;
+      },
+      { timeout: 30000 },
+    );
   }
 
   static async listByCategory(categoryId: string) {
@@ -118,10 +195,7 @@ export class EntryService {
           include: { player: true },
         },
       },
-      orderBy: [
-        { seed: { sort: 'asc', nulls: 'last' } },
-        { createdAt: 'asc' },
-      ],
+      orderBy: [{ seed: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }],
     });
   }
 
@@ -162,15 +236,18 @@ export class EntryService {
         },
       });
 
-      await createAuditLog({
-        userId: params.userId,
-        tournamentId: current.category.tournament.id,
-        action: 'UPDATE_ENTRY',
-        entityType: 'Entry',
-        entityId: id,
-        before: current,
-        after: updated,
-      }, tx);
+      await createAuditLog(
+        {
+          userId: params.userId,
+          tournamentId: current.category.tournament.id,
+          action: "UPDATE_ENTRY",
+          entityType: "Entry",
+          entityId: id,
+          before: current,
+          after: updated,
+        },
+        tx,
+      );
 
       return updated;
     });
@@ -188,28 +265,38 @@ export class EntryService {
 
     if (matchCount > 0) {
       throw AppError.badRequest(
-        `Cannot delete entry because it is already assigned to ${matchCount} match(es). Mark as WITHDRAWN instead.`
+        `Cannot delete entry because it is already assigned to ${matchCount} match(es). Mark as WITHDRAWN instead.`,
       );
     }
 
     return await prisma.$transaction(async (tx) => {
       await tx.entry.delete({ where: { id } });
 
-      await createAuditLog({
-        userId,
-        tournamentId: current.category.tournament.id,
-        action: 'DELETE_ENTRY',
-        entityType: 'Entry',
-        entityId: id,
-        before: current,
-      }, tx);
+      await createAuditLog(
+        {
+          userId,
+          tournamentId: current.category.tournament.id,
+          action: "DELETE_ENTRY",
+          entityType: "Entry",
+          entityId: id,
+          before: current,
+        },
+        tx,
+      );
 
       return { success: true };
     });
   }
 
-  static async importEntries(categoryId: string, items: ImportEntryItem[], userId: string) {
-    const category = await prisma.category.findUniqueOrThrow({ where: { id: categoryId }, include: { tournament: true } });
+  static async importEntries(
+    categoryId: string,
+    items: ImportEntryItem[],
+    userId: string,
+  ) {
+    const category = await prisma.category.findUniqueOrThrow({
+      where: { id: categoryId },
+      include: { tournament: true },
+    });
     const organizationId = category.tournament.organizationId;
     const results: (
       | Awaited<ReturnType<typeof EntryService.createEntry>>
@@ -218,8 +305,12 @@ export class EntryService {
     for (const item of items) {
       // Find or create player 1
       let p1 = item.player1Email
-        ? await prisma.player.findFirst({ where: { organizationId, email: item.player1Email } })
-        : await prisma.player.findFirst({ where: { organizationId, fullName: item.player1Name } });
+        ? await prisma.player.findFirst({
+            where: { organizationId, email: item.player1Email },
+          })
+        : await prisma.player.findFirst({
+            where: { organizationId, fullName: item.player1Name },
+          });
 
       if (!p1) {
         p1 = await prisma.player.create({
@@ -236,8 +327,12 @@ export class EntryService {
       // Find or create player 2 if provided
       if (item.player2Name) {
         let p2 = item.player2Email
-          ? await prisma.player.findFirst({ where: { organizationId, email: item.player2Email } })
-          : await prisma.player.findFirst({ where: { organizationId, fullName: item.player2Name } });
+          ? await prisma.player.findFirst({
+              where: { organizationId, email: item.player2Email },
+            })
+          : await prisma.player.findFirst({
+              where: { organizationId, fullName: item.player2Name },
+            });
 
         if (!p2) {
           p2 = await prisma.player.create({
