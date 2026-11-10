@@ -1,6 +1,11 @@
 "use client";
 import { useCallback, use, useEffect, useState } from "react";
 import Link from "next/link";
+import {
+  isMainEntry,
+  waitingEntries,
+  entryStatusLabel,
+} from "@/lib/entry-status";
 import { apiFetch } from "@/lib/api-client";
 import { Icon } from "@/components/ui/Icon";
 import { BracketViewer } from "@/components/BracketViewer";
@@ -42,6 +47,8 @@ interface Player {
   fullName: string;
 }
 interface Entry {
+  status: string;
+  createdAt: string;
   id: string;
   name: string;
   seed: number | null;
@@ -96,6 +103,8 @@ export default function Workspace({
   const [newCategoryFormat, setNewCategoryFormat] =
     useState("SINGLE_ELIMINATION");
   const [rules, setRules] = useState<Rules>(PRESETS.STANDARD);
+  const mainEntries = entries.filter(isMainEntry);
+  const queue = waitingEntries(entries);
   const category = t?.categories.find((c) => c.id === selected);
   const load = useCallback(async () => {
     const data = await apiFetch<Tournament>(`/api/v1/tournaments/${id}`);
@@ -628,14 +637,15 @@ export default function Workspace({
                     </details>
                     <button
                       className="btn-primary w-full"
-                      disabled={
-                        busy ||
-                        !!stages.length ||
-                        (!!category.maxEntries &&
-                          entries.length >= category.maxEntries)
-                      }
+                      disabled={busy || !!stages.length}
                     >
-                      {busy ? "Menambahkan…" : "Tambah pasangan"}
+                      {busy
+                        ? "Menambahkan…"
+                        : queue.length > 0 ||
+                            (!!category.maxEntries &&
+                              mainEntries.length >= category.maxEntries)
+                          ? "Tambah ke cadangan"
+                          : "Tambah pasangan"}
                       <Icon name="plus" size={16} />
                     </button>
                   </form>
@@ -644,14 +654,22 @@ export default function Workspace({
                   <div className="flex justify-between items-center mb-4">
                     <h2 className="panel-title">Peserta {category.name}</h2>
                     <span className="status-pill">
-                      {entries.length}/{category.maxEntries ?? "∞"} slot terisi
+                      {mainEntries.length}/{category.maxEntries ?? "∞"} slot
+                      terisi
                     </span>
                   </div>
+                  <p className="text-sm text-secondary mb-4">
+                    {queue.length} pasangan cadangan. Slot kosong diisi setelah
+                    konfirmasi admin sesuai urutan antrean.{" "}
+                    {stages.length > 0
+                      ? "Bagan sudah dibuat; perubahan peserta dikunci."
+                      : ""}
+                  </p>
                   {Array.from(
                     {
                       length: Math.max(
                         0,
-                        (category.maxEntries ?? 0) - entries.length,
+                        (category.maxEntries ?? 0) - mainEntries.length,
                       ),
                     },
                     (_, i) => (
@@ -660,7 +678,7 @@ export default function Workspace({
                         className="py-3 flex gap-3 items-center border-t border-line text-secondary"
                       >
                         <span className="profile-initial">
-                          {entries.length + i + 1}
+                          {mainEntries.length + i + 1}
                         </span>
                         <span>Slot kosong · belum ada pasangan</span>
                       </div>
@@ -670,10 +688,94 @@ export default function Workspace({
                     entries.map((e, i) => (
                       <div
                         key={e.id}
-                        className="py-4 flex gap-3 items-center border-t border-line"
+                        className="py-4 flex flex-wrap gap-3 items-center border-t border-line"
                       >
                         <span className="profile-initial">{i + 1}</span>
-                        <strong className="text-sm flex-1">{e.name}</strong>
+                        <div className="flex-1 min-w-0">
+                          <strong className="text-sm">{e.name}</strong>
+                          <p className="text-sm text-secondary">
+                            {entryStatusLabel(e, entries)}
+                          </p>
+                        </div>
+                        {!stages.length &&
+                          (isMainEntry(e) || e.status === "WAITLISTED") && (
+                            <div className="flex flex-wrap gap-2 w-full">
+                              {e.status === "WAITLISTED" && (
+                                <button
+                                  className="btn-secondary"
+                                  disabled={
+                                    busy ||
+                                    queue[0]?.id !== e.id ||
+                                    (!!category.maxEntries &&
+                                      mainEntries.length >= category.maxEntries)
+                                  }
+                                  onClick={() => {
+                                    if (
+                                      window.confirm(
+                                        `Sudah mengonfirmasi ${e.name}? Masukkan ke daftar utama?`,
+                                      )
+                                    )
+                                      void run(
+                                        () =>
+                                          apiFetch(`/api/v1/entries/${e.id}`, {
+                                            method: "PATCH",
+                                            body: JSON.stringify({
+                                              status: "CONFIRMED",
+                                            }),
+                                          }),
+                                        "Cadangan masuk daftar utama",
+                                      );
+                                  }}
+                                >
+                                  Konfirmasi masuk utama
+                                </button>
+                              )}
+                              <button
+                                className="btn-secondary"
+                                disabled={busy}
+                                onClick={() => {
+                                  if (
+                                    window.confirm(
+                                      `Batalkan keikutsertaan ${e.name}?`,
+                                    )
+                                  )
+                                    void run(
+                                      () =>
+                                        apiFetch(`/api/v1/entries/${e.id}`, {
+                                          method: "PATCH",
+                                          body: JSON.stringify({
+                                            status: "WITHDRAWN",
+                                          }),
+                                        }),
+                                      "Peserta dibatalkan",
+                                    );
+                                }}
+                              >
+                                Batalkan peserta
+                              </button>
+                              <button
+                                className="btn-secondary"
+                                disabled={busy}
+                                onClick={() => {
+                                  if (
+                                    window.confirm(`Diskualifikasi ${e.name}?`)
+                                  )
+                                    void run(
+                                      () =>
+                                        apiFetch(`/api/v1/entries/${e.id}`, {
+                                          method: "PATCH",
+                                          body: JSON.stringify({
+                                            status: "DISQUALIFIED",
+                                          }),
+                                        }),
+                                      "Peserta didiskualifikasi",
+                                    );
+                                }}
+                              >
+                                Diskualifikasi
+                              </button>
+                            </div>
+                          )}
                         {e.seed && (
                           <span className="status-pill">Seed {e.seed}</span>
                         )}
@@ -688,9 +790,9 @@ export default function Workspace({
                 </section>
               </div>
               <p id="draw-help" className="action-help">
-                {entries.length < 2
-                  ? `Tambahkan ${2 - entries.length} pasangan lagi agar dapat membuat bagan pertandingan.`
-                  : `${entries.length} pasangan sudah terdaftar. Lanjutkan untuk membuat bagan dan jadwal.`}
+                {mainEntries.length < 2
+                  ? `Tambahkan ${2 - mainEntries.length} pasangan lagi agar dapat membuat bagan pertandingan.`
+                  : `${mainEntries.length} pasangan utama sudah terdaftar. Lanjutkan untuk membuat bagan dan jadwal.`}
               </p>
               <div className="step-actions justify-between">
                 <button className="btn-secondary" onClick={() => setStep(0)}>
@@ -699,7 +801,7 @@ export default function Workspace({
                 <button
                   className="btn-primary"
                   aria-describedby="draw-help"
-                  disabled={busy || entries.length < 2}
+                  disabled={busy || mainEntries.length < 2}
                   onClick={() => setStep(2)}
                 >
                   Lanjut: atur pertandingan
@@ -791,14 +893,14 @@ export default function Workspace({
                 <div>
                   <h2 className="panel-title">Susun bagan pertandingan</h2>
                   <p className="text-sm text-secondary mt-2">
-                    {entries.length} pasangan · {formats[category.format]}.
+                    {mainEntries.length} pasangan utama · {formats[category.format]}.
                     Undian yang disimpan menjadi bagan pertandingan.
                   </p>
                 </div>
                 <div className="action-row">
                   <button
                     className="btn-primary"
-                    disabled={busy || entries.length < 2}
+                    disabled={busy || mainEntries.length < 2}
                     onClick={() => {
                       if (
                         !stages.length ||

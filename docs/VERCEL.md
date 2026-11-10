@@ -320,3 +320,28 @@ Deploy final pada 10 November 2026: `dpl_CHDpkjw79Yu5LpsxqNNr5jf22JPs`
 lulus untuk dashboard, slot kosong, pendaftaran admin/publik, kapasitas penuh,
 penutupan, pembuatan bagan, dan pengalihan tautan lama. Fixture dibersihkan.
 Tidak ada upgrade paket atau penambahan layanan berbayar.
+
+## Antrean cadangan — 10 November 2026
+
+Slot utama penuh kini tetap menerima pendaftaran sebagai WAITLISTED. Antrean
+mengikuti waktu daftar; jika ada antrean, slot yang baru kosong dicadangkan
+untuk konfirmasi admin agar pendaftar baru tidak mendahului. Admin dapat
+membatalkan atau mendiskualifikasi peserta sebelum bagan dibuat, lalu
+mengonfirmasi cadangan pertama masuk daftar utama. Pembatalan cadangan
+menggeser nomor antrean berikutnya. Status dan nomor antrean tampil publik;
+nomor kontak tetap privat. Cadangan tidak ikut bagan v1 maupun v2.
+
+Pembuatan bagan dan perubahan status mengunci kategori yang sama. Promosi
+memeriksa kapasitas dan urutan di dalam transaksi. Setelah bagan dibuat,
+perubahan status dari daftar peserta dikunci; fitur ini tidak mengganti
+peserta atau mengubah hasil pertandingan yang sudah tersusun secara otomatis.
+
+TypeScript, lint, build webpack, dan uji browser lokal lulus. Turbopack lokal
+terhalang izin membuka port kompilasi CSS; build webpack dipakai untuk
+verifikasi lokal. Uji browser mencakup tampilan 390/1440 px, daftar cadangan,
+diskualifikasi dan konfirmasi admin, kemudian pembuatan bagan.
+
+Deploy production `dpl_D7kebykWBfD4Pq96BsSMgLAW7Yrn` READY; uji browser pada
+https://padelscore-swart.vercel.app lulus termasuk cadangan, diskualifikasi,
+konfirmasi masuk utama, dan tampilan admin/publik 390/1440 px. Fixture telah
+dibersihkan. Empat tes integrasi lulus; paket Vercel/Neon tidak diubah.

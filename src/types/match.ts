@@ -6,6 +6,8 @@ export interface PlayerView {
 }
 
 export interface EntryView {
+  status?: string;
+  createdAt?: string;
   id: string;
   name: string;
   seed?: number | null;

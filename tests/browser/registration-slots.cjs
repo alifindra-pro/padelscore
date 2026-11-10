@@ -123,15 +123,38 @@ const base = process.env.TEST_BASE_URL || "http://127.0.0.1:3199";
     await participant
       .getByRole("button", { name: "Daftarkan pasangan", exact: true })
       .click();
-    await expect(participant.getByRole("status")).toContainText(
-      "berhasil terdaftar",
-    );
+    await expect(
+      participant.getByRole("status").filter({ hasText: "berhasil terdaftar" }),
+    ).toContainText("berhasil terdaftar");
     await expect(
       participant.getByRole("button", {
-        name: "Slot sudah penuh",
+        name: "Daftar sebagai cadangan",
         exact: true,
       }),
-    ).toBeDisabled();
+    ).toBeEnabled();
+    await participant
+      .getByLabel("Nama pemain pertama", { exact: true })
+      .fill("Reserve One");
+    await participant
+      .getByLabel("Nama pemain kedua", { exact: true })
+      .fill("Reserve Two");
+    await participant
+      .getByLabel("Nomor WhatsApp penghubung", { exact: true })
+      .fill("081234567890");
+    await participant
+      .getByRole("button", { name: "Daftar sebagai cadangan", exact: true })
+      .click();
+    await expect(
+      participant.getByRole("status").filter({ hasText: "Reserve One" }),
+    ).toContainText("cadangan nomor 1");
+    await participant
+      .getByRole("button", { name: /Peserta terdaftar/ })
+      .click();
+    await expect(
+      participant.getByText("Ganda terbuka · Cadangan nomor 1", {
+        exact: true,
+      }),
+    ).toBeVisible();
     await mkdir("/tmp/padel-registration", { recursive: true });
     for (const width of [390, 1440]) {
       await participant.setViewportSize({ width, height: 1000 });
@@ -149,6 +172,37 @@ const base = process.env.TEST_BASE_URL || "http://127.0.0.1:3199";
     await expect(
       page.getByText("Public One / Public Two", { exact: true }),
     ).toBeVisible();
+    page.on("dialog", (dialog) => dialog.accept());
+    const mainRow = page
+      .getByText("Admin One / Admin Two", { exact: true })
+      .locator("../..");
+    await mainRow
+      .getByRole("button", { name: "Diskualifikasi", exact: true })
+      .click();
+    await expect(
+      mainRow.getByText("Didiskualifikasi", { exact: true }),
+    ).toBeVisible();
+    await page
+      .getByRole("button", { name: "Konfirmasi masuk utama", exact: true })
+      .click();
+    const reserveRow = page
+      .getByText("Reserve One / Reserve Two", { exact: true })
+      .locator("../..");
+    await expect(
+      reserveRow.getByText("Peserta utama", { exact: true }),
+    ).toBeVisible();
+    for (const width of [390, 1440]) {
+      await page.setViewportSize({ width, height: 1000 });
+      assert(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth + 1,
+        ),
+      );
+      await page.screenshot({
+        path: `/tmp/padel-registration/admin-${width}.png`,
+        fullPage: true,
+      });
+    }
     await page
       .getByRole("button", { name: "Tutup pendaftaran", exact: true })
       .click();
@@ -178,7 +232,7 @@ const base = process.env.TEST_BASE_URL || "http://127.0.0.1:3199";
     await page.goto(base + "/admin/tournaments?new=1");
     await expect(page).toHaveURL(/\/admin\/tournaments\/new$/);
     console.log(
-      "PASS: dashboard latest form, empty slots, admin/public registration, capacity, close registration, draw, legacy redirect",
+      "PASS: dashboard latest form, empty slots, admin/public registration, capacity, waitlist, disqualification, promotion, close registration, draw, legacy redirect",
     );
   } finally {
     if (browser) await browser.close();

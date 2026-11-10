@@ -40,7 +40,14 @@ export async function POST(
       userId: null,
     });
     return NextResponse.json(
-      { data: { id: entry.id, name: entry.name } },
+      {
+        data: {
+          id: entry.id,
+          name: entry.name,
+          status: entry.status,
+          queuePosition: entry.queuePosition,
+        },
+      },
       { status: 201, headers: { "Cache-Control": "no-store" } },
     );
   } catch (e) {

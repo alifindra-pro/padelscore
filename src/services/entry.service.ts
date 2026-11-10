@@ -63,11 +63,19 @@ export class EntryService {
           throw AppError.conflict(
             "Peserta dikunci karena bagan sudah dibuat atau turnamen telah berjalan",
           );
-        if (
-          category.maxEntries &&
-          category._count.entries >= category.maxEntries
-        )
-          throw AppError.conflict("Slot peserta sudah penuh");
+        const activeCount = await tx.entry.count({
+          where: {
+            categoryId: category.id,
+            status: { in: ["REGISTERED", "CONFIRMED"] },
+          },
+        });
+        const waitingCount = await tx.entry.count({
+          where: { categoryId: category.id, status: "WAITLISTED" },
+        });
+        // Keep freed slots for the existing queue until an admin confirms promotion.
+        const waitlisted =
+          waitingCount > 0 ||
+          !!(category.maxEntries && activeCount >= category.maxEntries);
         if (params.publicSubmitter) {
           await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${params.publicSubmitter}))`;
           const recent = await tx.auditLog.count({
@@ -156,16 +164,25 @@ export class EntryService {
           })
         )
           throw AppError.conflict("Pemain sudah terdaftar pada kategori ini");
+        const last = await tx.entry.findFirst({
+          where: { categoryId: category.id },
+          orderBy: { createdAt: "desc" },
+        });
         const entry = await tx.entry.create({
           data: {
             categoryId: category.id,
+            createdAt: new Date(
+              Math.max(Date.now(), (last?.createdAt.getTime() ?? 0) + 1),
+            ),
             name:
               params.name?.trim() ||
               ids
                 .map((id) => players.find((p) => p.id === id)!.fullName)
                 .join(" / "),
             seed: params.seed ?? null,
-            status: EntryStatus.REGISTERED,
+            status: waitlisted
+              ? EntryStatus.WAITLISTED
+              : EntryStatus.REGISTERED,
             players: { create: ids.map((playerId) => ({ playerId })) },
           },
           include: { players: { include: { player: true } } },
@@ -181,7 +198,10 @@ export class EntryService {
             after: { name: entry.name },
           },
         });
-        return entry;
+        return {
+          ...entry,
+          queuePosition: waitlisted ? waitingCount + 1 : null,
+        };
       },
       { timeout: 30000 },
     );
@@ -220,9 +240,50 @@ export class EntryService {
   }
 
   static async updateEntry(id: string, params: UpdateEntryParams) {
-    const current = await this.getEntryById(id);
-
+    const snapshot = await this.getEntryById(id);
     return await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM categories WHERE id = ${snapshot.categoryId} FOR UPDATE`;
+      const current = await tx.entry.findUniqueOrThrow({ where: { id } });
+      const category = await tx.category.findUniqueOrThrow({
+        where: { id: current.categoryId },
+        include: { tournament: true },
+      });
+      if (params.status && params.status !== current.status) {
+        if (
+          (await tx.stage.count({ where: { categoryId: category.id } })) ||
+          ["IN_PROGRESS", "COMPLETED", "ARCHIVED"].includes(
+            category.tournament.status,
+          )
+        )
+          throw AppError.conflict(
+            "Bagan sudah dibuat. Perubahan peserta harus ditangani melalui pengelolaan pertandingan.",
+          );
+        if (
+          ["REGISTERED", "CONFIRMED"].includes(params.status) &&
+          !["REGISTERED", "CONFIRMED"].includes(current.status)
+        ) {
+          if (current.status !== "WAITLISTED")
+            throw AppError.conflict(
+              "Peserta yang batal atau didiskualifikasi tidak dapat diaktifkan kembali.",
+            );
+          const first = await tx.entry.findFirst({
+            where: { categoryId: category.id, status: "WAITLISTED" },
+            orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+          });
+          if (first?.id !== id)
+            throw AppError.conflict(
+              "Konfirmasi cadangan nomor antrean pertama terlebih dahulu.",
+            );
+          const count = await tx.entry.count({
+            where: {
+              categoryId: category.id,
+              status: { in: ["REGISTERED", "CONFIRMED"] },
+            },
+          });
+          if (category.maxEntries && count >= category.maxEntries)
+            throw AppError.conflict("Belum ada slot utama kosong.");
+        }
+      }
       const data: Prisma.EntryUpdateInput = {};
       if (params.name) data.name = params.name.trim();
       if (params.seed !== undefined) data.seed = params.seed;
@@ -239,7 +300,7 @@ export class EntryService {
       await createAuditLog(
         {
           userId: params.userId,
-          tournamentId: current.category.tournament.id,
+          tournamentId: category.tournamentId,
           action: "UPDATE_ENTRY",
           entityType: "Entry",
           entityId: id,

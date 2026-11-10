@@ -5,6 +5,7 @@ import { Icon } from "@/components/ui/Icon";
 
 import React, { useCallback, useEffect, useState, use, Suspense } from "react";
 import Link from "next/link";
+import { entryStatusLabel } from "@/lib/entry-status";
 import { RegistrationForm } from "@/components/tournament/RegistrationForm";
 import { PlayerPhoto } from "@/components/PlayerPhoto";
 import { apiFetch } from "@/lib/api-client";
@@ -686,7 +687,9 @@ function TournamentPublicContent({
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-secondary">{cat.name}</p>
+                  <p className="text-xs text-secondary">
+                    {cat.name} · {entryStatusLabel(e, cat.entries ?? [])}
+                  </p>
                 </div>
               )),
             )}

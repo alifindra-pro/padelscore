@@ -679,29 +679,32 @@ async function dispatch(req: NextRequest, context: Context): Promise<Response> {
             groups: z.number().int().min(1).max(16).optional(),
           })
           .parse(await req.json());
-        const participants = category.entries.filter((e) =>
-          ["REGISTERED", "CONFIRMED"].includes(e.status),
-        );
-        if (participants.length < 2)
-          throw AppError.badRequest("Minimal dua pasangan");
-        const entries =
-          input.mode === "MANUAL"
-            ? input.entryOrder?.map((entryId) =>
-                participants.find((e) => e.id === entryId)!,
-              )
-            : participants;
-        if (
-          !entries ||
-          entries.length !== participants.length ||
-          entries.some((e) => !e) ||
-          new Set(entries.map((e) => e.id)).size !== participants.length
-        )
-          throw AppError.badRequest(
-            "Urutan manual harus memuat semua peserta tepat sekali",
-          );
         const response = await prisma.$transaction(async (tx) => {
           // Serialize drawing with match starts and preserve all started/history records.
           await tx.$queryRaw`SELECT id FROM categories WHERE id = ${id} FOR UPDATE`;
+          const participants = await tx.entry.findMany({
+            where: {
+              categoryId: id,
+              status: { in: ["REGISTERED", "CONFIRMED"] },
+            },
+          });
+          if (participants.length < 2)
+            throw AppError.badRequest("Minimal dua pasangan");
+          const entries =
+            input.mode === "MANUAL"
+              ? input.entryOrder?.map((entryId) =>
+                  participants.find((e) => e.id === entryId)!,
+                )
+              : participants;
+          if (
+            !entries ||
+            entries.length !== participants.length ||
+            entries.some((e) => !e) ||
+            new Set(entries.map((e) => e.id)).size !== participants.length
+          )
+            throw AppError.badRequest(
+              "Urutan manual harus memuat semua peserta tepat sekali",
+            );
           const started = await tx.match.count({
             where: {
               stage: { categoryId: id },

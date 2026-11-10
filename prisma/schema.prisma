@@ -55,6 +55,7 @@ enum DeuceType {
 }
 
 enum EntryStatus {
+  WAITLISTED
   REGISTERED
   CONFIRMED
   WITHDRAWN

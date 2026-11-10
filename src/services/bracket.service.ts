@@ -17,51 +17,55 @@ import { createAuditLog } from './audit.service';
 
 export class BracketService {
   static async generateCategoryBracket(categoryId: string, userId: string) {
-    const category = await prisma.category.findUnique({
-      where: { id: categoryId },
-      include: {
-        tournament: true,
-        entries: {
-          include: {
-            players: true,
-          },
-          orderBy: [
-            { seed: { sort: 'asc', nulls: 'last' } },
-            { createdAt: 'asc' },
-          ],
-        },
-        stages: {
-          include: { matches: true },
-        },
-      },
-    });
-
-    if (!category) {
-      throw AppError.notFound(`Category '${categoryId}' not found`);
-    }
-
-    if (category.entries.length < 2) {
-      throw AppError.badRequest('At least 2 registered entries are required to generate a draw');
-    }
-
-    // Guard: Prevent overwriting bracket if any match has started
-    const hasStartedMatches = category.stages.some((s) =>
-      s.matches.some((m) => m.status !== MatchStatus.SCHEDULED && m.status !== MatchStatus.CANCELLED)
-    );
-    if (hasStartedMatches) {
-      throw AppError.badRequest(
-        'Cannot regenerate draw because matches in this category are already in progress or completed'
-      );
-    }
-
-    const domainEntries: TournamentEntry[] = category.entries.map((e) => ({
-      id: e.id,
-      name: e.name,
-      seed: e.seed,
-      playerIds: e.players.map((p) => p.playerId),
-    }));
-
     return await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM categories WHERE id = ${categoryId} FOR UPDATE`;
+      const category = await tx.category.findUnique({
+        where: { id: categoryId },
+        include: {
+          tournament: true,
+          entries: {
+            where: { status: { in: ["REGISTERED", "CONFIRMED"] } },
+            include: {
+              players: true,
+            },
+            orderBy: [
+              { seed: { sort: 'asc', nulls: 'last' } },
+              { createdAt: 'asc' },
+            ],
+          },
+          stages: {
+            include: { matches: true },
+          },
+        },
+      });
+
+      if (!category) {
+        throw AppError.notFound(`Category '${categoryId}' not found`);
+      }
+
+      if (category.tournament.status === "REGISTRATION") throw AppError.conflict("Tutup pendaftaran sebelum membuat bagan");
+
+      if (category.entries.length < 2) {
+        throw AppError.badRequest('At least 2 registered entries are required to generate a draw');
+      }
+
+      // Guard: Prevent overwriting bracket if any match has started
+      const hasStartedMatches = category.stages.some((s) =>
+        s.matches.some((m) => m.status !== MatchStatus.SCHEDULED && m.status !== MatchStatus.CANCELLED)
+      );
+      if (hasStartedMatches) {
+        throw AppError.badRequest(
+          'Cannot regenerate draw because matches in this category are already in progress or completed'
+        );
+      }
+
+      const domainEntries: TournamentEntry[] = category.entries.map((e) => ({
+        id: e.id,
+        name: e.name,
+        seed: e.seed,
+        playerIds: e.players.map((p) => p.playerId),
+      }));
+
       // 1. Clear old pending stages and matches
       await tx.stage.deleteMany({ where: { categoryId } });
 

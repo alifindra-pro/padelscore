@@ -6,6 +6,7 @@ import { generateToken } from "@/lib/auth";
 import { POST as setup } from "@/app/api/v2/tournaments/setup/route";
 import { POST as register } from "@/app/api/v2/categories/[id]/register/route";
 import { POST as dispatch } from "@/app/api/v2/[...path]/route";
+import { BracketService } from "@/services/bracket.service";
 import { EntryService } from "@/services/entry.service";
 let userId: string, orgId: string, token: string;
 const tids: string[] = [];
@@ -103,11 +104,42 @@ it("creates only slots then supports admin and public signup without overbooking
     signup(c.id, "Public One"),
     signup(c.id, "Public Two"),
   ]);
-  expect(responses.map((r) => r.status).sort()).toEqual([201, 409]);
-  expect(await prisma.entry.count({ where: { categoryId: c.id } })).toBe(2);
+  expect(responses.map((r) => r.status).sort()).toEqual([201, 201]);
+  expect(await prisma.entry.count({ where: { categoryId: c.id } })).toBe(3);
   expect(await prisma.player.count({ where: { organizationId: orgId } })).toBe(
-    4,
+    6,
   );
+  const waiting = await prisma.entry.findFirstOrThrow({
+    where: { categoryId: c.id, status: "WAITLISTED" },
+  });
+  await expect(
+    EntryService.updateEntry(waiting.id, { status: "CONFIRMED", userId }),
+  ).rejects.toThrow("Belum ada slot");
+  const main = await prisma.entry.findFirstOrThrow({
+    where: { categoryId: c.id, status: "REGISTERED" },
+  });
+  await EntryService.updateEntry(main.id, { status: "DISQUALIFIED", userId });
+  const later = await EntryService.createEntry({
+    categoryId: c.id,
+    playerIds: [],
+    playerNames: ["Later Alpha", "Later Beta"],
+    userId,
+  });
+  expect(later.status).toBe("WAITLISTED");
+  expect(later.queuePosition).toBe(2);
+  await expect(
+    EntryService.updateEntry(later.id, { status: "CONFIRMED", userId }),
+  ).rejects.toThrow("pertama");
+  const promotions = await Promise.allSettled([
+    EntryService.updateEntry(waiting.id, { status: "CONFIRMED", userId }),
+    EntryService.updateEntry(later.id, { status: "CONFIRMED", userId }),
+  ]);
+  expect(promotions.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+  expect(
+    await prisma.entry.count({
+      where: { categoryId: c.id, status: { in: ["REGISTERED", "CONFIRMED"] } },
+    }),
+  ).toBe(2);
   const draw = () =>
     dispatch(req(`/api/v2/categories/${c.id}/draw`, { mode: "RANDOM" }), {
       params: Promise.resolve({ path: ["categories", c.id, "draw"] }),
@@ -119,6 +151,18 @@ it("creates only slots then supports admin and public signup without overbooking
   });
   expect((await draw()).status).toBe(201);
   expect((await signup(c.id, "After Close")).status).toBe(409);
+  const matches = await prisma.match.findMany({
+    where: { stage: { categoryId: c.id } },
+  });
+  expect(matches.some((m) => [m.entryAId, m.entryBId].includes(later.id))).toBe(
+    false,
+  );
+  expect(matches.some((m) => [m.entryAId, m.entryBId].includes(main.id))).toBe(
+    false,
+  );
+  await expect(
+    EntryService.updateEntry(waiting.id, { status: "WITHDRAWN", userId }),
+  ).rejects.toThrow("Bagan sudah dibuat");
 }, 60000);
 it("keeps configured groups while participants are registered later and rejects duplicates atomically", async () => {
   const c = await make(6, 3);
@@ -172,3 +216,44 @@ it("rejects immediate group draws with too few actual pairs even when spare slot
   );
   expect(response.status).toBe(400);
 });
+
+it("excludes reserves from legacy draws and allows cancelling the queue head", async () => {
+  const c = await make(2);
+  const entries = [];
+  for (let i = 0; i < 4; i++)
+    entries.push(
+      await EntryService.createEntry({
+        categoryId: c.id,
+        playerIds: [],
+        playerNames: [`Legacy ${i} Alpha`, `Legacy ${i} Beta`],
+        userId,
+      }),
+    );
+  await EntryService.updateEntry(entries[2].id, {
+    status: "WITHDRAWN",
+    userId,
+  });
+  await EntryService.updateEntry(entries[0].id, {
+    status: "WITHDRAWN",
+    userId,
+  });
+  await EntryService.updateEntry(entries[3].id, {
+    status: "CONFIRMED",
+    userId,
+  });
+  const reserve = await EntryService.createEntry({
+    categoryId: c.id,
+    playerIds: [],
+    playerNames: ["Last Alpha", "Last Beta"],
+    userId,
+  });
+  expect(reserve.status).toBe("WAITLISTED");
+  await BracketService.generateCategoryBracket(c.id, userId);
+  const matches = await prisma.match.findMany({
+    where: { stage: { categoryId: c.id } },
+  });
+  expect(matches.length).toBeGreaterThan(0);
+  expect(
+    new Set(matches.flatMap((m) => [m.entryAId, m.entryBId]).filter(Boolean)),
+  ).toEqual(new Set([entries[1].id, entries[3].id]));
+}, 60000);

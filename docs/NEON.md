@@ -158,3 +158,13 @@ Branch sebelumnya telah kedaluwarsa. Pengujian baru memakai `dev-registration`
 (`br-floral-smoke-azk1z9u7`), turunan production, dengan masa berlaku sampai
 10 November 2026 pukul 19.00 WIB. `.env.neon-development` menyimpan URL baru.
 Tidak ada perubahan paket atau migrasi skema untuk alur slot/pendaftaran.
+
+## Antrean cadangan — 10 November 2026
+
+Migrasi `20261110000000_entry_waitlist` menambah nilai `WAITLISTED` pada enum
+`EntryStatus`, tanpa menghapus atau mengubah data lama. Diuji terlebih dahulu
+pada branch `dev-registration`. Urutan memakai `createdAt` dan `id`; waktu
+pendaftaran baru ditetapkan setelah penguncian kategori agar konsisten saat
+permintaan bersamaan. Tidak menambah layanan atau mengubah paket.
+Migrasi yang sama berhasil diterapkan ke production setelah empat tes integrasi
+lulus di development. Tidak ada data turnamen lama yang dihapus.

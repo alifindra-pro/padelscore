@@ -1,11 +1,16 @@
 "use client";
+import {
+  isMainEntry,
+  waitingEntries,
+  type RegistrationEntry,
+} from "@/lib/entry-status";
 import { useState } from "react";
 import { apiFetch } from "@/lib/api-client";
 type Category = {
   id: string;
   name: string;
   maxEntries?: number | null;
-  entries?: unknown[];
+  entries?: RegistrationEntry[];
   stages?: unknown[];
 };
 export function RegistrationForm({
@@ -22,7 +27,8 @@ export function RegistrationForm({
   const category = categories.find((c) => c.id === selected);
   const full =
     !!category?.maxEntries &&
-    (category.entries?.length ?? 0) >= category.maxEntries;
+    (category.entries?.filter(isMainEntry).length ?? 0) >= category.maxEntries;
+  const queued = waitingEntries(category?.entries ?? []).length;
   return (
     <section className="panel space-y-4" id="registration">
       <h2 className="panel-title">Daftar turnamen</h2>
@@ -30,6 +36,13 @@ export function RegistrationForm({
         Daftarkan dua pemain untuk satu slot pasangan. Nama peserta tampil di
         halaman turnamen; nomor kontak hanya untuk panitia.
       </p>
+      {(full || queued > 0) && (
+        <p role="status" className="text-sm text-secondary">
+          Pendaftaran masuk antrean cadangan. Saat slot tersedia, panitia
+          mengonfirmasi sesuai urutan daftar. Saat ini {queued} pasangan
+          menunggu.
+        </p>
+      )}
       {error && (
         <p role="alert" className="text-danger">
           {error}
@@ -46,19 +59,22 @@ export function RegistrationForm({
           setError("");
           setSuccess("");
           try {
-            const result = await apiFetch<{ name: string }>(
-              `/api/v2/categories/${selected}/register`,
-              {
-                method: "POST",
-                body: JSON.stringify({
-                  playerNames: [f.get("one"), f.get("two")],
-                  contact: f.get("contact"),
-                  website: f.get("website"),
-                }),
-              },
-            );
+            const result = await apiFetch<{
+              name: string;
+              status: string;
+              queuePosition: number | null;
+            }>(`/api/v2/categories/${selected}/register`, {
+              method: "POST",
+              body: JSON.stringify({
+                playerNames: [f.get("one"), f.get("two")],
+                contact: f.get("contact"),
+                website: f.get("website"),
+              }),
+            });
             setSuccess(
-              `${result.name} berhasil terdaftar. Hubungi panitia jika perlu mengubah peserta.`,
+              result.status === "WAITLISTED"
+                ? `${result.name} terdaftar sebagai cadangan nomor ${result.queuePosition}. Tunggu konfirmasi panitia untuk masuk daftar utama.`
+                : `${result.name} berhasil terdaftar sebagai peserta utama. Hubungi panitia jika perlu mengubah peserta.`,
             );
             form.reset();
             onRegistered();
@@ -78,8 +94,8 @@ export function RegistrationForm({
           >
             {categories.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.name} · {c.entries?.length ?? 0}/{c.maxEntries ?? "∞"} slot
-                terisi
+                {c.name} · {c.entries?.filter(isMainEntry).length ?? 0}/
+                {c.maxEntries ?? "∞"} slot terisi
               </option>
             ))}
           </select>
@@ -91,7 +107,7 @@ export function RegistrationForm({
             minLength={2}
             maxLength={100}
             required
-            disabled={busy || full}
+            disabled={busy}
           />
         </label>
         <label className="field">
@@ -101,7 +117,7 @@ export function RegistrationForm({
             minLength={2}
             maxLength={100}
             required
-            disabled={busy || full}
+            disabled={busy}
           />
         </label>
         <label className="field sm:col-span-2">
@@ -112,7 +128,7 @@ export function RegistrationForm({
             minLength={5}
             maxLength={30}
             required
-            disabled={busy || full}
+            disabled={busy}
           />
         </label>
         <div hidden aria-hidden="true">
@@ -120,10 +136,12 @@ export function RegistrationForm({
         </div>
         <button
           className="btn-primary"
-          disabled={busy || full || !category || !!category.stages?.length}
+          disabled={busy || !category || !!category.stages?.length}
         >
-          {full
-            ? "Slot sudah penuh"
+          {full || queued > 0
+            ? busy
+              ? "Mendaftarkan…"
+              : "Daftar sebagai cadangan"
             : busy
               ? "Mendaftarkan…"
               : "Daftarkan pasangan"}
