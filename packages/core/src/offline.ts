@@ -1,4 +1,4 @@
-import { Action, Rules, ScoreState, replay } from "./scoring";
+import { Action, Rules, ScoreState, CoinToss, replay } from "./scoring";
 export interface PendingAction {
   id: string;
   baseVersion: number;
@@ -6,6 +6,7 @@ export interface PendingAction {
   action: Action;
 }
 export interface OfflineMatch {
+  coinToss?: CoinToss | null;
   id: string;
   deviceId: string;
   ownershipVersion: number;

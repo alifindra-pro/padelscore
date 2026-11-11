@@ -194,9 +194,59 @@ const output = multiSets
         exact: true,
       })
       .click();
+    await expect(
+      scorer.getByRole("button", { name: "Mulai pertandingan", exact: true }),
+    ).toBeDisabled();
+    const [tossResponse] = await Promise.all([
+      scorer.waitForResponse(
+        (r) =>
+          r.url().endsWith(`/matches/${match.id}/coin-toss`) &&
+          r.request().method() === "POST",
+      ),
+      scorer
+        .getByRole("button", { name: "Lempar koin online", exact: true })
+        .click(),
+    ]);
+    const toss = (await tossResponse.json()).data;
+    await expect(
+      scorer.getByText("Hasil tersimpan. Undian tidak diulang."),
+    ).toBeVisible();
+    await scorer.reload();
+    await expect(
+      scorer.getByText("Hasil tersimpan. Undian tidak diulang."),
+    ).toBeVisible();
+    await expect(
+      scorer.getByRole("button", { name: "Lempar koin online", exact: true }),
+    ).toHaveCount(0);
+    await scorer
+      .getByLabel("Pilihan pemenang undian", { exact: true })
+      .selectOption("RECEIVE");
+    await scorer
+      .getByLabel("Pemain pembuka pasangan A", { exact: true })
+      .selectOption("A2");
+    await scorer
+      .getByLabel("Pemain pembuka pasangan B", { exact: true })
+      .selectOption("B2");
+    await scorer.setViewportSize({ width: 390, height: 1000 });
+    expect(
+      await scorer.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth + 1,
+      ),
+    ).toBe(true);
+    await scorer.screenshot({
+      path: `${output}/coin-toss-390.png`,
+      fullPage: true,
+    });
     await scorer
       .getByRole("button", { name: "Mulai pertandingan", exact: true })
       .click();
+    await expect
+      .poll(
+        async () =>
+          (await prisma.match.findUniqueOrThrow({ where: { id: match.id } }))
+            .stateV2.serviceOrder[0],
+      )
+      .toBe(toss.winner === "A" ? "B2" : "A2");
     await scorer.getByRole("button", { name: /^\+1 / }).first().click();
     await expect(tv.locator(".tv-points strong").first()).toHaveText(
       directPoints ? "1" : "15",

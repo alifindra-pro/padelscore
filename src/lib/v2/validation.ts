@@ -28,6 +28,7 @@ const pair = z.tuple([
 export const actionSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("START_MATCH"),
+    tossChoice: z.enum(["SERVE", "RECEIVE"]).optional(),
     at,
     serviceOrder: z
       .tuple([z.string(), z.string(), z.string(), z.string()])

@@ -1,5 +1,10 @@
 /** Pure, replayable scoring. Time enters only through explicit actions. */
 export type Team = "A" | "B";
+export interface CoinToss {
+  winner: Team;
+  face: "KEPALA" | "EKOR";
+  tossedAt: string;
+}
 export type MatchStatus =
   | "NOT_STARTED"
   | "WARMUP"
@@ -172,6 +177,7 @@ export interface ScoreState {
 export type Action =
   | {
       type: "START_MATCH";
+      tossChoice?: "SERVE" | "RECEIVE";
       at: number;
       serviceOrder?: [string, string, string, string];
       receivingOrder?: [string, string, string, string];

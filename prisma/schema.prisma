@@ -338,6 +338,7 @@ model Match {
   engineVersion Int @default(1)
   rulesSnapshot Json?
   stateV2 Json?
+  coinToss Json?
   deviceId String?
   ownershipVersion Int @default(0)
   approvalStatus String @default("PENDING")

@@ -4,6 +4,7 @@ import { isDeepStrictEqual } from "node:util";
 import { Prisma } from "@prisma/client";
 import {
   Action,
+  CoinToss,
   Rules,
   ScoreState,
   initialState,
@@ -91,6 +92,7 @@ export async function syncActions(user: AuthUser, id: string, input: unknown) {
   await matchAccess(user, id);
   const result = await prisma.$transaction(
     async (tx) => {
+      await tx.$queryRaw`SELECT id FROM matches WHERE id = ${id} FOR UPDATE`;
       const m = await tx.match.findUniqueOrThrow({
         where: { id },
         include: {
@@ -131,6 +133,25 @@ export async function syncActions(user: AuthUser, id: string, input: unknown) {
           );
         if ("at" in event.action && event.action.at > Date.now() + 60000)
           throw AppError.badRequest("Waktu perangkat tidak valid");
+        if (event.action.type === "START_MATCH") {
+          const toss = m.coinToss as unknown as CoinToss | null;
+          if (toss || event.action.tossChoice) {
+            if (!toss || !event.action.tossChoice)
+              throw AppError.badRequest(
+                "Lempar koin dan konfirmasi pilihan pemenang terlebih dahulu",
+              );
+            const first =
+              event.action.tossChoice === "SERVE"
+                ? toss.winner
+                : toss.winner === "A"
+                  ? "B"
+                  : "A";
+            if (!event.action.serviceOrder?.[0]?.startsWith(first))
+              throw AppError.badRequest(
+                "Servis pertama tidak sesuai pilihan pemenang undian",
+              );
+          }
+        }
         actions.push(event.action as Action);
         try {
           replay(m.rulesSnapshot as unknown as Rules, actions);
