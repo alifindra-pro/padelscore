@@ -63,17 +63,7 @@ describe('Phase 3 Integration: Realtime Event Bus & SSE Broadcast', () => {
       userId: refereeUser.id,
     });
 
-    stage = await prisma.stage.create({
-      data: {
-        categoryId: category.id,
-        name: 'Quarterfinals',
-        type: StageType.SINGLE_ELIMINATION,
-        order: 1,
-        config: {},
-      },
-    });
-
-    court = await CourtService.createCourt({
+    court =await CourtService.createCourt({
       tournamentId: tournament.id,
       name: 'Court 1 Live',
       priority: 5,
@@ -99,7 +89,18 @@ describe('Phase 3 Integration: Realtime Event Bus & SSE Broadcast', () => {
       userId: refereeUser.id,
     });
 
-    match = await MatchService.createMatch({
+    // Registration locks once a stage exists, so create it after entries.
+    stage = await prisma.stage.create({
+      data: {
+        categoryId: category.id,
+        name: 'Quarterfinals',
+        type: StageType.SINGLE_ELIMINATION,
+        order: 1,
+        config: {},
+      },
+    });
+
+    match =await MatchService.createMatch({
       stageId: stage.id,
       courtId: court.id,
       entryAId: entryA.id,

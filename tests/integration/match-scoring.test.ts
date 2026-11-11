@@ -82,18 +82,7 @@ describe('Phase 2 Integration: Match Scoring Lifecycle, Concurrency & Idempotenc
       userId: organizerUser.id,
     });
 
-    // 3. Setup stage
-    stage = await prisma.stage.create({
-      data: {
-        categoryId: category.id,
-        name: 'Main Draw',
-        type: StageType.SINGLE_ELIMINATION,
-        order: 1,
-        config: {},
-      },
-    });
-
-    // 4. Setup Court
+    // 3. Setup Court
     court = await CourtService.createCourt({
       tournamentId: tournament.id,
       name: 'Pista Central',
@@ -101,7 +90,7 @@ describe('Phase 2 Integration: Match Scoring Lifecycle, Concurrency & Idempotenc
       userId: organizerUser.id,
     });
 
-    // 5. Setup Entries
+    // 4. Setup Entries (registration locks once a stage exists)
     const p1 = await PlayerService.createPlayer({ fullName: 'Paquito Navarro' });
     const p2 = await PlayerService.createPlayer({ fullName: 'Martin Di Nenno' });
     entryA = await EntryService.createEntry({
@@ -120,6 +109,17 @@ describe('Phase 2 Integration: Match Scoring Lifecycle, Concurrency & Idempotenc
       playerIds: [p3.id, p4.id],
       seed: 2,
       userId: organizerUser.id,
+    });
+
+    // 5. Setup stage
+    stage = await prisma.stage.create({
+      data: {
+        categoryId: category.id,
+        name: 'Main Draw',
+        type: StageType.SINGLE_ELIMINATION,
+        order: 1,
+        config: {},
+      },
     });
   });
 

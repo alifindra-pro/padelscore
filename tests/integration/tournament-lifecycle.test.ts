@@ -137,7 +137,7 @@ describe('Phase 1 Integration: Tournament Lifecycle & RBAC', () => {
         playerIds: [p1.id],
         userId: adminUser.id,
       })
-    ).rejects.toThrow(/already registered/);
+    ).rejects.toThrow(/sudah terdaftar/);
   });
 
   it('5. Creates courts and updates court priority', async () => {
