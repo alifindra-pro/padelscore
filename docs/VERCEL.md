@@ -399,3 +399,29 @@ Deploy final `dpl_9uq3bx2fF2Q2ZUaQMvdDp6DWZNqg` READY pada 11 November
 2026. Uji browser production best-of-three lulus, termasuk skor utama TV 2–1,
 PDF, sinkronisasi, pengesahan, dan pencabutan akses publik. Fixture dibersihkan.
 Tidak ada migrasi database, upgrade paket, atau layanan berbayar tambahan.
+
+## Undian servis pertama — 11 November 2026
+
+Konsol wasit menyediakan undian online satu kali sebelum laga dimulai.
+Kepala mewakili pasangan A dan ekor pasangan B. Wasit mencatat pilihan
+pemenang (servis atau menerima), memilih pemain pembuka tiap pasangan,
+lalu memulai laga. Urutan servis mengikuti pilihan tersebut.
+
+Hasil disimpan di `matches.coinToss`; refresh atau pergantian perangkat
+tidak mengulang undian. Permintaan bersamaan dikunci pada baris pertandingan.
+API memeriksa penugasan wasit, perangkat aktif, status laga, dan kecocokan
+servis pertama. Klien offline lama tanpa data undian tetap kompatibel.
+
+Migrasi `20261111000000_match_coin_toss` telah diterapkan pada development
+dan production. Migrasi juga membawa hasil undian lama dari audit log.
+Validasi development: 64 tes core/integrasi, lint, TypeScript melalui build,
+dan build webpack lulus. Uji browser meliputi undian tersimpan setelah refresh,
+pilihan menerima, pemain kedua sebagai server pertama, skor beberapa set,
+sinkronisasi TV, pemulihan offline, pengesahan, dan PDF. Tampilan undian
+lebar 390 px diperiksa. Fixture pengujian dibersihkan.
+
+Deploy `dpl_DWR3AdiK7fKpzUu7PiVQtZkr1ryd` READY. Uji browser pada
+https://padelscore-swart.vercel.app lulus untuk alur di atas dan fixture
+production telah dibersihkan. Tambahan 17 tes lifecycle, scoring, dan SSE
+pada database development lulus (total 81 tes dalam dua eksekusi).
+Tidak ada penambahan layanan berbayar atau perubahan paket Neon/Vercel.
