@@ -302,11 +302,13 @@ function OfflineScoring({ params }: { params: Promise<{ matchId: string }> }) {
               </p>
               {match.coinToss ? (
                 <div className="flex items-center gap-4 rounded-xl bg-brand-soft p-4">
-                  <div className="w-20 h-20 shrink-0 rounded-full border-2 border-brand flex flex-col items-center justify-center text-brand font-bold">
+                  <div className="w-20 h-20 shrink-0 rounded-full border-2 border-brand flex flex-col items-center justify-center text-center leading-tight text-brand font-bold">
                     <span>
                       {match.coinToss.face === "KEPALA" ? "Kepala" : "Ekor"}
                     </span>
-                    <span>Pasangan {match.coinToss.winner}</span>
+                    <span className="text-xs font-semibold">
+                      Pasangan {match.coinToss.winner}
+                    </span>
                   </div>
                   <p role="status" className="min-w-0 break-words">
                     Pemenang undian:{" "}
