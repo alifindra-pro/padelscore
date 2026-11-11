@@ -8,6 +8,7 @@ import {
   replay,
   serviceInfo,
   validateRules,
+  setPointScores,
 } from "../src/scoring";
 const start: Action = { type: "START_MATCH", at: 0 };
 const points = (a: number, b: number): Action[] => [
@@ -105,6 +106,93 @@ describe("direct total points scoring", () => {
     ).toThrow();
     expect(() =>
       applyAction(s, { type: "SELECT_RECEIVER_SIDE", side: "LEFT" }),
+    ).toThrow();
+  });
+});
+
+describe("direct points across sets", () => {
+  const target = {
+    ...PRESETS.POINTS,
+    pointsFormat: "TARGET" as const,
+    totalPoints: 3,
+    setsToWin: 2,
+    pointsWinBy: 1 as const,
+  };
+  it("plays best of three, resets points, retains each set and replays undo across a set boundary", () => {
+    const first = [start, ...points(3, 0)];
+    const s = replay(target, first);
+    expect(s.status).toBe("IN_PROGRESS");
+    expect(s.points).toEqual([0, 0]);
+    expect(s.sets[0].winner).toBe("A");
+    expect(serviceInfo(s).server).toBe("B1");
+    const tied = replay(target, [...first, ...points(0, 3)]);
+    expect(tied.sets).toHaveLength(3);
+    const final = replay(target, [...first, ...points(0, 3), ...points(3, 0)]);
+    expect(final.winner).toBe("A");
+    expect(final.status).toBe("COMPLETED");
+    expect(setPointScores(final)).toEqual([
+      [3, 0],
+      [0, 3],
+      [3, 0],
+    ]);
+    const undone = replay(target, [
+      ...first,
+      { type: "UNDO_LAST_ACTION", reason: "Wrong point" },
+    ]);
+    expect(undone.sets).toHaveLength(1);
+    expect(undone.points).toEqual([2, 0]);
+  });
+  it("requires a two-point margin at the target and rejects corrections that already win a set", () => {
+    const rules = { ...target, setsToWin: 1, pointsWinBy: 2 as const };
+    let s = replay(rules, [
+      start,
+      ...points(2, 2),
+      { type: "AWARD_POINT", team: "A" },
+    ]);
+    expect(s.status).toBe("IN_PROGRESS");
+    s = applyAction(s, { type: "AWARD_POINT", team: "B" });
+    expect(s.points).toEqual([3, 3]);
+    expect(() =>
+      applyAction(s, {
+        type: "CORRECT_SCORE",
+        games: [0, 0],
+        points: [5, 3],
+        reason: "Invalid finish",
+      }),
+    ).toThrow();
+    s = applyAction(s, { type: "AWARD_POINT", team: "A" });
+    s = applyAction(s, { type: "AWARD_POINT", team: "A" });
+    expect(s.status).toBe("COMPLETED");
+    expect(setPointScores(s)).toEqual([[5, 3]]);
+  });
+  it("plays fixed total with a deciding point for each tied set and stops at three set wins", () => {
+    const rules = {
+      ...PRESETS.POINTS,
+      pointsFormat: "TOTAL" as const,
+      totalPoints: 4,
+      setsToWin: 3,
+    };
+    let s = initialState(rules);
+    s = applyAction(s, start);
+    for (let set = 0; set < 3; set++) {
+      for (const action of points(2, 2)) s = applyAction(s, action);
+      expect(s.decidingPoint).toBe(true);
+      s = applyAction(s, { type: "AWARD_POINT", team: "B" });
+      expect(s.status).toBe(set === 2 ? "COMPLETED" : "IN_PROGRESS");
+    }
+    expect(s.winner).toBe("B");
+    expect(setPointScores(s)).toEqual([
+      [2, 3],
+      [2, 3],
+      [2, 3],
+    ]);
+  });
+  it("rejects contradictory total/margin and match-tiebreak rules", () => {
+    expect(() =>
+      initialState({ ...target, pointsFormat: "TOTAL", pointsWinBy: 2 }),
+    ).toThrow();
+    expect(() =>
+      initialState({ ...target, decidingMatchTiebreak: true }),
     ).toThrow();
   });
 });

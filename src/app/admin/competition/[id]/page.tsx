@@ -173,6 +173,10 @@ function Competition({ params }: { params: Promise<{ id: string }> }) {
               />
               {rules.mode === "POINTS" ? (
                 <DirectPointsSettings
+                  options={rules}
+                  onOptionsChange={(options) =>
+                    setRules({ ...rules, ...options })
+                  }
                   value={rules.totalPoints ?? 24}
                   onChange={(totalPoints) =>
                     setRules({ ...rules, totalPoints })

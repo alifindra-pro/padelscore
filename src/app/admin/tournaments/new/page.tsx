@@ -33,6 +33,9 @@ function NewTournament() {
     courts: 1,
     preset: "SINGLE",
     totalPoints: 24,
+    pointsFormat: "TOTAL" as "TOTAL" | "TARGET",
+    pointsWinBy: 1 as 1 | 2,
+    pointsSetsToWin: 1,
     format: ["AMERICANO", "MEXICANO"].includes(searchParams.get("format") || "")
       ? searchParams.get("format")!
       : "SINGLE_ELIMINATION",
@@ -79,7 +82,7 @@ function NewTournament() {
   const isSocial = ["AMERICANO", "MEXICANO"].includes(data.format);
   const directPoints = data.preset === "POINTS";
   const scoreDescription = directPoints
-    ? `Poin langsung · total ${data.totalPoints} poin`
+    ? `Poin langsung · ${data.pointsFormat === "TARGET" ? "target" : "total bersama"} ${data.totalPoints} poin/set · menang ${data.pointsSetsToWin} set`
     : PRESET_OPTIONS.find((option) => option.value === data.preset)!.label;
   const players = playerText
     .split("\n")
@@ -219,7 +222,8 @@ function NewTournament() {
             Siapkan pertandingannya.
           </h1>
           <p>
-            Pilih sistem bermain dan siapkan slot. Peserta bisa didaftarkan setelah turnamen dibuat.
+            Pilih sistem bermain dan siapkan slot. Peserta bisa didaftarkan
+            setelah turnamen dibuat.
           </p>
         </div>
         <div className="setup-header-note">
@@ -455,6 +459,19 @@ function NewTournament() {
                       />
                       {directPoints ? (
                         <DirectPointsSettings
+                          options={{
+                            pointsFormat: data.pointsFormat,
+                            pointsWinBy: data.pointsWinBy,
+                            setsToWin: data.pointsSetsToWin,
+                          }}
+                          onOptionsChange={(options) =>
+                            setData({
+                              ...data,
+                              pointsFormat: options.pointsFormat ?? "TOTAL",
+                              pointsWinBy: options.pointsWinBy ?? 1,
+                              pointsSetsToWin: options.setsToWin,
+                            })
+                          }
                           value={data.totalPoints}
                           onChange={(totalPoints) =>
                             setData({ ...data, totalPoints })

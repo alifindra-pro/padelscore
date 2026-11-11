@@ -834,6 +834,10 @@ export default function Workspace({
                 />
                 {rules.mode === "POINTS" ? (
                   <DirectPointsSettings
+                    options={rules}
+                    onOptionsChange={(options) =>
+                      setRules({ ...rules, ...options })
+                    }
                     value={rules.totalPoints ?? 24}
                     onChange={(totalPoints) =>
                       setRules({ ...rules, totalPoints })
@@ -893,8 +897,9 @@ export default function Workspace({
                 <div>
                   <h2 className="panel-title">Susun bagan pertandingan</h2>
                   <p className="text-sm text-secondary mt-2">
-                    {mainEntries.length} pasangan utama · {formats[category.format]}.
-                    Undian yang disimpan menjadi bagan pertandingan.
+                    {mainEntries.length} pasangan utama ·{" "}
+                    {formats[category.format]}. Undian yang disimpan menjadi
+                    bagan pertandingan.
                   </p>
                 </div>
                 <div className="action-row">

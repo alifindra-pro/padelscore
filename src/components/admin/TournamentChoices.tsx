@@ -2,7 +2,7 @@
 
 import { useId } from "react";
 import { Icon } from "@/components/ui/Icon";
-import type { SocialConfig } from "../../../packages/core/src";
+import type { SocialConfig, Rules } from "../../../packages/core/src";
 
 export const FORMAT_OPTIONS = [
   {
@@ -359,24 +359,48 @@ export const SCORING_OPTIONS = [
     value: "POINTS",
     label: "Poin langsung",
     description:
-      "Setiap reli bernilai satu poin. Tetapkan total poin kedua pasangan; seri diakhiri satu poin penentu.",
+      "Setiap reli bernilai satu poin. Pilih total bersama atau target poin, lalu jumlah set.",
   },
 ];
 
 export function DirectPointsSettings({
   value,
   onChange,
+  options,
+  onOptionsChange,
   disabled = false,
 }: {
   value: number;
   onChange: (value: number) => void;
+  options: Pick<Rules, "pointsFormat" | "pointsWinBy" | "setsToWin">;
+  onOptionsChange: (
+    value: Pick<Rules, "pointsFormat" | "pointsWinBy" | "setsToWin">,
+  ) => void;
   disabled?: boolean;
 }) {
-  const a = Math.ceil(value * 0.625);
+  const format = options.pointsFormat ?? "TOTAL";
   return (
     <div className="space-y-4">
       <label className="field">
-        Total poin per pertandingan
+        Cara menyelesaikan set
+        <select
+          aria-label="Cara menyelesaikan set"
+          value={format}
+          disabled={disabled}
+          onChange={(e) =>
+            onOptionsChange({
+              ...options,
+              pointsFormat: e.target.value as "TOTAL" | "TARGET",
+              pointsWinBy: 1,
+            })
+          }
+        >
+          <option value="TOTAL">Total poin bersama (seperti Americano)</option>
+          <option value="TARGET">Siapa dulu mencapai target</option>
+        </select>
+      </label>
+      <label className="field">
+        {format === "TOTAL" ? "Total poin per set" : "Target poin per set"}
         <input
           type="number"
           min={1}
@@ -388,26 +412,64 @@ export function DirectPointsSettings({
         />
       </label>
       <div className="flex flex-wrap gap-2">
-        {[16, 24, 32].map((target) => (
+        {(format === "TOTAL" ? [16, 24, 32] : [11, 15, 21]).map((n) => (
           <button
-            key={target}
             type="button"
-            className={value === target ? "btn-primary" : "btn-secondary"}
-            aria-pressed={value === target}
+            key={n}
+            className={value === n ? "btn-primary" : "btn-secondary"}
+            aria-pressed={value === n}
             disabled={disabled}
-            onClick={() => onChange(target)}
+            onClick={() => onChange(n)}
           >
-            {target} poin
+            {n} poin
           </button>
         ))}
       </div>
+      <label className="field">
+        Jumlah set
+        <select
+          aria-label="Jumlah set"
+          value={options.setsToWin}
+          disabled={disabled}
+          onChange={(e) =>
+            onOptionsChange({
+              ...options,
+              pointsFormat: format,
+              setsToWin: Number(e.target.value),
+            })
+          }
+        >
+          <option value={1}>1 set — sekali menang</option>
+          <option value={2}>Best of 3 — menang 2 set</option>
+          <option value={3}>Best of 5 — menang 3 set</option>
+        </select>
+      </label>
+      {format === "TARGET" && (
+        <label className="field">
+          Aturan akhir set
+          <select
+            aria-label="Aturan akhir set"
+            value={options.pointsWinBy ?? 1}
+            disabled={disabled}
+            onChange={(e) =>
+              onOptionsChange({
+                ...options,
+                pointsWinBy: Number(e.target.value) as 1 | 2,
+              })
+            }
+          >
+            <option value={1}>Langsung selesai di target</option>
+            <option value={2}>Harus unggul selisih 2 poin</option>
+          </select>
+        </label>
+      )}
       <p className="scoring-example">
-        {value > 0
-          ? `Contoh: ${a}–${value - a}, total ${value} poin. `
-          : "Pilih total 1–200 poin. "}
-        Jika seri, mainkan satu poin tambahan untuk menentukan pemenang.
-        Pasangan tetap; servis berganti setiap 4 poin dan tukar sisi setiap 8
-        poin.
+        {format === "TOTAL"
+          ? `Jumlah poin kedua pasangan mencapai ${value}; jika seri, mainkan satu poin penentu set.`
+          : `Pasangan pertama mencapai ${value} poin${options.pointsWinBy === 2 ? " dan unggul minimal 2 poin" : ""} memenangkan set.`}{" "}
+        Pertandingan dimenangkan setelah {options.setsToWin} kemenangan set.
+        Skor kembali 0–0 di set berikutnya. Servis berganti setiap 4 poin;
+        server pembuka berganti satu posisi di set berikutnya.
       </p>
     </div>
   );

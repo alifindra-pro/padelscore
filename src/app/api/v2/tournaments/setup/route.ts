@@ -27,6 +27,9 @@ const schema = z.object({
   category: z.string().trim().min(2).max(100),
   courts: z.number().int().min(1).max(16),
   preset: z.enum(["SINGLE", "STANDARD", "SHORT", "POINTS"]),
+  pointsFormat: z.enum(["TOTAL", "TARGET"]).optional(),
+  pointsWinBy: z.union([z.literal(1), z.literal(2)]).optional(),
+  pointsSetsToWin: z.number().int().min(1).max(3).default(1),
   totalPoints: z.number().int().min(1).max(200).optional(),
   deuce: z.enum(["ADVANTAGE", "GOLDEN_POINT", "STAR_POINT"]).optional(),
   format: z.enum(["SINGLE_ELIMINATION", "ROUND_ROBIN", "GROUP_KNOCKOUT"]),
@@ -170,6 +173,12 @@ export async function POST(req: NextRequest) {
         { status: 201 },
       );
     }
+    if (
+      body.preset === "POINTS" &&
+      body.pointsFormat !== "TARGET" &&
+      body.pointsWinBy === 2
+    )
+      throw AppError.badRequest("Selisih 2 hanya berlaku untuk target poin");
     const capacity =
       body.slotCount ?? (body.registrationLater ? 8 : body.pairs.length);
     if (body.registrationLater && body.pairs.length)
@@ -274,7 +283,12 @@ export async function POST(req: NextRequest) {
               JSON.stringify({
                 ...PRESETS[body.preset],
                 ...(body.preset === "POINTS"
-                  ? { totalPoints: body.totalPoints ?? 24 }
+                  ? {
+                      totalPoints: body.totalPoints ?? 24,
+                      pointsFormat: body.pointsFormat,
+                      pointsWinBy: body.pointsWinBy,
+                      setsToWin: body.pointsSetsToWin,
+                    }
                   : {}),
                 ...(body.deuce ? { deuce: body.deuce } : {}),
               }),

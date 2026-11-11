@@ -18,6 +18,8 @@ import {
   ScoreState,
   Rules,
   pointLabels,
+  directPointsSummary,
+  setPointScores,
   serviceInfo,
   enqueue,
   acknowledge,
@@ -212,7 +214,7 @@ function OfflineScoring({ params }: { params: Promise<{ matchId: string }> }) {
             <p className="text-xs text-secondary">
               {match.rules.name} ·{" "}
               {match.rules.mode === "POINTS"
-                ? `Total ${match.rules.totalPoints} poin`
+                ? directPointsSummary(match.rules)
                 : match.rules.deuce}{" "}
               · {match.state.status}
             </p>
@@ -227,8 +229,10 @@ function OfflineScoring({ params }: { params: Promise<{ matchId: string }> }) {
             {match.rules.mode === "POINTS" ? (
               <p role="status">
                 {match.state.decidingPoint
-                  ? "Seri — satu poin berikutnya menentukan pemenang."
-                  : `Total ${match.state.points[0] + match.state.points[1]} dari ${match.rules.totalPoints} poin`}
+                  ? "Seri — satu poin berikutnya menentukan pemenang set."
+                  : match.rules.pointsFormat === "TARGET"
+                    ? `Set ${match.state.sets.length} · target ${match.rules.totalPoints} poin${match.rules.pointsWinBy === 2 ? " · selisih 2" : ""}`
+                    : `Set ${match.state.sets.length} · total ${match.state.points[0] + match.state.points[1]} dari ${match.rules.totalPoints} poin`}
               </p>
             ) : (
               <p>
@@ -242,6 +246,18 @@ function OfflineScoring({ params }: { params: Promise<{ matchId: string }> }) {
                   .join(" / ")}
               </p>
             )}
+            {match.rules.mode === "POINTS" &&
+              setPointScores(match.state).length > 0 && (
+                <p>
+                  Set:{" "}
+                  {setPointScores(match.state)
+                    .map((p, i) => `${i + 1}: ${p.join("–")}`)
+                    .join(" / ")}{" "}
+                  · Kemenangan set{" "}
+                  {match.state.sets.filter((s) => s.winner === "A").length}–
+                  {match.state.sets.filter((s) => s.winner === "B").length}
+                </p>
+              )}
             <p className="text-sm">
               Servis {server?.server} ·{" "}
               {server?.side === "RIGHT" ? "kanan" : "kiri"} · percobaan{" "}

@@ -367,3 +367,35 @@ judul, dan tampilan publik 390/1440 px. Fixture dibersihkan.
 Production deploy `dpl_MdBv9SWeh3i33CZiRQ5gtD83Ds5w` READY. Uji browser
 pada https://padelscore-swart.vercel.app lulus untuk seluruh alur header dan
 tema, termasuk penghapusan dan reset. Fixture database/gambar telah dibersihkan.
+
+## Poin langsung beberapa set — 11 November 2026
+
+Pengaturan poin langsung kini memisahkan **total poin bersama** (seperti
+Americano; satu poin penentu jika seri) dari **target poin** (pasangan pertama
+mencapai target, dengan pilihan selisih 1 atau 2). Keduanya mendukung 1 set,
+best of 3, atau best of 5 melalui `setsToWin`. Total/target 1–200 poin berlaku
+per set. Ini aturan lokal pertandingan pasangan tetap; sesi sosial Americano
+atau Mexicano tidak diubah.
+
+Set selesai disimpan sebelum skor kembali 0–0. Pemenang laga ditentukan oleh
+kemenangan set, dan undo dapat mengembalikan keadaan sebelum pergantian set.
+Snapshot, TV, layar wasit, bagan, klasemen, dan PDF memakai skor seluruh set.
+Klasemen menjumlahkan poin seluruh set, bukan hanya set terakhir. Aturan lama
+tanpa `pointsFormat` dengan satu kemenangan set mempertahankan perilaku
+sebelumnya; tidak ada migrasi database atau perubahan hasil lama.
+
+Footer halaman publik/laga/wasit kini konsisten memakai Padel Score by Padel
+Addictive. Konfigurasi dan mesin skor tetap terpisah dari branding.
+
+Validasi: 53 tes core, sembilan tes integrasi setup/skor/PDF, TypeScript,
+lint, dan build webpack lulus. Uji browser best-of-three target poin lulus
+untuk wizard, wasit, sinkronisasi TV, offline recovery, pengesahan, PDF,
+responsif, dan penutupan akses publik. PDF dirender dan diperiksa; hasil
+2–1 serta rincian tiga set sesuai. Fixture development dibersihkan.
+Pada TV, laga poin multi-set yang selesai menampilkan jumlah kemenangan set
+sebagai angka utama (misalnya 2–1), sambil mempertahankan rincian poin tiap set.
+
+Deploy final `dpl_9uq3bx2fF2Q2ZUaQMvdDp6DWZNqg` READY pada 11 November
+2026. Uji browser production best-of-three lulus, termasuk skor utama TV 2–1,
+PDF, sinkronisasi, pengesahan, dan pencabutan akses publik. Fixture dibersihkan.
+Tidak ada migrasi database, upgrade paket, atau layanan berbayar tambahan.

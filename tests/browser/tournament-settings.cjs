@@ -265,7 +265,7 @@ const output = "/tmp/padel-tournament-settings";
       page.getByRole("radio", { name: "Poin langsung", exact: true }),
     ).toBeChecked();
     await expect(
-      page.getByLabel("Total poin per pertandingan", { exact: true }),
+      page.getByLabel("Total poin per set", { exact: true }),
     ).toHaveValue("32");
     await page.getByRole("button", { name: "24 poin", exact: true }).click();
     const updated = page.waitForResponse(

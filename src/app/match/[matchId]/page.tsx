@@ -279,7 +279,7 @@ function MatchScoreboardContent({
         {snapshot.gamesA && snapshot.gamesA.length > 0 && (
           <div className="p-4 bg-card border border-line rounded-2xl flex flex-wrap items-center justify-between gap-4">
             <span className="text-xs font-bold text-secondary uppercase tracking-wider">
-              Game per set
+              Skor per set
             </span>
             <div className="flex gap-4">
               {snapshot.gamesA.map((gA, idx) => {
@@ -352,7 +352,7 @@ function MatchScoreboardContent({
 
       {/* Broadcast Footer */}
       <footer className="border-t border-line py-6 text-center text-xs text-muted">
-        Padel Tournament OS &bull; Papan skor langsung
+        Padel Score by Padel Addictive &bull; Papan skor langsung
       </footer>
     </div>
   );

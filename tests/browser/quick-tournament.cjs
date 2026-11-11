@@ -7,10 +7,13 @@ const { randomUUID } = require("node:crypto");
 const { mkdir, writeFile } = require("node:fs/promises");
 const prisma = new PrismaClient();
 const base = process.env.TEST_BASE_URL || "http://localhost:3100";
-const directPoints = process.env.TEST_DIRECT_POINTS === "1";
-const output = directPoints
-  ? "/tmp/padel-direct-points"
-  : "/tmp/padel-quick-flow";
+const multiSets = process.env.TEST_MULTI_SETS === "1";
+const directPoints = process.env.TEST_DIRECT_POINTS === "1" || multiSets;
+const output = multiSets
+  ? "/tmp/padel-multi-points"
+  : directPoints
+    ? "/tmp/padel-direct-points"
+    : "/tmp/padel-quick-flow";
 
 (async () => {
   let userId, orgId, tournamentId, browser;
@@ -77,7 +80,19 @@ const output = directPoints
       await page
         .getByRole("radio", { name: "Poin langsung", exact: true })
         .check();
-      await page.getByRole("button", { name: "24 poin", exact: true }).click();
+      if (multiSets) {
+        await page
+          .getByLabel("Cara menyelesaikan set", { exact: true })
+          .selectOption("TARGET");
+        await page.getByLabel("Target poin per set", { exact: true }).fill("3");
+        await page.getByLabel("Jumlah set", { exact: true }).selectOption("2");
+        await page
+          .getByLabel("Aturan akhir set", { exact: true })
+          .selectOption("2");
+      } else
+        await page
+          .getByRole("button", { name: "24 poin", exact: true })
+          .click();
       await expect(
         page.getByRole("radio", { name: "Sistem gugur", exact: true }),
       ).toBeChecked();
@@ -199,14 +214,20 @@ const output = directPoints
       directPoints ? "1" : "15",
     );
     await viewer.setOffline(false);
-    for (let i = 1; i < 24; i++)
-      await scorer
-        .getByRole("button", { name: /^\+1 / })
-        .nth(directPoints && i >= 12 ? 1 : 0)
-        .click();
-    if (directPoints) {
+    if (multiSets) {
+      for (const team of [0, 0, 1, 1, 1, 0, 0, 0])
+        await scorer.getByRole("button", { name: /^\+1 / }).nth(team).click();
+    } else
+      for (let i = 1; i < 24; i++)
+        await scorer
+          .getByRole("button", { name: /^\+1 / })
+          .nth(directPoints && i >= 12 ? 1 : 0)
+          .click();
+    if (directPoints && !multiSets) {
       await expect(
-        scorer.getByText("Seri — satu poin berikutnya menentukan pemenang."),
+        scorer.getByText(
+          "Seri — satu poin berikutnya menentukan pemenang set.",
+        ),
       ).toBeVisible();
       await expect(
         scorer.getByRole("button", { name: "Finalisasi hasil", exact: true }),
@@ -239,8 +260,18 @@ const output = directPoints
     await expect(
       tv.locator(".tv-result").filter({ hasText: "Hasil diterima server" }),
     ).toContainText(/WITA|GMT\+8/);
-    if (directPoints) {
-      await expect(tv.locator(".tv-sets strong")).toHaveCount(0);
+    if (multiSets) {
+      await expect(tv.locator(".tv-sets strong")).toHaveText([
+        "3",
+        "0",
+        "3",
+        "0",
+        "3",
+        "0",
+      ]);
+      await expect(tv.locator(".tv-points strong")).toHaveText(["2", "1"]);
+    } else if (directPoints) {
+      await expect(tv.locator(".tv-sets strong")).toHaveText(["12", "13"]);
       await expect(tv.locator(".tv-points strong")).toHaveText(["12", "13"]);
     } else await expect(tv.locator(".tv-sets strong").first()).toHaveText("6");
     for (const width of [390, 768, 1920]) {

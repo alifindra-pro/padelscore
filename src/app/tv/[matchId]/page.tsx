@@ -5,7 +5,10 @@ import { apiFetch } from "@/lib/api-client";
 import { useSSE } from "@/hooks/useSSE";
 import { MatchView } from "@/types/match";
 import { AppBrand } from "@/components/ui/AppBrand";
-import type { ScoreState } from "../../../../packages/core/src";
+import {
+  directPointsSummary,
+  type ScoreState,
+} from "../../../../packages/core/src";
 type TVMatch = MatchView & {
   finishedAt?: string;
   approvalStatus?: string;
@@ -64,6 +67,10 @@ function Screen({ params }: { params: Promise<{ matchId: string }> }) {
     onUpdate: () => void load(),
   });
   const s = match?.scoreSnapshot;
+  const showSetResult =
+    match?.state?.rules.mode === "POINTS" &&
+    match.state.rules.setsToWin > 1 &&
+    match.state.status === "COMPLETED";
   return (
     <main className="tv-screen">
       <header className="tv-header">
@@ -108,7 +115,7 @@ function Screen({ params }: { params: Promise<{ matchId: string }> }) {
           </div>
           {match.state?.rules.mode === "POINTS" && (
             <p className="tv-result">
-              Poin langsung · total {match.state.rules.totalPoints} poin
+              Poin langsung · {directPointsSummary(match.state.rules)}
               {match.state.decidingPoint ? " · Seri: satu poin penentu" : ""}
             </p>
           )}
@@ -144,9 +151,15 @@ function Screen({ params }: { params: Promise<{ matchId: string }> }) {
                   ))}
                 </div>
                 <div className="tv-points">
-                  <span>POIN</span>
+                  <span>{showSetResult ? "SET MENANG" : "POIN"}</span>
                   <strong>
-                    {i === 0 ? (s?.pointsA ?? "0") : (s?.pointsB ?? "0")}
+                    {showSetResult
+                      ? i === 0
+                        ? s?.setsA
+                        : s?.setsB
+                      : i === 0
+                        ? (s?.pointsA ?? "0")
+                        : (s?.pointsB ?? "0")}
                   </strong>
                 </div>
               </div>

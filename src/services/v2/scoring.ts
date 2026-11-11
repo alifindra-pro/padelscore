@@ -10,6 +10,7 @@ import {
   replay,
   resolveRules,
   pointLabels,
+  setPointScores,
   isTiebreak,
   serviceInfo,
 } from "../../../packages/core/src";
@@ -196,14 +197,8 @@ export async function syncActions(user: AuthUser, id: string, input: unknown) {
         isTiebreak: isTiebreak(state),
         tiebreakPtsA: isTiebreak(state) ? state.points[0] : 0,
         tiebreakPtsB: isTiebreak(state) ? state.points[1] : 0,
-        gamesA:
-          state.rules.mode === "POINTS"
-            ? []
-            : state.sets.map((s) => s.games[0]),
-        gamesB:
-          state.rules.mode === "POINTS"
-            ? []
-            : state.sets.map((s) => s.games[1]),
+        gamesA: setPointScores(state).map((s) => s[0]),
+        gamesB: setPointScores(state).map((s) => s[1]),
         setsA: state.sets.filter((s) => s.winner === "A").length,
         setsB: state.sets.filter((s) => s.winner === "B").length,
         server: serviceInfo(state).team,

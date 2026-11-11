@@ -25,6 +25,8 @@ export interface Rules {
   matchTiebreakPoints: number;
   mode: "SETS" | "TIMED" | "POINTS";
   totalPoints?: number;
+  pointsFormat?: "TOTAL" | "TARGET";
+  pointsWinBy?: 1 | 2;
   durationMinutes: number;
   allowDraw: boolean;
 }
@@ -102,6 +104,15 @@ export function validateRules(r: Rules): Rules {
     throw new Error(
       "Poin langsung memerlukan total 1–200 poin dan satu poin penentu jika seri",
     );
+  if (
+    r.mode === "POINTS" &&
+    ((r.pointsFormat !== undefined &&
+      !["TOTAL", "TARGET"].includes(r.pointsFormat)) ||
+      (r.pointsWinBy !== undefined && ![1, 2].includes(r.pointsWinBy)) ||
+      r.decidingMatchTiebreak ||
+      (r.pointsFormat !== "TARGET" && r.pointsWinBy === 2))
+  )
+    throw new Error("Aturan set poin langsung tidak valid");
   for (const key of [
     "setsToWin",
     "gamesPerSet",
@@ -131,7 +142,8 @@ export function resolveRules(
   return validateRules({ ...category, ...stage, ...round });
 }
 export interface SetScore {
-  kind: "STANDARD" | "MATCH_TIEBREAK";
+  kind: "STANDARD" | "MATCH_TIEBREAK" | "POINTS";
+  points?: [number, number];
   games: [number, number];
   tiebreak: [number, number];
   winner: Team | null;
@@ -200,7 +212,13 @@ export function initialState(rules: Rules): ScoreState {
     status: "NOT_STARTED",
     rules: validateRules(rules),
     points: [0, 0],
-    sets: [emptySet()],
+    sets: [
+      emptySet(
+        rules.mode === "POINTS" && (rules.pointsFormat || rules.setsToWin > 1)
+          ? "POINTS"
+          : "STANDARD",
+      ),
+    ],
     winner: null,
     serviceOrder: ["A1", "B1", "A2", "B2"],
     receivingOrder: ["A1", "A2", "B1", "B2"],
@@ -272,9 +290,18 @@ function finishSet(s: ScoreState, team: Team) {
     return;
   }
   const deciding =
+    s.rules.mode === "SETS" &&
     s.rules.decidingMatchTiebreak &&
     s.sets.length === 2 * (s.rules.setsToWin - 1);
-  s.sets.push(emptySet(deciding ? "MATCH_TIEBREAK" : "STANDARD"));
+  s.sets.push(
+    emptySet(
+      s.rules.mode === "POINTS"
+        ? "POINTS"
+        : deciding
+          ? "MATCH_TIEBREAK"
+          : "STANDARD",
+    ),
+  );
   s.tiebreakFirstServer = s.serverIndex;
 }
 function award(s: ScoreState, team: Team) {
@@ -289,12 +316,29 @@ function award(s: ScoreState, team: Team) {
   if (s.rules.mode === "POINTS") {
     const total = s.points[0] + s.points[1];
     s.changeEnds = total % 8 === 0;
-    if (total >= s.rules.totalPoints!) {
-      s.decidingPoint = s.points[0] === s.points[1];
-      if (!s.decidingPoint) {
-        s.winner = s.points[0] > s.points[1] ? "A" : "B";
-        s.status = "COMPLETED";
+    const target = s.rules.totalPoints!;
+    const targetMode = s.rules.pointsFormat === "TARGET";
+    s.decidingPoint =
+      !targetMode && total === target && s.points[0] === s.points[1];
+    const ended = targetMode
+      ? Math.max(...s.points) >= target &&
+        Math.abs(s.points[0] - s.points[1]) >= (s.rules.pointsWinBy ?? 1)
+      : total >= target && !s.decidingPoint;
+    if (s.rules.pointsFormat || s.rules.setsToWin > 1) {
+      set.points = [...s.points];
+      if (ended) {
+        const winner = s.points[0] > s.points[1] ? "A" : "B";
+        finishSet(s, winner);
+        if (s.status !== "COMPLETED") {
+          s.points = [0, 0];
+          s.serverIndex = (s.serverIndex + 1) % 4;
+          s.decidingPoint = false;
+          s.changeEnds = true;
+        }
       }
+    } else if (ended) {
+      s.winner = s.points[0] > s.points[1] ? "A" : "B";
+      s.status = "COMPLETED";
     }
     return;
   }
@@ -463,16 +507,21 @@ export function applyAction(previous: ScoreState, action: Action): ScoreState {
         );
       if (s.rules.mode === "POINTS") {
         const total = action.points[0] + action.points[1];
-        if (
-          action.games.some(Boolean) ||
-          total > s.rules.totalPoints! ||
-          (total === s.rules.totalPoints &&
-            action.points[0] !== action.points[1])
-        )
+        const targetMode = s.rules.pointsFormat === "TARGET";
+        const ended = targetMode
+          ? Math.max(...action.points) >= s.rules.totalPoints! &&
+            Math.abs(action.points[0] - action.points[1]) >=
+              (s.rules.pointsWinBy ?? 1)
+          : total > s.rules.totalPoints! ||
+            (total === s.rules.totalPoints &&
+              action.points[0] !== action.points[1]);
+        if (action.games.some(Boolean) || ended)
           throw new Error(
-            "Koreksi poin melewati akhir laga. Batalkan aksi untuk memperbaiki hasil.",
+            "Koreksi poin melewati akhir set. Batalkan aksi untuk memperbaiki hasil.",
           );
-        s.decidingPoint = total === s.rules.totalPoints;
+        s.decidingPoint = !targetMode && total === s.rules.totalPoints;
+        if (s.rules.pointsFormat || s.rules.setsToWin > 1)
+          s.sets.at(-1)!.points = [...action.points];
       }
       s.points = action.points;
       s.sets.at(-1)!.games = action.games;
@@ -535,4 +584,19 @@ export function replay(rules: Rules, actions: Action[]): ScoreState {
     } else states.push(applyAction(states.at(-1)!, action));
   }
   return states.at(-1)!;
+}
+
+export function directPointsSummary(r: Rules) {
+  const setLabel =
+    r.setsToWin === 1
+      ? "1 set"
+      : `Best of ${r.setsToWin * 2 - 1} (menang ${r.setsToWin} set)`;
+  return `${r.pointsFormat === "TARGET" ? "Target" : "Total bersama"} ${r.totalPoints} poin/set · ${setLabel} · ${r.pointsFormat === "TARGET" ? (r.pointsWinBy === 2 ? "selisih 2" : "langsung selesai di target") : "1 poin penentu jika seri"}`;
+}
+export function setPointScores(s: ScoreState): [number, number][] {
+  if (s.rules.mode !== "POINTS") return s.sets.map((set) => set.games);
+  if (!s.rules.pointsFormat && s.rules.setsToWin === 1) return [];
+  return s.sets.map(
+    (set, i) => set.points ?? (i === s.sets.length - 1 ? s.points : [0, 0]),
+  );
 }

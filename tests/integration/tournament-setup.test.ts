@@ -139,6 +139,73 @@ describe("Quick setup and approved PDF integration", () => {
     ).toBe(409);
   });
 
+  it("persists best-of-three target points and publishes set-by-set snapshots", async () => {
+    const body = {
+      ...payload(2),
+      preset: "POINTS",
+      totalPoints: 3,
+      pointsFormat: "TARGET",
+      pointsWinBy: 2,
+      pointsSetsToWin: 2,
+    };
+    expect((await setup(request(body))).status).toBe(201);
+    const match = (await matches(body.requestId)).find(
+      (m) => m.entryAId && m.entryBId,
+    )!;
+    const user = { userId, role: "ORGANIZER" as const };
+    const deviceId = randomUUID();
+    const claimed = await claimMatch(user, match.id, deviceId);
+    expect(claimed.rulesSnapshot).toMatchObject({
+      pointsFormat: "TARGET",
+      pointsWinBy: 2,
+      setsToWin: 2,
+    });
+    const actions: import("../../packages/core/src").Action[] = [
+      { type: "START_MATCH", at: Date.now() },
+      ...Array.from(
+        { length: 3 },
+        () => ({ type: "AWARD_POINT", team: "A" }) as const,
+      ),
+      ...Array.from(
+        { length: 3 },
+        () => ({ type: "AWARD_POINT", team: "B" }) as const,
+      ),
+      ...Array.from(
+        { length: 3 },
+        () => ({ type: "AWARD_POINT", team: "A" }) as const,
+      ),
+    ];
+    actions.push({ type: "FINALIZE_MATCH" });
+    await syncActions(user, match.id, {
+      deviceId,
+      ownershipVersion: claimed.ownershipVersion,
+      rulesVersion: 2,
+      events: actions.map((action, i) => ({
+        id: randomUUID(),
+        sequence: i + 1,
+        baseVersion: claimed.version + i,
+        action,
+      })),
+    });
+    const result = await prisma.match.findUniqueOrThrow({
+      where: { id: match.id },
+      include: { scoreSnapshot: true },
+    });
+    expect(result.status).toBe("FINISHED");
+    expect(result.scoreSnapshot).toMatchObject({
+      setsA: 2,
+      setsB: 1,
+      gamesA: [3, 0, 3],
+      gamesB: [0, 3, 0],
+    });
+    await approveV2(user, match.id);
+    const response = await pdf(match.id, token);
+    expect(response.status).toBe(200);
+    expect(
+      (await PDFDocument.load(await response.arrayBuffer())).getPageCount(),
+    ).toBeGreaterThan(0);
+  }, 60000);
+
   it("advances a direct-points knockout winner only after a deciding point and approval", async () => {
     const body = { ...payload(4), preset: "POINTS", totalPoints: 24 };
     expect((await setup(request(body))).status).toBe(201);

@@ -743,7 +743,7 @@ function TournamentPublicContent({
 
       {/* Spectator Footer */}
       <footer className="border-t border-line py-6 text-center text-xs text-muted">
-        Padel Tournament OS &bull; Live Spectator &amp; Broadcast Portal
+        Padel Score by Padel Addictive &bull; Skor dan hasil pertandingan
       </footer>
     </TournamentTheme>
   );

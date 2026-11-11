@@ -7,7 +7,11 @@ import prisma from "@/lib/db";
 import { getAuthUser } from "@/middleware/auth.middleware";
 import { matchAccess, PUBLIC_STATUSES } from "@/lib/v2/access";
 import { AppError, handleApiError } from "@/lib/errors";
-import type { ScoreState } from "../../../../../../../packages/core/src";
+import {
+  directPointsSummary,
+  setPointScores,
+  type ScoreState,
+} from "../../../../../../../packages/core/src";
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -116,10 +120,17 @@ export async function GET(
     y -= 10;
     const state = m.stateV2 as unknown as ScoreState | null;
     if (state?.rules.mode === "POINTS") {
-      line(`Poin langsung: ${state.points[0]} : ${state.points[1]}`, 16);
-      line(
-        `Total ${state.rules.totalPoints} poin; satu poin tambahan jika seri.`,
-      );
+      const scores = setPointScores(state);
+      if (scores.length) {
+        line(
+          `Kemenangan set: ${state.sets.filter((s) => s.winner === "A").length} : ${state.sets.filter((s) => s.winner === "B").length}`,
+          16,
+        );
+        scores.forEach((score, i) =>
+          line(`Set ${i + 1}: ${score[0]} : ${score[1]}`, 13),
+        );
+      } else line(`Poin langsung: ${state.points[0]} : ${state.points[1]}`, 16);
+      line(directPointsSummary(state.rules));
     } else if (state)
       state.sets.forEach((set, i) =>
         line(

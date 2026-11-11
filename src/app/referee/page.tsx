@@ -206,7 +206,7 @@ export default function RefereeDashboardPage() {
 
       {/* Mobile Footer */}
       <footer className="p-4 bg-card border-t border-line text-center text-[10px] text-muted">
-        Padel Tournament OS &bull; Konsol wasit
+        Padel Score by Padel Addictive &bull; Konsol wasit
       </footer>
     </div>
   );

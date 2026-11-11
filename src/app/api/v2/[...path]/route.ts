@@ -1148,11 +1148,15 @@ async function categoryStandings(
         setsB: m.scoreSnapshot?.setsB ?? 0,
         gamesA:
           (category.rulesV2 as { mode?: string } | null)?.mode === "POINTS"
-            ? Number(m.scoreSnapshot?.pointsA ?? 0)
+            ? m.scoreSnapshot?.gamesA.length
+              ? m.scoreSnapshot.gamesA.reduce((a, b) => a + b, 0)
+              : Number(m.scoreSnapshot?.pointsA ?? 0)
             : (m.scoreSnapshot?.gamesA.reduce((a, b) => a + b, 0) ?? 0),
         gamesB:
           (category.rulesV2 as { mode?: string } | null)?.mode === "POINTS"
-            ? Number(m.scoreSnapshot?.pointsB ?? 0)
+            ? m.scoreSnapshot?.gamesB.length
+              ? m.scoreSnapshot.gamesB.reduce((a, b) => a + b, 0)
+              : Number(m.scoreSnapshot?.pointsB ?? 0)
             : (m.scoreSnapshot?.gamesB.reduce((a, b) => a + b, 0) ?? 0),
       }));
     return {
