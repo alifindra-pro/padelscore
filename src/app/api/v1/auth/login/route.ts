@@ -4,11 +4,14 @@ import { comparePassword, generateToken, AUTH_CONFIG } from '@/lib/auth';
 import { loginSchema } from '@/lib/validators/auth';
 import { unauthorized, handleApiError } from '@/lib/errors';
 import { ApiResponse, UserResponse } from '@/types';
+import { assertLoginAllowed, loginKeys, recordLoginFailure } from '@/lib/login-throttle';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const validatedData = loginSchema.parse(body);
+    const throttle = loginKeys(request, validatedData.identifier);
+    await assertLoginAllowed(throttle);
 
     const user = await prisma.user.findUnique({
       where: validatedData.identifier.includes('@')
@@ -17,11 +20,13 @@ export async function POST(request: NextRequest) {
     });
 
     if (!user || !user.isActive) {
+      await recordLoginFailure(throttle);
       throw unauthorized('Nama pengguna, email, atau kata sandi tidak sesuai');
     }
 
     const isPasswordValid = await comparePassword(validatedData.password, user.passwordHash);
     if (!isPasswordValid) {
+      await recordLoginFailure(throttle);
       throw unauthorized('Nama pengguna, email, atau kata sandi tidak sesuai');
     }
 

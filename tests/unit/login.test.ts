@@ -1,18 +1,32 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
-const { findUnique, comparePassword, generateToken } = vi.hoisted(() => ({
+const {
+  findUnique,
+  comparePassword,
+  generateToken,
+  assertLoginAllowed,
+  recordLoginFailure,
+} = vi.hoisted(() => ({
+  assertLoginAllowed: vi.fn(),
+  recordLoginFailure: vi.fn(),
   findUnique: vi.fn(),
   comparePassword: vi.fn(),
   generateToken: vi.fn(),
 }));
 vi.mock("@/lib/db", () => ({ prisma: { user: { findUnique } } }));
+vi.mock("@/lib/login-throttle", () => ({
+  loginKeys: () => ({ account: "account-key", address: "address-key" }),
+  assertLoginAllowed,
+  recordLoginFailure,
+}));
 vi.mock("@/lib/auth", () => ({
   comparePassword,
   generateToken,
   AUTH_CONFIG: { COOKIE_NAME: "token" },
 }));
 import { POST } from "@/app/api/v1/auth/login/route";
+import { AppError } from "@/lib/errors";
 
 const user = {
   id: "organizer-id",
@@ -84,8 +98,21 @@ describe("Web login identity", () => {
       );
       expect(response.headers.get("set-cookie")).toBeNull();
       expect(generateToken).not.toHaveBeenCalled();
+      expect(recordLoginFailure).toHaveBeenCalledTimes(1);
     },
   );
+
+  it("stops checking credentials once the attempt limit is reached", async () => {
+    assertLoginAllowed.mockRejectedValue(
+      new AppError(429, "RATE_LIMITED", "Terlalu banyak percobaan masuk."),
+    );
+    const response = await POST(
+      request({ identifier: "Owner_1", password: "secret-password" }),
+    );
+    expect(response.status).toBe(429);
+    expect(findUnique).not.toHaveBeenCalled();
+    expect(response.headers.get("set-cookie")).toBeNull();
+  });
 
   it.each([
     {},

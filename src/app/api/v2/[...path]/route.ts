@@ -27,6 +27,11 @@ import {
   json,
 } from "@/services/v2/scoring";
 import { mobileLogin, refreshSession, tokenHash } from "@/services/v2/auth";
+import {
+  assertLoginAllowed,
+  loginKeys,
+  recordLoginFailure,
+} from "@/lib/login-throttle";
 import { saveAvatar, readAvatar, deleteAvatar } from "@/services/v2/storage";
 import {
   PRESETS,
@@ -145,7 +150,15 @@ async function dispatch(req: NextRequest, context: Context): Promise<Response> {
         const input = z
           .object({ email: z.string().email(), password: z.string().min(1) })
           .parse(body);
-        return ok(await mobileLogin(input.email, input.password));
+        const throttle = loginKeys(req, input.email);
+        await assertLoginAllowed(throttle);
+        try {
+          return ok(await mobileLogin(input.email, input.password));
+        } catch (error) {
+          if (error instanceof AppError && error.statusCode === 401)
+            await recordLoginFailure(throttle);
+          throw error;
+        }
       }
       if (id === "refresh")
         return ok(
