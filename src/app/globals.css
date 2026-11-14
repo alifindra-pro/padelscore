@@ -2439,3 +2439,90 @@
   .player-directory-table td:nth-child(3)::before { content: "Rating: "; }
   .player-directory-table td:last-child { border-top: 1px solid var(--color-line); padding-top: 12px; }
 }
+
+/* Tournament workspace: the one thing to do next. Navy band so it is the page's single focal point. */
+.next-step {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+  border-radius: 16px;
+  background: var(--color-ink);
+  color: var(--color-inverse);
+}
+.next-step > div { flex: 1 1 260px; min-width: 0; }
+.next-step h2 { font-size: 12px; font-weight: 600; letter-spacing: 0; color: #c5d3de; }
+.next-step p { margin-top: 2px; font-size: 16px; font-weight: 700; line-height: 1.4; }
+.next-step .btn-kinetic,
+.next-step-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 0 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 700;
+}
+.next-step-action { border: 1px solid #7f96a8; color: var(--color-inverse); }
+.next-step-action:hover { border-color: var(--color-inverse); background: rgb(255 255 255 / 8%); }
+.next-step .btn-kinetic:disabled { background: #3b5265; border-color: #3b5265; color: #c5d3de; }
+@media (max-width: 599px) {
+  .next-step .btn-kinetic, .next-step-action { width: 100%; }
+}
+
+/* Scoring rules collapse to one line once chosen; "Ubah" opens the full form. */
+.rules-details > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  cursor: pointer;
+  list-style: none;
+}
+.rules-details > summary::-webkit-details-marker { display: none; }
+.rules-details > summary > span:first-child { display: grid; gap: 2px; min-width: 0; }
+.rules-details > summary strong { font-size: 16px; overflow-wrap: anywhere; }
+.rules-summary-label { font-size: 12px; color: var(--color-secondary); }
+.rules-summary-action {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--color-line);
+  border-radius: 8px;
+  font-weight: 700;
+  color: var(--color-brand);
+}
+.rules-details[open] .rules-summary-action { visibility: hidden; }
+
+.match-result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--color-surface-tint);
+}
+.match-result > span:first-child { font-size: 12px; color: var(--color-secondary); }
+.match-result > span:last-child:not(:first-child) { margin-left: auto; font-size: 16px; font-weight: 700; }
+
+/* Dashboard menu on phones: one compact row per destination instead of an illustrated card. */
+@media (max-width: 600px) {
+  .feature-cover, .feature-tags { display: none; }
+  .feature-grid { gap: 10px; }
+  .feature-body { padding: 16px; }
+  .feature-body > p { margin-top: 6px; line-height: 1.5; }
+  .feature-action { margin-top: 10px; padding-top: 8px; }
+}
+
+/* Player directory: profile, photo, and stats actions share one row instead of stacking a file input per player. */
+.player-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.player-actions > * { font-size: 13px; }
+.photo-pick { position: relative; cursor: pointer; }
+.photo-pick:focus-within { outline: 3px solid var(--color-brand-accent); outline-offset: 3px; }
+@media (max-width: 767px) { .player-actions { justify-content: flex-start; } }

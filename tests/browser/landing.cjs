@@ -75,7 +75,7 @@ const path = require("node:path");
     );
     await page.goto(baseURL);
     await expect(page.getByRole("heading", { level: 1 })).toContainText(
-      "Setiap poin.",
+      "hasil pertandingan.",
     );
     await expect(page.getByText("3 acara ditemukan")).toBeVisible();
     const score = page.getByRole("region", {

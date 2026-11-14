@@ -49,7 +49,7 @@ export default function Organizations() {
   return (
     <div className="space-y-6">
       <div className="app-page-heading">
-        <p className="page-eyebrow">TIM YANG HEBAT. PERMAINAN YANG HEBAT.</p>
+        <p className="page-eyebrow">Tim & venue</p>
         <h1 className="page-heading">Akun & organisasi</h1>
         <p className="page-intro">
           Kelola akun tim, organisasi, venue, dan lapangan.

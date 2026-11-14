@@ -163,7 +163,7 @@ export default function AdminPlayersPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <p className="page-eyebrow">PEMAIN HEBAT. KOMUNITAS KUAT.</p>
+          <p className="page-eyebrow">Pemain organisasi</p>
           <h1 className="page-heading">Direktori Pemain & Statistik</h1>
           <p className="page-intro">
             {total} pemain tersimpan. Nama, foto, dan riwayat mengikuti pemain
@@ -183,7 +183,7 @@ export default function AdminPlayersPage() {
               className="choice-button"
               aria-pressed={activeView === "directory"}
             >
-              Semua Atlet
+              Semua pemain
             </button>
             <button
               onClick={() => setActiveView("leaderboard")}
@@ -199,7 +199,7 @@ export default function AdminPlayersPage() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Cari atlet..."
+              placeholder="Cari nama pemain"
               aria-label="Cari pemain"
               className="px-3 py-2 bg-card border border-line rounded-xl text-xs text-ink placeholder-muted focus:outline-none focus:ring-1 focus:ring-brand"
             />
@@ -218,7 +218,7 @@ export default function AdminPlayersPage() {
             }}
             className="btn-primary"
           >
-            + Tambah Atlet
+            Tambah pemain
           </button>
         </div>
       </div>
@@ -241,13 +241,13 @@ export default function AdminPlayersPage() {
             </div>
           ) : !players.length ? (
             <div className="py-16 text-center text-muted text-sm">
-              Tidak ada atlet ditemukan.
+              Tidak ada pemain yang cocok. Coba nama lain.
             </div>
           ) : (
             <table className="player-directory-table w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-line text-[11px] font-bold text-secondary uppercase tracking-wider bg-surface-tint">
-                  <th className="py-3.5 px-6">Nama Atlet</th>
+                  <th className="py-3.5 px-6">Nama pemain</th>
                   <th className="py-3.5 px-6">Kontak</th>
                   <th className="py-3.5 px-6">Rating Skill</th>
                   <th className="py-3.5 px-6">Total Entry</th>
@@ -258,12 +258,14 @@ export default function AdminPlayersPage() {
                 {players.map((p) => (
                   <tr key={p.id} className="hover:bg-surface-tint transition">
                     <td className="py-4 px-6 font-bold text-ink">
-                      <span className="flex items-center gap-3"><PlayerPhoto
-                        id={p.id}
-                        name={p.fullName}
-                        version={reloadToken}
-                      />
-                      {p.fullName}</span>
+                      <span className="flex items-center gap-3">
+                        <PlayerPhoto
+                          id={p.id}
+                          name={p.fullName}
+                          version={reloadToken}
+                        />
+                        {p.fullName}
+                      </span>
                     </td>
                     <td className="py-4 px-6 text-xs text-secondary">
                       <div>{p.email || "—"}</div>
@@ -282,71 +284,75 @@ export default function AdminPlayersPage() {
                       {p._count?.entryPlayers || 0} turnamen
                     </td>
                     <td className="py-4 px-6 text-right">
-                      <button
-                        className="btn-secondary mb-2"
-                        onClick={() => {
-                          setEditingId(p.id);
-                          setFullName(p.fullName);
-                          setEmail(p.email ?? "");
-                          setPhone(p.phone ?? "");
-                          setRating(p.rating?.toString() ?? "");
-                          setNotes("");
-                          setShowModal(true);
-                        }}
-                      >
-                        Edit profil
-                      </button>
-                      <label className="field text-left">
-                        Foto {p.fullName}
-                        <input
-                          type="file"
-                          accept="image/jpeg,image/png,image/webp"
-                          disabled={photoBusy}
-                          onChange={async (e) => {
-                            const file = e.target.files?.[0];
-                            e.target.value = "";
-                            if (!file) return;
-                            setPhotoBusy(true);
-                            setError("");
-                            try {
-                              const body = new FormData();
-                              body.set("photo", file);
-                              const res = await fetch(
-                                `/api/v2/players/${p.id}/photo`,
-                                {
-                                  method: "POST",
-                                  body,
-                                  headers: {
-                                    "X-Organization-Id":
-                                      localStorage.getItem(
-                                        "padel-organization",
-                                      ) ?? "",
-                                  },
-                                },
-                              );
-                              if (!res.ok)
-                                throw Error(
-                                  (await res.json()).error?.message ??
-                                    "Gagal menyimpan foto",
-                                );
-                              reload();
-                            } catch (err) {
-                              setError((err as Error).message);
-                            } finally {
-                              setPhotoBusy(false);
-                            }
+                      <div className="player-actions">
+                        <button
+                          className="btn-secondary"
+                          onClick={() => {
+                            setEditingId(p.id);
+                            setFullName(p.fullName);
+                            setEmail(p.email ?? "");
+                            setPhone(p.phone ?? "");
+                            setRating(p.rating?.toString() ?? "");
+                            setNotes("");
+                            setShowModal(true);
                           }}
-                        />
-                      </label>
-                      <p className="text-xs text-secondary mb-2">
-                        JPEG/PNG/WebP, maksimal 4 MB. Foto dipotong persegi.
-                      </p>
-                      <button
-                        onClick={() => openPlayerStats(p.id)}
-                        className="px-3 py-1.5 bg-surface-tint hover:bg-surface-hover text-brand text-xs font-bold rounded-lg cursor-pointer transition border border-brand-accent"
-                      >
-                        Lihat statistik & riwayat
-                      </button>
+                        >
+                          Edit profil
+                        </button>
+                        <label
+                          className="btn-secondary photo-pick"
+                          title="JPEG, PNG, atau WebP, maksimal 4 MB. Foto dipotong persegi."
+                        >
+                          {photoBusy ? "Mengunggah…" : "Ganti foto"}
+                          <input
+                            type="file"
+                            className="sr-only"
+                            aria-label={`Foto ${p.fullName}`}
+                            accept="image/jpeg,image/png,image/webp"
+                            disabled={photoBusy}
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              e.target.value = "";
+                              if (!file) return;
+                              setPhotoBusy(true);
+                              setError("");
+                              try {
+                                const body = new FormData();
+                                body.set("photo", file);
+                                const res = await fetch(
+                                  `/api/v2/players/${p.id}/photo`,
+                                  {
+                                    method: "POST",
+                                    body,
+                                    headers: {
+                                      "X-Organization-Id":
+                                        localStorage.getItem(
+                                          "padel-organization",
+                                        ) ?? "",
+                                    },
+                                  },
+                                );
+                                if (!res.ok)
+                                  throw Error(
+                                    (await res.json()).error?.message ??
+                                      "Gagal menyimpan foto",
+                                  );
+                                reload();
+                              } catch (err) {
+                                setError((err as Error).message);
+                              } finally {
+                                setPhotoBusy(false);
+                              }
+                            }}
+                          />
+                        </label>
+                        <button
+                          onClick={() => openPlayerStats(p.id)}
+                          className="btn-secondary"
+                        >
+                          Statistik & riwayat
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -370,7 +376,7 @@ export default function AdminPlayersPage() {
               <thead>
                 <tr className="border-b border-line text-[11px] font-bold text-secondary uppercase tracking-wider bg-surface-tint">
                   <th className="py-3.5 px-6">Peringkat</th>
-                  <th className="py-3.5 px-6">Nama Atlet</th>
+                  <th className="py-3.5 px-6">Nama pemain</th>
                   <th className="py-3.5 px-6 text-center">Menang</th>
                   <th className="py-3.5 px-6 text-center">Kalah</th>
                   <th className="py-3.5 px-6 text-center">Win Rate</th>
@@ -421,7 +427,7 @@ export default function AdminPlayersPage() {
             <div className="flex justify-between items-start border-b border-line pb-4">
               <div>
                 <h3 className="text-xl font-bold text-ink">
-                  {playerStats?.player?.fullName || "Statistik Atlet"}
+                  {playerStats?.player?.fullName || "Statistik pemain"}
                 </h3>
                 <p className="text-xs text-secondary mt-0.5">
                   Profil Karir & Rekam Jejak Pertandingan Turnamen
@@ -437,7 +443,7 @@ export default function AdminPlayersPage() {
 
             {statsLoading ? (
               <div className="py-20 text-center text-muted text-sm">
-                Memuat statistik atlet...
+                Memuat statistik pemain…
               </div>
             ) : statsError ? (
               <div role="alert" className="py-10 text-center text-sm space-y-3">
@@ -568,7 +574,7 @@ export default function AdminPlayersPage() {
           <div className="bg-card border border-line rounded-2xl max-w-md w-full p-6 space-y-4 shadow-overlay">
             <div className="flex justify-between items-center">
               <h3 className="text-base font-bold text-ink">
-                {editingId ? "Edit profil pemain" : "Tambah Atlet Baru"}
+                {editingId ? "Edit profil pemain" : "Tambah pemain baru"}
               </h3>
               <button
                 onClick={() => setShowModal(false)}
@@ -653,7 +659,7 @@ export default function AdminPlayersPage() {
                   disabled={submitting}
                   className="btn-primary"
                 >
-                  {submitting ? "Menyimpan..." : "Simpan Atlet"}
+                  {submitting ? "Menyimpan..." : "Simpan pemain"}
                 </button>
               </div>
             </form>

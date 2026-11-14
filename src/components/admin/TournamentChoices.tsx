@@ -439,9 +439,9 @@ export function DirectPointsSettings({
             })
           }
         >
-          <option value={1}>1 set — sekali menang</option>
-          <option value={2}>Best of 3 — menang 2 set</option>
-          <option value={3}>Best of 5 — menang 3 set</option>
+          <option value={1}>1 set: sekali menang</option>
+          <option value={2}>Maksimal 3 set: menang 2 set</option>
+          <option value={3}>Maksimal 5 set: menang 3 set</option>
         </select>
       </label>
       {format === "TARGET" && (

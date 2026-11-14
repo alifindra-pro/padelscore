@@ -1,4 +1,5 @@
 "use client";
+import { matchStatusLabel } from "@/lib/labels";
 
 import { DisputeForm } from "@/components/tournament/DisputeForm";
 import { Icon } from "@/components/ui/Icon";
@@ -26,13 +27,6 @@ const EMPTY_SNAPSHOT: ScoreSnapshotView = {
   isTiebreak: false,
 };
 
-const STATUS_LABEL: Record<string, string> = {
-  SCHEDULED: "Terjadwal",
-  WARMUP: "Pemanasan",
-  IN_PROGRESS: "Berlangsung",
-  FINISHED: "Selesai",
-  CANCELLED: "Dibatalkan",
-};
 
 function MatchScoreboardContent({
   params,
@@ -180,7 +174,7 @@ function MatchScoreboardContent({
                     : "bg-surface-tint text-secondary"
               }`}
             >
-              {STATUS_LABEL[match.status] ?? match.status}
+              {match.status === "FINISHED" ? "Selesai" : matchStatusLabel(match.status)}
             </span>
           </div>
         </div>

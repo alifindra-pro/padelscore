@@ -164,15 +164,19 @@ const output = multiSets
     await expect(
       page.getByText("Wasit ditugaskan", { exact: true }),
     ).toBeVisible();
+    // With a bracket in place, entries are locked: the next step is publishing, not registration.
+    await expect(
+      page.getByRole("button", { name: "Buka pendaftaran publik", exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("link", { name: "Buka layar TV", exact: true }),
+    ).toHaveCount(0);
     await page
-      .getByRole("button", { name: "Buka pendaftaran publik", exact: true })
+      .getByRole("button", { name: "Terbitkan turnamen", exact: true })
       .click();
-    await page
-      .getByRole("button", {
-        name: "Tutup pendaftaran & lanjutkan",
-        exact: true,
-      })
-      .click();
+    await expect(
+      page.getByRole("button", { name: "Mulai turnamen", exact: true }),
+    ).toBeVisible();
     await expect(
       page.getByRole("link", { name: "Buka layar TV", exact: true }),
     ).toBeVisible();
@@ -276,7 +280,7 @@ const output = multiSets
     if (directPoints && !multiSets) {
       await expect(
         scorer.getByText(
-          "Seri — satu poin berikutnya menentukan pemenang set.",
+          "Seri. Satu poin berikutnya menentukan pemenang set.",
         ),
       ).toBeVisible();
       await expect(
@@ -284,9 +288,14 @@ const output = multiSets
       ).toHaveCount(0);
       await scorer.getByRole("button", { name: /^\+1 / }).last().click();
     }
-    await expect(scorer.getByText(/0 aksi tersimpan di perangkat/)).toBeVisible(
-      { timeout: 15000 },
-    );
+    await expect(
+      scorer.getByText(/Semua aksi sudah tersimpan di server/),
+    ).toBeVisible({ timeout: 15000 });
+    // Starting the first match moved the published tournament to in-progress.
+    expect(
+      (await prisma.tournament.findUniqueOrThrow({ where: { id: tournamentId } }))
+        .status,
+    ).toBe("IN_PROGRESS");
     await scorer
       .getByRole("button", { name: "Finalisasi hasil", exact: true })
       .click();

@@ -109,7 +109,7 @@ const base = process.env.TEST_BASE_URL || "http://127.0.0.1:3199";
       .click();
     await page.getByPlaceholder("+62 812...").fill("+628123456789");
     await page
-      .getByRole("button", { name: "Simpan Atlet", exact: true })
+      .getByRole("button", { name: "Simpan pemain", exact: true })
       .click();
     await expect(
       page.getByRole("heading", { name: "Edit profil pemain", exact: true }),

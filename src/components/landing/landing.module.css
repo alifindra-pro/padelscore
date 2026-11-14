@@ -199,7 +199,7 @@
   height: 11px;
   bottom: 5px;
   left: 1px;
-  right: -5px;
+  right: 0;
   background: var(--lp-lime);
   z-index: -1;
   transform: rotate(-1deg);
@@ -1453,7 +1453,7 @@
     letter-spacing: 1.5px;
   }
   .hero h1 {
-    font-size: clamp(42px, 10.7vw, 67px);
+    font-size: clamp(30px, 10.2vw, 67px);
     letter-spacing: -2.8px;
     line-height: 1.13;
   }
@@ -1754,7 +1754,10 @@
     height: 27px;
   }
   .hero h1 {
-    font-size: 39px;
+    letter-spacing: -2.2px;
+  }
+  .heroCopy {
+    min-width: 0;
   }
   .heroActions {
     gap: 7px;

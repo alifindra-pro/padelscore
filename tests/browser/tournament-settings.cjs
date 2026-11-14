@@ -206,10 +206,18 @@ const output = "/tmp/padel-tournament-settings";
       },
     );
     assert.equal(setupResponse.status(), 201);
+    // Once a bracket exists the rules collapse to a one-line summary; "Ubah" opens the form.
+    const openRules = async () => {
+      const rules = page.locator("details.rules-details");
+      await expect(rules.locator("summary")).toContainText("Aturan skor");
+      await expect(
+        page.getByRole("button", { name: "Undi ulang bagan", exact: true }),
+      ).toBeVisible();
+      if (!(await rules.evaluate((el) => el.open)))
+        await rules.locator("summary").click();
+    };
     await page.goto(`${base}/admin/tournaments/${classicId}?step=2`);
-    await expect(
-      page.getByRole("heading", { name: "Pilih aturan skor", exact: true }),
-    ).toBeVisible();
+    await openRules();
     await page
       .getByRole("radio", { name: "Golden Point", exact: true })
       .focus();
@@ -239,7 +247,7 @@ const output = "/tmp/padel-tournament-settings";
       .click();
     await expect(
       page.getByRole("heading", {
-        name: "Aturan & operasional kompetisi",
+        name: "Aturan rinci & dokumen kompetisi",
         exact: true,
       }),
     ).toBeVisible();
@@ -261,6 +269,7 @@ const output = "/tmp/padel-tournament-settings";
       .click();
     assert.equal((await pointsSaved).status(), 200);
     await page.goto(`${base}/admin/tournaments/${classicId}?step=2`);
+    await openRules();
     await expect(
       page.getByRole("radio", { name: "Poin langsung", exact: true }),
     ).toBeChecked();

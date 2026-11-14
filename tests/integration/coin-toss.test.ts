@@ -124,8 +124,7 @@ it("protects toss access and creates exactly one durable result for concurrent r
     }),
   ).toBe(1);
   expect(
-    (await prisma.match.findUniqueOrThrow({ where: { id: matchId } }))
-      .coinToss,
+    (await prisma.match.findUniqueOrThrow({ where: { id: matchId } })).coinToss,
   ).toEqual(results[0].data);
   expect((await (await GET(request(path), ctx)).json()).data).toEqual(
     results[0].data,
@@ -161,7 +160,16 @@ it("validates the decision, starts with the selected receiver opponent serving, 
     });
   await expect(send(order)).rejects.toThrow("konfirmasi");
   await expect(send(order, "SERVE")).rejects.toThrow("tidak sesuai");
+  // Starting the first match moves a published tournament to in-progress.
+  await prisma.tournament.update({
+    where: { id: tournamentId },
+    data: { status: "PUBLISHED" },
+  });
   const result = await send(order, "RECEIVE");
+  expect(
+    (await prisma.tournament.findUniqueOrThrow({ where: { id: tournamentId } }))
+      .status,
+  ).toBe("IN_PROGRESS");
   expect(serviceInfo(result.state).team).toBe(first);
   expect(serviceInfo(result.state).server).toBe(`${first}2`);
   await expect(tossCoin(user(), matchId, device, ownership)).rejects.toThrow(

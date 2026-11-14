@@ -1,4 +1,10 @@
 "use client";
+import {
+  deuceLabel,
+  formatLabel,
+  matchStatusLabel,
+  tournamentStatusLabel,
+} from "@/lib/labels";
 import { useCallback, use, useEffect, useState } from "react";
 import Link from "next/link";
 import {
@@ -22,6 +28,7 @@ import {
   PRESETS,
   CATEGORY_NAMES,
   Rules,
+  directPointsSummary,
 } from "../../../../../packages/core/src";
 interface Category {
   id: string;
@@ -57,29 +64,25 @@ interface Match {
   id: string;
   matchNumber: number;
   round: number;
-  entryA?: { name: string };
-  entryB?: { name: string };
+  entryA?: { id: string; name: string };
+  entryB?: { id: string; name: string };
+  winnerId?: string | null;
   court?: { name: string };
   status: string;
   approvalStatus: string;
   engineVersion: number;
   scheduledAt?: string;
+  officials?: { userId: string; user: { fullName: string } }[];
+  scoreSnapshot?: {
+    setsA: number;
+    setsB: number;
+    pointsA: string;
+    pointsB: string;
+    gamesA: number[];
+    gamesB: number[];
+  } | null;
   stage: { categoryId: string; category: { name: string } };
 }
-const statusLabels: Record<string, string> = {
-  DRAFT: "Draf",
-  REGISTRATION: "Persiapan peserta",
-  PUBLISHED: "Dipublikasikan",
-  IN_PROGRESS: "Berlangsung",
-  COMPLETED: "Selesai",
-  ARCHIVED: "Arsip",
-};
-const formats: Record<string, string> = {
-  SINGLE_ELIMINATION: "Sistem gugur",
-  ROUND_ROBIN: "Semua saling bertemu",
-  GROUP_KNOCKOUT: "Grup + sistem gugur",
-  DOUBLE_ELIMINATION: "Dua kali kalah gugur",
-};
 export default function Workspace({
   params,
 }: {
@@ -103,6 +106,9 @@ export default function Workspace({
   const [newCategoryFormat, setNewCategoryFormat] =
     useState("SINGLE_ELIMINATION");
   const [rules, setRules] = useState<Rules>(PRESETS.STANDARD);
+  // null = follow the default (open until a bracket exists); a click makes it explicit.
+  const [rulesOpen, setRulesOpen] = useState<boolean | null>(null);
+  const [loadedCategory, setLoadedCategory] = useState("");
   const mainEntries = entries.filter(isMainEntry);
   const queue = waitingEntries(entries);
   const category = t?.categories.find((c) => c.id === selected);
@@ -144,6 +150,7 @@ export default function Workspace({
     setEntries(e);
     setRules(c.rulesV2 ?? PRESETS.STANDARD);
     setStages(Array.isArray(b) ? b : (b.stages ?? []));
+    setLoadedCategory(selected);
   }, [selected]);
   useEffect(() => {
     const requestedStep = new URLSearchParams(window.location.search).get(
@@ -181,25 +188,15 @@ export default function Workspace({
       setBusy(false);
     }
   }
-  async function advanceStatus() {
-    if (!t) return;
-    const next =
-      t.status === "DRAFT"
-        ? "REGISTRATION"
-        : t.status === "REGISTRATION"
-          ? "PUBLISHED"
-          : t.status === "PUBLISHED"
-            ? "IN_PROGRESS"
-            : "COMPLETED";
-    await run(
+  const changeStatus = (next: string, success: string) =>
+    run(
       () =>
         apiFetch(`/api/v1/tournaments/${id}/status`, {
           method: "POST",
           body: JSON.stringify({ status: next }),
         }),
-      `Acara: ${statusLabels[next]}`,
+      success,
     );
-  }
   if (!t)
     return (
       <div className="panel empty-state">
@@ -207,6 +204,135 @@ export default function Workspace({
       </div>
     );
   const visibleMatches = matches.filter((m) => m.stage.categoryId === selected);
+  const approved = (m: Match) =>
+    m.approvalStatus === "APPROVED" || m.status === "APPROVED";
+  const playable = matches.filter((m) => m.entryA && m.entryB);
+  const awaitingApproval = matches.filter(
+    (m) => m.status === "FINISHED" && !approved(m),
+  );
+  const unfinished = matches.filter((m) => !approved(m));
+  const unscheduled = playable.filter((m) => !m.scheduledAt && !approved(m));
+  const withoutReferee = playable.filter(
+    (m) => !m.officials?.length && !approved(m) && m.status !== "FINISHED",
+  );
+  const isPublic = ["PUBLISHED", "IN_PROGRESS", "COMPLETED"].includes(t.status);
+  // The lifecycle button follows what the tournament actually needs next:
+  // once a bracket exists entries are locked, so registration is no longer offered.
+  const lifecycle: { label: string; next: string; done: string } | null = [
+    "COMPLETED",
+    "ARCHIVED",
+  ].includes(t.status)
+    ? null
+    : t.status === "IN_PROGRESS"
+      ? {
+          label: "Selesaikan turnamen",
+          next: "COMPLETED",
+          done: "Turnamen selesai. Hasil tetap dapat dilihat di halaman publik.",
+        }
+      : !matches.length
+        ? t.status === "REGISTRATION"
+          ? {
+              label: "Tutup pendaftaran",
+              next: "PUBLISHED",
+              done: "Pendaftaran ditutup. Bagan siap dibuat setelah peserta lengkap.",
+            }
+          : {
+              label: "Buka pendaftaran publik",
+              next: "REGISTRATION",
+              done: "Pendaftaran publik dibuka.",
+            }
+        : t.status === "PUBLISHED"
+          ? {
+              label: "Mulai turnamen",
+              next: "IN_PROGRESS",
+              done: "Turnamen dimulai. Wasit dapat mencatat skor.",
+            }
+          : {
+              label: "Terbitkan turnamen",
+              next: "PUBLISHED",
+              done: "Turnamen terbit. Jadwal dan bagan terlihat di halaman publik.",
+            };
+  const nextStep: {
+    text: string;
+    action: string;
+    go?: number;
+    status?: boolean;
+    href?: string;
+  } = !t.categories.length
+    ? {
+        text: "Belum ada kategori pertandingan.",
+        action: "Tambah kategori",
+        go: 0,
+      }
+    : !t.courts.length
+      ? {
+          text: "Belum ada lapangan. Jadwal memerlukan minimal satu lapangan.",
+          action: "Tambah lapangan",
+          go: 0,
+        }
+      : !stages.length && mainEntries.length < 2
+        ? {
+            text: `${category?.name ?? "Kategori ini"} baru punya ${mainEntries.length} pasangan. Bagan memerlukan minimal 2.`,
+            action: "Tambah peserta",
+            go: 1,
+          }
+        : !stages.length
+          ? {
+              text: `${mainEntries.length} pasangan sudah terdaftar di ${category?.name ?? "kategori ini"}. Bagan belum dibuat.`,
+              action: "Buat bagan",
+              go: 2,
+            }
+          : unscheduled.length
+            ? {
+                text: `${unscheduled.length} laga belum punya jadwal.`,
+                action: "Susun jadwal",
+                go: 2,
+              }
+            : ["DRAFT", "REGISTRATION"].includes(t.status)
+              ? {
+                  text: "Bagan dan jadwal siap, tetapi penonton belum bisa melihatnya.",
+                  action: "Terbitkan turnamen",
+                  status: true,
+                }
+              : t.status === "PUBLISHED"
+                ? {
+                    text: withoutReferee.length
+                      ? `${withoutReferee.length} laga belum punya wasit. Tugaskan wasit, lalu mulai turnamen.`
+                      : "Turnamen sudah terbit. Mulai saat laga pertama siap dimainkan.",
+                    action: withoutReferee.length
+                      ? "Tugaskan wasit"
+                      : "Mulai turnamen",
+                    go: withoutReferee.length ? 3 : undefined,
+                    status: !withoutReferee.length,
+                  }
+                : t.status === "IN_PROGRESS"
+                  ? awaitingApproval.length
+                    ? {
+                        text: `${awaitingApproval.length} hasil menunggu disahkan.`,
+                        action: "Periksa hasil",
+                        go: 3,
+                      }
+                    : unfinished.length
+                      ? {
+                          text: `${unfinished.length} laga belum selesai.`,
+                          action: "Lihat pertandingan",
+                          go: 3,
+                        }
+                      : {
+                          text: "Semua hasil sudah disahkan.",
+                          action: "Selesaikan turnamen",
+                          status: true,
+                        }
+                  : t.status === "ARCHIVED"
+                    ? {
+                        text: "Turnamen diarsipkan dan tidak tampil di halaman publik.",
+                        action: "",
+                      }
+                    : {
+                        text: "Turnamen selesai. Hasil dapat dibagikan dari halaman publik.",
+                        action: "Lihat halaman publik",
+                        href: `/tournament/${t.slug}`,
+                      };
   return (
     <div className="tournament-workspace space-y-6">
       <Link href="/admin/tournaments" className="text-xs text-secondary">
@@ -220,7 +346,7 @@ export default function Workspace({
                 t.status === "IN_PROGRESS" ? "status-live" : "status-pill"
               }
             >
-              {statusLabels[t.status]}
+              {tournamentStatusLabel(t.status)}
             </span>
             <span className="text-xs text-secondary">
               {new Date(t.startDate).toLocaleDateString("id-ID", {
@@ -246,6 +372,35 @@ export default function Workspace({
           </Link>
         )}
       </div>
+      <section className="next-step" aria-labelledby="next-step-title">
+        <div>
+          <h2 id="next-step-title">Langkah berikutnya</h2>
+          <p>{nextStep.text}</p>
+        </div>
+        {nextStep.href ? (
+          <Link className="next-step-action" href={nextStep.href}>
+            {nextStep.action}
+          </Link>
+        ) : nextStep.status && lifecycle ? (
+          <button
+            className="btn-kinetic"
+            disabled={busy}
+            onClick={() => changeStatus(lifecycle.next, lifecycle.done)}
+          >
+            {lifecycle.label}
+          </button>
+        ) : nextStep.go !== undefined && nextStep.go !== step ? (
+          <button
+            className="next-step-action"
+            onClick={() => {
+              setStep(nextStep.go!);
+              setError("");
+            }}
+          >
+            {nextStep.action}
+          </button>
+        ) : null}
+      </section>
       <nav className="step-nav" aria-label="Langkah pengelolaan">
         {[
           "Siapkan acara",
@@ -280,33 +435,35 @@ export default function Workspace({
           </button>
         ))}
       </nav>
-      <div className="workspace-step-intro">
-        <span className="setting-section-icon">
-          <Icon name={["settings", "users", "court", "live"][step]} />
-        </span>
-        <div>
-          <h2>
-            {
-              [
-                "Siapkan dasar acaranya",
-                "Susun daftar peserta",
-                "Tentukan jalannya pertandingan",
-                "Jalankan acara & periksa hasil",
-              ][step]
-            }
-          </h2>
-          <p>
-            {
-              [
-                "Buat kategori untuk tiap kelompok peserta, lalu tambahkan lapangan yang tersedia.",
-                "Daftarkan pasangan baru atau pilih pemain yang sudah ada dalam organisasi.",
-                "Pilih aturan skor, buat bagan, lalu susun waktu bermain dan jeda istirahat.",
-                "Tugaskan wasit, publikasikan acara, dan sahkan hasil sebelum dibagikan.",
-              ][step]
-            }
-          </p>
+      {step < 3 && (
+        <div className="workspace-step-intro">
+          <span className="setting-section-icon">
+            <Icon name={["settings", "users", "court", "live"][step]} />
+          </span>
+          <div>
+            <h2>
+              {
+                [
+                  "Siapkan dasar acaranya",
+                  "Susun daftar peserta",
+                  "Tentukan jalannya pertandingan",
+                  "Jalankan acara & periksa hasil",
+                ][step]
+              }
+            </h2>
+            <p>
+              {
+                [
+                  "Buat kategori untuk tiap kelompok peserta, lalu tambahkan lapangan yang tersedia.",
+                  "Daftarkan pasangan baru atau pilih pemain yang sudah ada dalam organisasi.",
+                  "Pilih aturan skor, buat bagan, lalu susun waktu bermain dan jeda istirahat.",
+                  "Tugaskan wasit, publikasikan acara, dan sahkan hasil sebelum dibagikan.",
+                ][step]
+              }
+            </p>
+          </div>
         </div>
-      </div>
+      )}
       {error && (
         <p className="panel bg-critical/10 text-danger" role="alert">
           {error}
@@ -340,7 +497,7 @@ export default function Workspace({
                 >
                   <strong className="text-sm">{c.name}</strong>
                   <span className="text-xs text-secondary">
-                    {formats[c.format] ?? c.format}
+                    {formatLabel(c.format)}
                   </span>
                 </div>
               ))}
@@ -493,8 +650,11 @@ export default function Workspace({
               <section className="panel space-y-3">
                 <h2 className="panel-title">Pendaftaran peserta</h2>
                 <p>
-                  Admin bisa mengisi slot di bawah. Buka pendaftaran publik agar
-                  peserta juga bisa mendaftarkan pasangan sendiri.
+                  {stages.length
+                    ? "Bagan sudah dibuat, jadi daftar peserta dikunci. Untuk mengubah peserta, undi ulang bagan di langkah 3 selama belum ada laga yang dimainkan."
+                    : t.status === "REGISTRATION"
+                      ? "Pendaftaran publik sedang dibuka. Peserta dapat mendaftar sendiri, dan admin tetap bisa mengisi slot di bawah."
+                      : "Admin bisa mengisi slot di bawah. Buka pendaftaran publik agar peserta juga bisa mendaftarkan pasangan sendiri."}
                 </p>
                 <div className="action-row">
                   {["DRAFT", "PUBLISHED", "REGISTRATION"].includes(t.status) &&
@@ -503,21 +663,15 @@ export default function Workspace({
                         className="btn-primary"
                         disabled={busy}
                         onClick={() =>
-                          run(
-                            () =>
-                              apiFetch(`/api/v1/tournaments/${id}/status`, {
-                                method: "POST",
-                                body: JSON.stringify({
-                                  status:
-                                    t.status === "REGISTRATION"
-                                      ? "PUBLISHED"
-                                      : "REGISTRATION",
-                                }),
-                              }),
-                            t.status === "REGISTRATION"
-                              ? "Pendaftaran ditutup. Bagan siap dibuat setelah peserta lengkap."
-                              : "Pendaftaran publik dibuka.",
-                          )
+                          t.status === "REGISTRATION"
+                            ? changeStatus(
+                                "PUBLISHED",
+                                "Pendaftaran ditutup. Bagan siap dibuat setelah peserta lengkap.",
+                              )
+                            : changeStatus(
+                                "REGISTRATION",
+                                "Pendaftaran publik dibuka.",
+                              )
                         }
                       >
                         {t.status === "REGISTRATION"
@@ -525,131 +679,144 @@ export default function Workspace({
                           : "Buka pendaftaran publik"}
                       </button>
                     )}
-                  {["REGISTRATION", "PUBLISHED"].includes(t.status) && (
+                  {t.status === "REGISTRATION" && (
                     <Link
                       className="btn-secondary"
                       href={`/tournament/${t.slug}#registration`}
                       target="_blank"
                     >
-                      Buka halaman pendaftaran ↗
+                      Buka halaman pendaftaran
                     </Link>
+                  )}
+                  {stages.length > 0 && (
+                    <button
+                      className="btn-secondary"
+                      onClick={() => setStep(2)}
+                    >
+                      Buka bagan di langkah 3
+                    </button>
                   )}
                 </div>
               </section>
-              <div className="grid xl:grid-cols-[1fr_1.2fr] gap-5">
-                <section className="panel space-y-5">
-                  <div>
-                    <h2 className="panel-title">Tambahkan pasangan</h2>
-                    <p className="text-sm text-secondary mt-2">
-                      Cukup nama pemain. Tidak perlu membuat akun member.
-                    </p>
-                  </div>
-                  <div
-                    className="choice-group"
-                    role="group"
-                    aria-label="Sumber pemain"
-                  >
-                    <button
-                      className="choice-button"
-                      aria-pressed={!addExisting}
-                      onClick={() => setAddExisting(false)}
+              <div
+                className={
+                  stages.length
+                    ? "grid gap-5"
+                    : "grid xl:grid-cols-[1fr_1.2fr] gap-5"
+                }
+              >
+                {!stages.length && (
+                  <section className="panel space-y-5">
+                    <div>
+                      <h2 className="panel-title">Tambahkan pasangan</h2>
+                      <p className="text-sm text-secondary mt-2">
+                        Cukup nama pemain. Tidak perlu membuat akun member.
+                      </p>
+                    </div>
+                    <div
+                      className="choice-group"
+                      role="group"
+                      aria-label="Sumber pemain"
                     >
-                      Ketik pemain baru
-                    </button>
-                    <button
-                      className="choice-button"
-                      aria-pressed={addExisting}
-                      onClick={() => setAddExisting(true)}
+                      <button
+                        className="choice-button"
+                        aria-pressed={!addExisting}
+                        onClick={() => setAddExisting(false)}
+                      >
+                        Ketik pemain baru
+                      </button>
+                      <button
+                        className="choice-button"
+                        aria-pressed={addExisting}
+                        onClick={() => setAddExisting(true)}
+                      >
+                        Pilih pemain terdaftar
+                      </button>
+                    </div>
+                    <form
+                      className="space-y-4"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        const f = new FormData(e.currentTarget);
+                        const form = e.currentTarget;
+                        void run(async () => {
+                          const ids = addExisting
+                            ? [String(f.get("one")), String(f.get("two"))]
+                            : [];
+                          const names = addExisting
+                            ? ids.map(
+                                (pid) =>
+                                  players.find((p) => p.id === pid)?.fullName ??
+                                  "",
+                              )
+                            : [
+                                String(f.get("one")).trim(),
+                                String(f.get("two")).trim(),
+                              ];
+                          await apiFetch(
+                            `/api/v1/categories/${selected}/entries`,
+                            {
+                              method: "POST",
+                              body: JSON.stringify({
+                                name: names.join(" / "),
+                                playerIds: ids,
+                                playerNames: addExisting ? undefined : names,
+                                seed: f.get("seed")
+                                  ? Number(f.get("seed"))
+                                  : undefined,
+                              }),
+                            },
+                          );
+                          form.reset();
+                        }, "Pasangan ditambahkan");
+                      }}
                     >
-                      Pilih pemain terdaftar
-                    </button>
-                  </div>
-                  <form
-                    className="space-y-4"
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      const f = new FormData(e.currentTarget);
-                      const form = e.currentTarget;
-                      void run(async () => {
-                        const ids = addExisting
-                          ? [String(f.get("one")), String(f.get("two"))]
-                          : [];
-                        const names = addExisting
-                          ? ids.map(
-                              (pid) =>
-                                players.find((p) => p.id === pid)?.fullName ??
-                                "",
-                            )
-                          : [
-                              String(f.get("one")).trim(),
-                              String(f.get("two")).trim(),
-                            ];
-                        await apiFetch(
-                          `/api/v1/categories/${selected}/entries`,
-                          {
-                            method: "POST",
-                            body: JSON.stringify({
-                              name: names.join(" / "),
-                              playerIds: ids,
-                              playerNames: addExisting ? undefined : names,
-                              seed: f.get("seed")
-                                ? Number(f.get("seed"))
-                                : undefined,
-                            }),
-                          },
-                        );
-                        form.reset();
-                      }, "Pasangan ditambahkan");
-                    }}
-                  >
-                    {["one", "two"].map((key, i) => (
-                      <label key={key} className="field">
-                        Pemain {i + 1}
-                        {addExisting ? (
-                          <select name={key} required defaultValue="">
-                            <option value="" disabled>
-                              Pilih pemain
-                            </option>
-                            {players.map((p) => (
-                              <option value={p.id} key={p.id}>
-                                {p.fullName}
+                      {["one", "two"].map((key, i) => (
+                        <label key={key} className="field">
+                          Pemain {i + 1}
+                          {addExisting ? (
+                            <select name={key} required defaultValue="">
+                              <option value="" disabled>
+                                Pilih pemain
                               </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <input
-                            name={key}
-                            minLength={2}
-                            placeholder={`Nama lengkap pemain ${i + 1}`}
-                            required
-                          />
-                        )}
-                      </label>
-                    ))}
-                    <details>
-                      <summary className="text-sm cursor-pointer text-secondary">
-                        Unggulan / seed (opsional)
-                      </summary>
-                      <label className="field mt-3">
-                        Nomor unggulan
-                        <input type="number" name="seed" min={1} />
-                      </label>
-                    </details>
-                    <button
-                      className="btn-primary w-full"
-                      disabled={busy || !!stages.length}
-                    >
-                      {busy
-                        ? "Menambahkan…"
-                        : queue.length > 0 ||
-                            (!!category.maxEntries &&
-                              mainEntries.length >= category.maxEntries)
-                          ? "Tambah ke cadangan"
-                          : "Tambah pasangan"}
-                      <Icon name="plus" size={16} />
-                    </button>
-                  </form>
-                </section>
+                              {players.map((p) => (
+                                <option value={p.id} key={p.id}>
+                                  {p.fullName}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <input
+                              name={key}
+                              minLength={2}
+                              placeholder={`Nama lengkap pemain ${i + 1}`}
+                              required
+                            />
+                          )}
+                        </label>
+                      ))}
+                      <details>
+                        <summary className="text-sm cursor-pointer text-secondary">
+                          Unggulan / seed (opsional)
+                        </summary>
+                        <label className="field mt-3">
+                          Nomor unggulan
+                          <input type="number" name="seed" min={1} />
+                        </label>
+                      </details>
+                      <button className="btn-primary w-full" disabled={busy}>
+                        {busy
+                          ? "Menambahkan…"
+                          : queue.length > 0 ||
+                              (!!category.maxEntries &&
+                                mainEntries.length >= category.maxEntries)
+                            ? "Tambah ke cadangan"
+                            : "Tambah pasangan"}
+                        <Icon name="plus" size={16} />
+                      </button>
+                    </form>
+                  </section>
+                )}
                 <section className="panel">
                   <div className="flex justify-between items-center mb-4">
                     <h2 className="panel-title">Peserta {category.name}</h2>
@@ -660,10 +827,7 @@ export default function Workspace({
                   </div>
                   <p className="text-sm text-secondary mb-4">
                     {queue.length} pasangan cadangan. Slot kosong diisi setelah
-                    konfirmasi admin sesuai urutan antrean.{" "}
-                    {stages.length > 0
-                      ? "Bagan sudah dibuat; perubahan peserta dikunci."
-                      : ""}
+                    konfirmasi admin sesuai urutan antrean.
                   </p>
                   {Array.from(
                     {
@@ -790,9 +954,11 @@ export default function Workspace({
                 </section>
               </div>
               <p id="draw-help" className="action-help">
-                {mainEntries.length < 2
-                  ? `Tambahkan ${2 - mainEntries.length} pasangan lagi agar dapat membuat bagan pertandingan.`
-                  : `${mainEntries.length} pasangan utama sudah terdaftar. Lanjutkan untuk membuat bagan dan jadwal.`}
+                {stages.length
+                  ? `${mainEntries.length} pasangan utama bermain di bagan ini.`
+                  : mainEntries.length < 2
+                    ? `Tambahkan ${2 - mainEntries.length} pasangan lagi agar dapat membuat bagan pertandingan.`
+                    : `${mainEntries.length} pasangan utama sudah terdaftar. Lanjutkan untuk membuat bagan dan jadwal.`}
               </p>
               <div className="step-actions justify-between">
                 <button className="btn-secondary" onClick={() => setStep(0)}>
@@ -801,7 +967,7 @@ export default function Workspace({
                 <button
                   className="btn-primary"
                   aria-describedby="draw-help"
-                  disabled={busy || mainEntries.length < 2}
+                  disabled={busy || (mainEntries.length < 2 && !stages.length)}
                   onClick={() => setStep(2)}
                 >
                   Lanjut: atur pertandingan
@@ -811,94 +977,111 @@ export default function Workspace({
             </>
           ) : step === 2 ? (
             <>
-              <section className="panel space-y-5">
-                <div>
-                  <h2 className="panel-title">Pilih aturan skor</h2>
-                  <p className="text-sm text-secondary mt-2">
-                    Pilih cara hitung skor secara terpisah dari sistem turnamen.
-                    Sistem gugur dapat memakai game/set maupun poin langsung.
+              <details
+                className="panel rules-details"
+                open={
+                  rulesOpen ?? (loadedCategory === selected && !stages.length)
+                }
+                onToggle={(e) => setRulesOpen(e.currentTarget.open)}
+              >
+                <summary>
+                  <span>
+                    <span className="rules-summary-label">Aturan skor</span>
+                    <strong>
+                      {rules.mode === "POINTS"
+                        ? directPointsSummary(rules)
+                        : `${rules.name} · ${deuceLabel(rules.deuce)}`}
+                    </strong>
+                  </span>
+                  <span className="rules-summary-action">Ubah</span>
+                </summary>
+                <div className="space-y-5 mt-5">
+                  <p className="text-sm text-secondary">
+                    Cara hitung skor terpisah dari sistem turnamen. Sistem gugur
+                    dapat memakai game/set maupun poin langsung.
                   </p>
+                  <OptionCards
+                    legend="Cara hitung skor"
+                    name="scoringMode"
+                    value={rules.mode === "POINTS" ? "POINTS" : "SETS"}
+                    options={SCORING_OPTIONS}
+                    onChange={(mode) =>
+                      setRules({
+                        ...PRESETS[mode === "POINTS" ? "POINTS" : "STANDARD"],
+                      })
+                    }
+                    compact
+                    disabled={busy}
+                  />
+                  {rules.mode === "POINTS" ? (
+                    <DirectPointsSettings
+                      options={rules}
+                      onOptionsChange={(options) =>
+                        setRules({ ...rules, ...options })
+                      }
+                      value={rules.totalPoints ?? 24}
+                      onChange={(totalPoints) =>
+                        setRules({ ...rules, totalPoints })
+                      }
+                      disabled={busy}
+                    />
+                  ) : (
+                    <OptionCards
+                      legend="Jumlah set dan durasi"
+                      name="preset"
+                      value={
+                        Object.keys(PRESETS).find(
+                          (key) => PRESETS[key].name === rules.name,
+                        ) ?? "CUSTOM"
+                      }
+                      options={PRESET_OPTIONS.filter(
+                        (option) => option.value !== "POINTS",
+                      )}
+                      onChange={(key) => setRules({ ...PRESETS[key] })}
+                      compact
+                      disabled={busy}
+                    />
+                  )}
+                  {rules.mode !== "POINTS" && (
+                    <OptionCards
+                      legend="Jika skor 40–40 (deuce)"
+                      name="deuce"
+                      value={rules.deuce}
+                      options={DEUCE_OPTIONS}
+                      onChange={(deuce) =>
+                        setRules({ ...rules, deuce: deuce as Rules["deuce"] })
+                      }
+                      compact
+                      disabled={busy}
+                    />
+                  )}
+                  <p className="setting-help">
+                    Perubahan berlaku untuk pertandingan yang belum dimulai.
+                    Untuk nilai game atau set kustom, buka pengaturan rinci di
+                    bawah.
+                  </p>
+                  <button
+                    className="btn-primary"
+                    disabled={busy}
+                    onClick={() =>
+                      run(() =>
+                        apiFetch(`/api/v2/categories/${selected}`, {
+                          method: "PATCH",
+                          body: JSON.stringify({ rules }),
+                        }),
+                      )
+                    }
+                  >
+                    {busy ? "Menyimpan…" : "Simpan aturan pertandingan"}
+                  </button>
                 </div>
-                <OptionCards
-                  legend="Cara hitung skor"
-                  name="scoringMode"
-                  value={rules.mode === "POINTS" ? "POINTS" : "SETS"}
-                  options={SCORING_OPTIONS}
-                  onChange={(mode) =>
-                    setRules({
-                      ...PRESETS[mode === "POINTS" ? "POINTS" : "STANDARD"],
-                    })
-                  }
-                  compact
-                  disabled={busy}
-                />
-                {rules.mode === "POINTS" ? (
-                  <DirectPointsSettings
-                    options={rules}
-                    onOptionsChange={(options) =>
-                      setRules({ ...rules, ...options })
-                    }
-                    value={rules.totalPoints ?? 24}
-                    onChange={(totalPoints) =>
-                      setRules({ ...rules, totalPoints })
-                    }
-                    disabled={busy}
-                  />
-                ) : (
-                  <OptionCards
-                    legend="Jumlah set dan durasi"
-                    name="preset"
-                    value={
-                      Object.keys(PRESETS).find(
-                        (key) => PRESETS[key].name === rules.name,
-                      ) ?? "CUSTOM"
-                    }
-                    options={PRESET_OPTIONS.filter(
-                      (option) => option.value !== "POINTS",
-                    )}
-                    onChange={(key) => setRules({ ...PRESETS[key] })}
-                    compact
-                    disabled={busy}
-                  />
-                )}
-                {rules.mode !== "POINTS" && (
-                  <OptionCards
-                    legend="Jika skor 40–40 (deuce)"
-                    name="deuce"
-                    value={rules.deuce}
-                    options={DEUCE_OPTIONS}
-                    onChange={(deuce) =>
-                      setRules({ ...rules, deuce: deuce as Rules["deuce"] })
-                    }
-                    compact
-                    disabled={busy}
-                  />
-                )}
-                <p className="setting-help">
-                  Perubahan berlaku untuk pertandingan yang belum dimulai. Untuk
-                  nilai game atau set kustom, buka pengaturan rinci di bawah.
-                </p>
-                <button
-                  className="btn-primary"
-                  disabled={busy}
-                  onClick={() =>
-                    run(() =>
-                      apiFetch(`/api/v2/categories/${selected}`, {
-                        method: "PATCH",
-                        body: JSON.stringify({ rules }),
-                      }),
-                    )
-                  }
-                >
-                  {busy ? "Menyimpan…" : "Simpan aturan pertandingan"}
-                </button>
-              </section>
+              </details>
               <section className="panel space-y-5">
                 <div>
                   <h2 className="panel-title">Susun bagan pertandingan</h2>
                   <p className="text-sm text-secondary mt-2">
                     {mainEntries.length} pasangan utama ·{" "}
-                    {formats[category.format]}. Undian yang disimpan menjadi
+                    {formatLabel(category.format)}. Undian yang disimpan menjadi
                     bagan pertandingan.
                   </p>
                 </div>
@@ -1055,171 +1238,209 @@ export default function Workspace({
                 <h2 className="panel-title">
                   {t.status === "IN_PROGRESS"
                     ? "Pertandingan sedang berjalan"
-                    : "Jalankan turnamen"}
+                    : t.status === "COMPLETED"
+                      ? "Turnamen selesai"
+                      : "Jalankan turnamen"}
                 </h2>
                 <p className="page-intro">
-                  Tugaskan wasit, buka pencatatan skor, lalu sahkan hasil.
-                  Penonton dapat melihat hasil di halaman publik.
+                  {isPublic
+                    ? "Tugaskan wasit, catat skor, lalu sahkan hasil. Penonton melihat hasil yang sudah disahkan di halaman publik."
+                    : "Turnamen belum terbit. Skor tetap bisa dicatat untuk uji coba, tetapi penonton belum bisa melihat jadwal maupun hasilnya."}
                 </p>
-                <div className="action-row mt-5">
-                  {!["COMPLETED", "ARCHIVED"].includes(t.status) && (
-                    <button
-                      className={
-                        t.status === "IN_PROGRESS"
-                          ? "btn-secondary"
-                          : "btn-kinetic"
-                      }
-                      disabled={busy}
-                      onClick={advanceStatus}
-                    >
-                      {t.status === "DRAFT"
-                        ? "Buka pendaftaran publik"
-                        : t.status === "REGISTRATION"
-                          ? "Tutup pendaftaran & lanjutkan"
-                          : t.status === "PUBLISHED"
-                            ? "Mulai turnamen"
-                            : "Selesaikan turnamen"}
-                    </button>
-                  )}
-                  {["PUBLISHED", "IN_PROGRESS", "COMPLETED"].includes(
-                    t.status,
-                  ) && (
-                    <button
-                      className="btn-secondary"
-                      onClick={() =>
-                        navigator.clipboard
-                          .writeText(`${location.origin}/tournament/${t.slug}`)
-                          .then(() => setNotice("Tautan publik disalin"))
-                          .catch(() => setError("Tautan tidak dapat disalin"))
-                      }
-                    >
-                      Salin tautan publik
-                    </button>
-                  )}
-                </div>
+                {((lifecycle && !nextStep.status) || isPublic) && (
+                  <div className="action-row mt-5">
+                    {lifecycle && !nextStep.status && (
+                      <button
+                        className="btn-secondary"
+                        disabled={busy}
+                        onClick={() =>
+                          changeStatus(lifecycle.next, lifecycle.done)
+                        }
+                      >
+                        {lifecycle.label}
+                      </button>
+                    )}
+                    {isPublic && (
+                      <button
+                        className="btn-secondary"
+                        onClick={() =>
+                          navigator.clipboard
+                            .writeText(
+                              `${location.origin}/tournament/${t.slug}`,
+                            )
+                            .then(() => setNotice("Tautan publik disalin"))
+                            .catch(() => setError("Tautan tidak dapat disalin"))
+                        }
+                      >
+                        Salin tautan publik
+                      </button>
+                    )}
+                  </div>
+                )}
               </section>
               <div className="grid lg:grid-cols-2 gap-4">
-                {visibleMatches.map((m) => (
-                  <section className="panel space-y-4" key={m.id}>
-                    <div className="flex justify-between gap-3">
-                      <span className="text-xs text-secondary">
-                        PERTANDINGAN {m.matchNumber} · BABAK {m.round}
-                      </span>
-                      <span
-                        className={
-                          m.status === "IN_PROGRESS"
-                            ? "status-live"
-                            : "status-pill"
-                        }
-                      >
-                        {m.approvalStatus === "APPROVED"
-                          ? "Disahkan"
-                          : m.status === "SCHEDULED"
-                            ? "Terjadwal"
-                            : m.status}
-                      </span>
-                    </div>
-                    <div className="text-base font-bold space-y-2">
-                      <p>{m.entryA?.name ?? "Menunggu hasil sebelumnya"}</p>
-                      <p className="text-xs text-secondary font-normal">
-                        melawan
-                      </p>
-                      <p>{m.entryB?.name ?? "Menunggu hasil sebelumnya"}</p>
-                    </div>
-                    <p className="text-xs text-secondary">
-                      {m.court?.name ?? "Lapangan belum diatur"} ·{" "}
-                      {m.scheduledAt
-                        ? new Date(m.scheduledAt).toLocaleString("id-ID", {
-                            timeZone: t.timezone,
-                            dateStyle: "short",
-                            timeStyle: "short",
-                          })
-                        : "Jadwal belum diatur"}
-                    </p>
-                    <label className="field text-xs">
-                      Tugaskan wasit
-                      <select
-                        defaultValue=""
-                        disabled={busy}
-                        onChange={(e) => {
-                          if (e.target.value)
-                            void run(
-                              () =>
-                                apiFetch(`/api/v2/matches/${m.id}/officials`, {
-                                  method: "POST",
-                                  body: JSON.stringify({
-                                    userId: e.target.value,
-                                  }),
-                                }),
-                              "Wasit ditugaskan",
-                            );
-                        }}
-                      >
-                        <option value="">Pilih nama wasit</option>
-                        {staff.map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.fullName}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <div className="action-row">
-                      <Link
-                        className="btn-primary text-xs"
-                        href={
-                          m.engineVersion === 1 && m.status !== "SCHEDULED"
-                            ? `/referee/scoring/${m.id}`
-                            : `/referee/v2/${m.id}`
-                        }
-                      >
-                        Catat skor pertandingan
-                      </Link>
-                      {[
-                        "PUBLISHED",
-                        "IN_PROGRESS",
-                        "COMPLETED",
-                        "ARCHIVED",
-                      ].includes(t.status) && (
-                        <Link
-                          className="btn-secondary text-xs"
-                          href={`/tv/${m.id}`}
+                {visibleMatches.map((m) => {
+                  const ready = !!m.entryA && !!m.entryB;
+                  const done = approved(m);
+                  const snap = m.scoreSnapshot;
+                  const score = snap
+                    ? snap.gamesA.length
+                      ? `${snap.setsA}–${snap.setsB}`
+                      : `${snap.pointsA}–${snap.pointsB}`
+                    : "";
+                  const winner =
+                    m.winnerId === m.entryA?.id
+                      ? m.entryA
+                      : m.winnerId === m.entryB?.id
+                        ? m.entryB
+                        : undefined;
+                  return (
+                    <section className="panel space-y-4" key={m.id}>
+                      <div className="flex justify-between gap-3">
+                        <span className="text-xs text-secondary">
+                          Pertandingan {m.matchNumber} · Babak {m.round}
+                        </span>
+                        <span
+                          className={
+                            m.status === "IN_PROGRESS"
+                              ? "status-live"
+                              : "status-pill"
+                          }
                         >
-                          Buka layar TV
-                        </Link>
+                          {matchStatusLabel(m.status, m.approvalStatus)}
+                        </span>
+                      </div>
+                      <div className="text-base font-bold space-y-2">
+                        <p>{m.entryA?.name ?? "Menunggu hasil sebelumnya"}</p>
+                        <p className="text-xs text-secondary font-normal">
+                          melawan
+                        </p>
+                        <p>{m.entryB?.name ?? "Menunggu hasil sebelumnya"}</p>
+                      </div>
+                      <p className="text-xs text-secondary">
+                        {m.court?.name ?? "Lapangan belum diatur"} ·{" "}
+                        {m.scheduledAt
+                          ? new Date(m.scheduledAt).toLocaleString("id-ID", {
+                              timeZone: t.timezone,
+                              dateStyle: "short",
+                              timeStyle: "short",
+                            })
+                          : "Jadwal belum diatur"}
+                      </p>
+                      {(done || m.status === "FINISHED") && winner && (
+                        <p className="match-result" role="status">
+                          <span>
+                            {done ? "Pemenang" : "Pemenang (belum disahkan)"}
+                          </span>
+                          <strong>{winner.name}</strong>
+                          {score && (
+                            <span className="tabular-nums">{score}</span>
+                          )}
+                        </p>
                       )}
-                      {(m.approvalStatus === "APPROVED" ||
-                        m.status === "APPROVED") &&
-                        m.entryA &&
-                        m.entryB && (
-                          <a
-                            className="btn-secondary text-xs"
-                            href={`/api/v2/matches/${m.id}/result.pdf`}
-                          >
-                            Unduh PDF hasil
-                          </a>
-                        )}
-                      {m.status === "FINISHED" &&
-                        m.approvalStatus !== "APPROVED" && (
-                          <button
-                            className="btn-kinetic text-xs"
-                            disabled={busy}
-                            onClick={() =>
-                              run(() =>
-                                apiFetch(
-                                  m.engineVersion === 2
-                                    ? `/api/v2/matches/${m.id}/approve`
-                                    : `/api/v1/matches/${m.id}/approve-result`,
-                                  { method: "POST", body: "{}" },
-                                ),
-                              )
-                            }
-                          >
-                            Sahkan hasil
-                          </button>
-                        )}
-                    </div>
-                  </section>
-                ))}
+                      {!ready ? (
+                        <p className="text-sm text-secondary">
+                          Pasangan terisi setelah hasil laga sebelumnya
+                          disahkan.
+                        </p>
+                      ) : (
+                        <>
+                          {!done && (
+                            <label className="field text-xs">
+                              Tugaskan wasit
+                              <select
+                                value={m.officials?.[0]?.userId ?? ""}
+                                disabled={busy}
+                                onChange={(e) => {
+                                  if (e.target.value)
+                                    void run(
+                                      () =>
+                                        apiFetch(
+                                          `/api/v2/matches/${m.id}/officials`,
+                                          {
+                                            method: "POST",
+                                            body: JSON.stringify({
+                                              userId: e.target.value,
+                                            }),
+                                          },
+                                        ),
+                                      "Wasit ditugaskan",
+                                    );
+                                }}
+                              >
+                                <option value="">Pilih nama wasit</option>
+                                {staff.map((s) => (
+                                  <option key={s.id} value={s.id}>
+                                    {s.fullName}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                          )}
+                          <div className="action-row">
+                            {m.status === "FINISHED" && !done && (
+                              <button
+                                className="btn-kinetic text-xs"
+                                disabled={busy}
+                                onClick={() =>
+                                  run(
+                                    () =>
+                                      apiFetch(
+                                        m.engineVersion === 2
+                                          ? `/api/v2/matches/${m.id}/approve`
+                                          : `/api/v1/matches/${m.id}/approve-result`,
+                                        { method: "POST", body: "{}" },
+                                      ),
+                                    "Hasil disahkan",
+                                  )
+                                }
+                              >
+                                Sahkan hasil
+                              </button>
+                            )}
+                            {!done && (
+                              <Link
+                                className={
+                                  m.status === "FINISHED"
+                                    ? "btn-secondary text-xs"
+                                    : "btn-primary text-xs"
+                                }
+                                href={
+                                  m.engineVersion === 1 &&
+                                  m.status !== "SCHEDULED"
+                                    ? `/referee/scoring/${m.id}`
+                                    : `/referee/v2/${m.id}`
+                                }
+                              >
+                                {m.status === "FINISHED"
+                                  ? "Periksa skor"
+                                  : m.status === "SCHEDULED"
+                                    ? "Catat skor pertandingan"
+                                    : "Lanjutkan pencatatan skor"}
+                              </Link>
+                            )}
+                            {isPublic && (
+                              <Link
+                                className="btn-secondary text-xs"
+                                href={done ? `/match/${m.id}` : `/tv/${m.id}`}
+                              >
+                                {done ? "Lihat hasil publik" : "Buka layar TV"}
+                              </Link>
+                            )}
+                            {done && (
+                              <a
+                                className="btn-secondary text-xs"
+                                href={`/api/v2/matches/${m.id}/result.pdf`}
+                              >
+                                Unduh PDF hasil
+                              </a>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </section>
+                  );
+                })}
               </div>
               {!visibleMatches.length && (
                 <div className="panel empty-state">

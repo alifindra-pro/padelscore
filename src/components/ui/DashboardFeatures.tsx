@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { Icon } from "./Icon";
 
@@ -28,18 +27,6 @@ const features = [
       "Buat sesi komunitas dengan rotasi pasangan dan klasemen setiap ronde.",
     tags: ["Rotasi", "Ronde", "Klasemen"],
     action: "Buka sesi sosial",
-  },
-  {
-    title: "Jadwal pertandingan",
-    group: "Pertandingan",
-    icon: "calendar",
-    art: "schedule",
-    tone: "blue",
-    href: "/admin/tournaments",
-    description:
-      "Pilih turnamen untuk mengatur waktu bermain, lapangan, dan jeda antarlaga.",
-    tags: ["Waktu", "Lapangan", "Istirahat"],
-    action: "Pilih turnamen",
   },
   {
     title: "Konsol wasit",
@@ -185,60 +172,15 @@ function FeatureArt({ kind }: { kind: string }) {
 }
 
 export function DashboardFeatures() {
-  const [query, setQuery] = useState("");
-  const [group, setGroup] = useState("Semua fitur");
-  const visible = features.filter(
-    (item) =>
-      (group === "Semua fitur" || item.group === group) &&
-      `${item.title} ${item.description} ${item.tags.join(" ")}`
-        .toLocaleLowerCase("id")
-        .includes(query.trim().toLocaleLowerCase("id")),
-  );
   return (
     <section aria-labelledby="features-title" className="feature-hub">
       <div className="dashboard-section-heading">
         <div>
-          <p className="page-eyebrow">RUANG KERJA ANDA</p>
-          <h2 id="features-title">Mau mengelola apa hari ini?</h2>
-          <p className="text-secondary text-sm mt-2">
-            Pilih menu untuk mengatur acara, pemain, atau organisasi.
-          </p>
+          <h2 id="features-title">Semua menu</h2>
         </div>
-        <span className="feature-count">{features.length} menu tersedia</span>
       </div>
-      <div className="feature-toolbar">
-        <div
-          className="feature-filters"
-          role="group"
-          aria-label="Kelompok fitur"
-        >
-          {["Semua fitur", "Pertandingan", "Pengelolaan", "Komunitas"].map(
-            (label) => (
-              <button
-                key={label}
-                aria-pressed={group === label}
-                onClick={() => setGroup(label)}
-              >
-                {label}
-              </button>
-            ),
-          )}
-        </div>
-        <label className="feature-search">
-          <Icon name="search" size={18} />
-          <input
-            aria-label="Cari fitur dashboard"
-            placeholder="Cari fitur atau menu…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-        </label>
-      </div>
-      <p className="sr-only" role="status">
-        {visible.length} fitur ditemukan
-      </p>
       <div className="feature-grid">
-        {visible.map((item) => (
+        {features.map((item) => (
           <Link
             key={item.title}
             href={item.href}
@@ -269,22 +211,6 @@ export function DashboardFeatures() {
           </Link>
         ))}
       </div>
-      {!visible.length && (
-        <div className="panel empty-state">
-          <Icon name="search" size={28} />
-          <h3 className="font-bold">Fitur belum ditemukan</h3>
-          <p>Coba kata seperti turnamen, pemain, atau jadwal.</p>
-          <button
-            className="btn-secondary"
-            onClick={() => {
-              setQuery("");
-              setGroup("Semua fitur");
-            }}
-          >
-            Tampilkan semua fitur
-          </button>
-        </div>
-      )}
     </section>
   );
 }

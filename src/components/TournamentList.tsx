@@ -1,14 +1,7 @@
+import { tournamentStatusLabel } from "@/lib/labels";
 import Link from "next/link";
 import { Icon } from "@/components/ui/Icon";
 
-const statuses: Record<string, string> = {
-  DRAFT: "Draf",
-  REGISTRATION: "Pendaftaran",
-  PUBLISHED: "Dipublikasikan",
-  IN_PROGRESS: "Berlangsung",
-  COMPLETED: "Selesai",
-  ARCHIVED: "Arsip",
-};
 
 export function TournamentList({
   events,
@@ -51,7 +44,7 @@ export function TournamentList({
                   : "text-sm text-secondary"
               }
             >
-              {statuses[event.status] ?? event.status}
+              {tournamentStatusLabel(event.status)}
             </span>
             <span className="inline-flex items-center gap-2 text-brand font-semibold text-sm">
               Kelola <Icon name="arrow" size={16} />

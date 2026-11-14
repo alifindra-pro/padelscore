@@ -253,6 +253,10 @@ export class SchedulingService {
         winner: true,
         scoreSnapshot: true,
         group: true,
+        // Stripped from public responses by publicProjection; organizers see who is assigned.
+        officials: {
+          select: { userId: true, user: { select: { fullName: true } } },
+        },
         stage: {
           include: {
             category: true,

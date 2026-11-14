@@ -1,4 +1,22 @@
 "use client";
+import {
+  formatLabel,
+  matchStatusLabel,
+  tournamentStatusLabel,
+} from "@/lib/labels";
+
+/** "20 November 2026" for a one-day event, otherwise the full range. */
+function eventDates(start: string, end: string) {
+  const day = (value: string) =>
+    new Date(value).toLocaleDateString("id-ID", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+  return day(start) === day(end)
+    ? day(start)
+    : `${day(start)} sampai ${day(end)}`;
+}
 
 import { Sponsors } from "@/components/tournament/Sponsors";
 import { Icon } from "@/components/ui/Icon";
@@ -253,6 +271,7 @@ function TournamentPublicContent({
     return m.status === matchFilter;
   });
 
+  const formats = (tournament.categories ?? []).map((c) => c.format);
   return (
     <TournamentTheme id={tournament.id}>
       {/* Tournament Header */}
@@ -269,21 +288,13 @@ function TournamentPublicContent({
                       : "bg-brand-soft text-brand border border-brand-accent"
                 }`}
               >
-                {(
-                  {
-                    DRAFT: "Draf",
-                    REGISTRATION: "Pendaftaran",
-                    PUBLISHED: "Akan datang",
-                    IN_PROGRESS: "Berlangsung",
-                    COMPLETED: "Selesai",
-                    ARCHIVED: "Arsip",
-                  } as Record<string, string>
-                )[tournament.status] ?? tournament.status}
+                {tournament.status === "PUBLISHED"
+                  ? "Akan datang"
+                  : tournamentStatusLabel(tournament.status)}
               </span>
               <p className="text-xs text-secondary mt-0.5">
-                {tournament.location || "Venue TBA"} &bull;{" "}
-                {new Date(tournament.startDate).toLocaleDateString()} -{" "}
-                {new Date(tournament.endDate).toLocaleDateString()}
+                {tournament.location || "Lokasi belum diumumkan"} &bull;{" "}
+                {eventDates(tournament.startDate, tournament.endDate)}
               </p>
             </div>
           </TournamentHeader>
@@ -292,7 +303,7 @@ function TournamentPublicContent({
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-card border border-line text-xs">
               <span
                 className={`w-2 h-2 rounded-full ${
-                  isConnected ? "bg-kinetic animate-pulse" : "bg-amber-400"
+                  isConnected ? "bg-kinetic" : "bg-amber-400"
                 }`}
               />
               <span className="text-[11px] font-extrabold uppercase tracking-wider text-secondary">
@@ -330,8 +341,20 @@ function TournamentPublicContent({
               key: "live" as const,
               label: `Lapangan live (${liveCourts.filter((c) => c.activeMatch).length})`,
             },
-            { key: "brackets" as const, label: "Knockout" },
-            { key: "groups" as const, label: "Klasemen grup" },
+            ...(formats.some((f) =>
+              [
+                "SINGLE_ELIMINATION",
+                "DOUBLE_ELIMINATION",
+                "GROUP_KNOCKOUT",
+              ].includes(f),
+            )
+              ? [{ key: "brackets" as const, label: "Bagan gugur" }]
+              : []),
+            ...(formats.some((f) =>
+              ["GROUP_KNOCKOUT", "ROUND_ROBIN", "LEAGUE"].includes(f),
+            )
+              ? [{ key: "groups" as const, label: "Klasemen grup" }]
+              : []),
             { key: "disputes" as const, label: "Sanggah hasil" },
             {
               key: "matches" as const,
@@ -544,7 +567,7 @@ function TournamentPublicContent({
                       : "bg-card border border-line text-secondary hover:text-ink"
                   }`}
                 >
-                  {cat.name} ({cat.format})
+                  {cat.name} ({formatLabel(cat.format)})
                 </button>
               ))}
             </div>
@@ -634,7 +657,7 @@ function TournamentPublicContent({
                                 : "bg-surface-tint text-secondary"
                           }`}
                         >
-                          {m.status}
+                          {matchStatusLabel(m.status)}
                         </span>
                         <Link
                           href={`/match/${m.id}`}
@@ -700,8 +723,8 @@ function TournamentPublicContent({
                 <div className="flex justify-between items-start">
                   <div>
                     <h3 className="text-base font-bold text-ink">{cat.name}</h3>
-                    <span className="text-[10px] font-mono bg-surface-tint text-secondary px-2 py-0.5 rounded mt-1 inline-block uppercase">
-                      {cat.format}
+                    <span className="text-xs bg-surface-tint text-secondary px-2 py-0.5 rounded mt-1 inline-block">
+                      {formatLabel(cat.format)}
                     </span>
                   </div>
                   <span className="text-xs text-secondary">

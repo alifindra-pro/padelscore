@@ -99,7 +99,7 @@ export default function Dashboard() {
     <div className="dashboard space-y-8">
       <div className="dashboard-heading">
         <div>
-          <p className="page-eyebrow">RUANG PENGELOLA / DASHBOARD</p>
+          <p className="page-eyebrow">Ruang pengelola</p>
           <h1 className="page-heading">
             Halo, {user?.fullName.split(" ")[0] || "Pengelola"}.
           </h1>
@@ -111,37 +111,6 @@ export default function Dashboard() {
           <Icon name="plus" size={18} /> Buat turnamen
         </Link>
       </div>
-      <section className="dashboard-hero" aria-labelledby="hero-title">
-        <div className="dashboard-hero-copy">
-          <span className="hero-kicker">
-            <span /> PENGELOLAAN TURNAMEN
-          </span>
-          <h2 id="hero-title">
-            Siapkan turnamen.
-            <br />
-            <span>Atur peserta dan jadwal.</span>
-          </h2>
-          <p>
-            Buat acara, masukkan pasangan, lalu susun bagan pertandingan. Untuk
-            Americano atau Mexicano, buka sesi sosial.
-          </p>
-          <div className="flex flex-wrap gap-3">
-            <Link href="/admin/tournaments/new" className="btn-kinetic">
-              Buat turnamen <Icon name="arrow" size={17} />
-            </Link>
-            <Link href="/admin/social" className="hero-secondary">
-              Buka sesi sosial <Icon name="arrow" size={17} />
-            </Link>
-          </div>
-        </div>
-        <div className="dashboard-court-scene" aria-hidden="true">
-          <CourtScene className="dashboard-vector" />
-          <span className="court-caption">
-            PADEL SCORE by PADEL ADDICTIVE{" "}
-            <span>TURNAMEN & PERTANDINGAN SOSIAL</span>
-          </span>
-        </div>
-      </section>
       {error && (
         <div
           role="alert"
@@ -167,6 +136,59 @@ export default function Dashboard() {
             Pilih organisasi
           </Link>
         </div>
+      )}
+      {!loading && !error && !events.length ? (
+        <section className="dashboard-hero" aria-labelledby="hero-title">
+          <div className="dashboard-hero-copy">
+            <h2 id="hero-title">
+              Siapkan turnamen.
+              <br />
+              <span>Atur peserta dan jadwal.</span>
+            </h2>
+            <p>
+              Buat acara, masukkan pasangan, lalu susun bagan pertandingan.
+              Untuk Americano atau Mexicano, buka sesi sosial.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <Link href="/admin/tournaments/new" className="btn-kinetic">
+                Buat turnamen <Icon name="arrow" size={17} />
+              </Link>
+              <Link href="/admin/social" className="hero-secondary">
+                Buka sesi sosial <Icon name="arrow" size={17} />
+              </Link>
+            </div>
+          </div>
+          <div className="dashboard-court-scene" aria-hidden="true">
+            <CourtScene className="dashboard-vector" />
+            <span className="court-caption">
+              PADEL SCORE by PADEL ADDICTIVE{" "}
+              <span>TURNAMEN & PERTANDINGAN SOSIAL</span>
+            </span>
+          </div>
+        </section>
+      ) : (
+        <section aria-labelledby="events-title">
+          <div className="dashboard-section-heading">
+            <div>
+              <h2 id="events-title">Lanjutkan mengelola</h2>
+            </div>
+            <Link className="section-link" href="/admin/tournaments">
+              Semua turnamen <Icon name="arrow" size={16} />
+            </Link>
+          </div>
+          {loading ? (
+            <div className="dashboard-loading panel" role="status">
+              <span className="loading-orb" />
+              Memuat turnamen organisasi…
+            </div>
+          ) : error ? (
+            <div className="panel text-secondary">
+              Daftar turnamen akan tampil setelah data berhasil dimuat.
+            </div>
+          ) : (
+            <TournamentList events={events} />
+          )}
+        </section>
       )}
       <section
         aria-label="Statistik organisasi"
@@ -194,42 +216,6 @@ export default function Dashboard() {
         ))}
       </section>
       <DashboardFeatures />
-      <section aria-labelledby="events-title">
-        <div className="dashboard-section-heading">
-          <div>
-            <p className="page-eyebrow">TURNAMEN ORGANISASI</p>
-            <h2 id="events-title">Lanjutkan mengelola</h2>
-          </div>
-          <Link className="section-link" href="/admin/tournaments">
-            Semua turnamen <Icon name="arrow" size={16} />
-          </Link>
-        </div>
-        {loading ? (
-          <div className="dashboard-loading panel" role="status">
-            <span className="loading-orb" />
-            Memuat turnamen organisasi…
-          </div>
-        ) : error ? (
-          <div className="panel text-secondary">
-            Daftar turnamen akan tampil setelah data berhasil dimuat.
-          </div>
-        ) : events.length ? (
-          <TournamentList events={events} />
-        ) : (
-          <div className="panel empty-state">
-            <span className="empty-court-icon">
-              <Icon name="trophy" size={30} />
-            </span>
-            <h3 className="text-lg font-bold text-ink">Belum ada turnamen</h3>
-            <p>
-              Buat turnamen untuk menambahkan kategori, peserta, dan jadwal.
-            </p>
-            <Link href="/admin/tournaments/new" className="btn-primary">
-              <Icon name="plus" size={17} /> Buat turnamen pertama
-            </Link>
-          </div>
-        )}
-      </section>
       <div className="dashboard-footer">
         <Icon name="court" size={17} />
         <span>Peserta dan hasil pertandingan dikelola oleh admin.</span>

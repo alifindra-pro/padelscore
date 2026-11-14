@@ -1,4 +1,5 @@
 "use client";
+import { deuceLabel, scoreStatusLabel } from "@/lib/labels";
 
 import {
   Suspense,
@@ -262,7 +263,7 @@ function OfflineScoring({ params }: { params: Promise<{ matchId: string }> }) {
         ← Daftar pertandingan
       </Link>
       <div>
-        <p className="page-eyebrow">POINT BY POINT.</p>
+        <p className="page-eyebrow">Pencatatan skor</p>
         <h1 className="page-heading">Konsol wasit</h1>
       </div>
       <p role="status" className="connection-status">
@@ -376,8 +377,8 @@ function OfflineScoring({ params }: { params: Promise<{ matchId: string }> }) {
                           setOpeningA(e.target.value as "A1" | "A2")
                         }
                       >
-                        <option value="A1">A1 — pemain pertama</option>
-                        <option value="A2">A2 — pemain kedua</option>
+                        <option value="A1">A1: pemain pertama</option>
+                        <option value="A2">A2: pemain kedua</option>
                       </select>
                     </label>
                     <label className="field">
@@ -390,8 +391,8 @@ function OfflineScoring({ params }: { params: Promise<{ matchId: string }> }) {
                           setOpeningB(e.target.value as "B1" | "B2")
                         }
                       >
-                        <option value="B1">B1 — pemain pertama</option>
-                        <option value="B2">B2 — pemain kedua</option>
+                        <option value="B1">B1: pemain pertama</option>
+                        <option value="B2">B2: pemain kedua</option>
                       </select>
                     </label>
                   </div>
@@ -422,8 +423,8 @@ function OfflineScoring({ params }: { params: Promise<{ matchId: string }> }) {
               {match.rules.name} ·{" "}
               {match.rules.mode === "POINTS"
                 ? directPointsSummary(match.rules)
-                : match.rules.deuce}{" "}
-              · {match.state.status}
+                : deuceLabel(match.rules.deuce)}{" "}
+              · {scoreStatusLabel(match.state.status)}
             </p>
             {[match.teamA, match.teamB].map((name, i) => (
               <div key={i} className="flex justify-between items-center gap-4">
@@ -436,7 +437,7 @@ function OfflineScoring({ params }: { params: Promise<{ matchId: string }> }) {
             {match.rules.mode === "POINTS" ? (
               <p role="status">
                 {match.state.decidingPoint
-                  ? "Seri — satu poin berikutnya menentukan pemenang set."
+                  ? "Seri. Satu poin berikutnya menentukan pemenang set."
                   : match.rules.pointsFormat === "TARGET"
                     ? `Set ${match.state.sets.length} · target ${match.rules.totalPoints} poin${match.rules.pointsWinBy === 2 ? " · selisih 2" : ""}`
                     : `Set ${match.state.sets.length} · total ${match.state.points[0] + match.state.points[1]} dari ${match.rules.totalPoints} poin`}
@@ -447,7 +448,7 @@ function OfflineScoring({ params }: { params: Promise<{ matchId: string }> }) {
                 {match.state.sets
                   .map((s) =>
                     s.kind === "MATCH_TIEBREAK"
-                      ? `MTB ${s.tiebreak.join("–")}`
+                      ? `Match tie-break ${s.tiebreak.join("–")}`
                       : s.games.join("–"),
                   )
                   .join(" / ")}
@@ -467,8 +468,9 @@ function OfflineScoring({ params }: { params: Promise<{ matchId: string }> }) {
               )}
             {!beforeStart && (
               <p className="text-sm">
-                Servis {server?.server} ·{" "}
-                {server?.side === "RIGHT" ? "kanan" : "kiri"} · percobaan{" "}
+                Servis: {server?.team === "A" ? match.teamA : match.teamB} (
+                {server?.server}) · sisi{" "}
+                {server?.side === "RIGHT" ? "kanan" : "kiri"} · servis ke-
                 {server?.attempt}
               </p>
             )}
@@ -476,24 +478,23 @@ function OfflineScoring({ params }: { params: Promise<{ matchId: string }> }) {
               <p className="status-live">Bertukar sisi lapangan</p>
             )}
           </div>
-          <p className="text-sm">
-            {match.pending.length} aksi tersimpan di perangkat, belum
-            tersinkron.
-            <br />
-            Terakhir sinkron:{" "}
+          <p className="text-sm" role="status">
+            {match.pending.length
+              ? `${match.pending.length} aksi tersimpan di perangkat, belum terkirim ke server.`
+              : "Semua aksi sudah tersimpan di server."}{" "}
             {match.lastSyncedAt
-              ? new Date(match.lastSyncedAt).toLocaleTimeString("id-ID")
-              : "belum"}
+              ? `Terakhir terkirim pukul ${new Date(match.lastSyncedAt).toLocaleTimeString("id-ID")}.`
+              : ""}
           </p>
-          <button
-            className="btn-primary w-full"
-            disabled={
-              busy || !online || !match.pending.length || !!match.conflict
-            }
-            onClick={sync}
-          >
-            Sinkronkan sekarang
-          </button>
+          {match.pending.length > 0 && (
+            <button
+              className="btn-secondary w-full"
+              disabled={busy || !online || !!match.conflict}
+              onClick={sync}
+            >
+              {online ? "Kirim sekarang" : "Menunggu koneksi untuk mengirim"}
+            </button>
+          )}
           {!match.conflict && (
             <div className="grid grid-cols-2 gap-3">
               {["NOT_STARTED", "WARMUP"].includes(match.state.status) ? (
@@ -527,7 +528,9 @@ function OfflineScoring({ params }: { params: Promise<{ matchId: string }> }) {
                       })
                     }
                   >
-                    {match.state.faults ? "Double fault" : "First fault"}
+                    {match.state.faults
+                      ? "Double fault"
+                      : "Fault servis pertama"}
                   </button>
                   <button
                     className="btn-secondary"
@@ -612,7 +615,13 @@ function OfflineScoring({ params }: { params: Promise<{ matchId: string }> }) {
                       void act({ type, loser, reason });
                   }}
                 >
-                  {["Retirement", "Walkover", "Diskualifikasi"][i]}
+                  {
+                    [
+                      "Pasangan mundur",
+                      "Menang tanpa bertanding",
+                      "Diskualifikasi",
+                    ][i]
+                  }
                 </button>
               ))}
               <button

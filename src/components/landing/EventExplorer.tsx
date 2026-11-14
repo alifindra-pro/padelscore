@@ -1,4 +1,5 @@
 "use client";
+import { formatLabel } from "@/lib/labels";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { apiFetch } from "@/lib/api-client";
@@ -219,7 +220,7 @@ export function EventExplorer() {
                 </div>
                 <div className={styles.eventBody}>
                   <span className={styles.eventBadge}>
-                    Social · {session.format}
+                    Sosial · {formatLabel(session.format)}
                   </span>
                   <h3>{session.name}</h3>
                   <p>

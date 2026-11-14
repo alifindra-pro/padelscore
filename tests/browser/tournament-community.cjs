@@ -133,7 +133,7 @@ const output = "/tmp/padel-community";
     };
     await page.goto(`${base}/admin/tournaments/${tids[0]}/community`);
     await expect(
-      page.getByRole("heading", { name: "Sponsor & sanggahan", exact: true }),
+      page.getByRole("heading", { name: "Header, sponsor & sanggahan", exact: true }),
     ).toBeVisible();
     await page
       .getByLabel("Nama sponsor", { exact: true })
@@ -175,7 +175,7 @@ const output = "/tmp/padel-community";
       publicPage.getByRole("img", { name: "Logo Court Partner", exact: true }),
     ).toBeVisible();
     await publicPage
-      .getByRole("button", { name: "Knockout", exact: true })
+      .getByRole("button", { name: "Bagan gugur", exact: true })
       .click();
     await expect(publicPage.locator(".bracket-round")).toHaveCount(3);
     await capture(publicPage, "knockout-sponsor");

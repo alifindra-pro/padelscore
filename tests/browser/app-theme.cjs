@@ -155,7 +155,7 @@ const prisma = new PrismaClient();
       page.getByRole("button", { name: "Buka navigasi", exact: true }),
     ).toHaveAttribute("aria-expanded", "false");
     await page
-      .getByRole("button", { name: "+ Tambah Atlet", exact: false })
+      .getByRole("button", { name: "Tambah pemain", exact: false })
       .click();
     await expect(
       page.getByRole("button", { name: "Simpan", exact: false }),

@@ -160,7 +160,7 @@ export function LiveDrawModal({
                 Siap Melakukan Pengundian Bracket?
               </h3>
               <p className="text-xs text-secondary leading-relaxed">
-                Setiap bola undian mewakili pasangan atlet. Pengundian akan
+                Setiap bola undian mewakili pasangan pemain. Pengundian akan
                 menentukan penempatan unggulan (*seeds*), *byes*, dan bagan
                 pertandingan secara adil dan transparan.
               </p>

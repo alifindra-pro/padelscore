@@ -1,16 +1,9 @@
 "use client";
+import { matchStatusLabel } from "@/lib/labels";
 import Link from "next/link";
 import { PlayerPhoto } from "@/components/PlayerPhoto";
 import { Icon } from "@/components/ui/Icon";
 import { StageView, MatchView } from "@/types/match";
-const statuses: Record<string, string> = {
-  SCHEDULED: "Terjadwal",
-  IN_PROGRESS: "Berlangsung",
-  FINISHED: "Menunggu pengesahan",
-  APPROVED: "Disahkan",
-  CANCELLED: "Dibatalkan",
-  SUSPENDED: "Ditunda",
-};
 function MatchCard({ match: m }: { match: MatchView }) {
   const snap = m.scoreSnapshot;
   const approved = m.approvalStatus === "APPROVED" || m.status === "APPROVED";
@@ -20,7 +13,7 @@ function MatchCard({ match: m }: { match: MatchView }) {
     >
       <header>
         <span>Laga {m.matchNumber}</span>
-        <span>{approved ? "Disahkan" : (statuses[m.status] ?? m.status)}</span>
+        <span>{approved ? "Disahkan" : matchStatusLabel(m.status)}</span>
       </header>
       {[m.entryA, m.entryB].map((entry, i) => {
         const winner = !!entry && m.winnerId === entry.id;
@@ -347,9 +340,7 @@ export function BracketViewer({
           <header className="bracket-stage-heading">
             <div>
               <p className="page-eyebrow">
-                {stage.type === "GROUP"
-                  ? "PEREBUTAN PERINGKAT"
-                  : "PERJALANAN MENUJU JUARA"}
+                {stage.type === "GROUP" ? "Klasemen grup" : "Bagan gugur"}
               </p>
               <h3>{stage.name}</h3>
             </div>

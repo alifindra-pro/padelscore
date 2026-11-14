@@ -1,4 +1,5 @@
 "use client";
+import { formatLabel } from "@/lib/labels";
 import { Suspense, use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { apiFetch } from "@/lib/api-client";
@@ -20,6 +21,25 @@ interface Category {
   format: string;
   rulesV2: Rules | null;
   stages: { id: string; name: string }[];
+  entries?: { id: string; name: string }[];
+  eligibility?: {
+    gender?: string;
+    minAge?: number;
+    maxAge?: number;
+    levels?: string[];
+    notes?: string;
+  } | null;
+  standingsPolicy?: { winPoints?: number; tieBreakers?: string[] } | null;
+  qualificationPolicy?: {
+    perGroup?: number;
+    bestRunnersUp?: number;
+    normalization?: string;
+  } | null;
+}
+interface Documents {
+  responsibleName?: string | null;
+  handbookUrl?: string | null;
+  approvalNote?: string | null;
 }
 interface Match {
   id: string;
@@ -32,7 +52,7 @@ interface Match {
   round: number;
 }
 async function fetchCompetition(id: string) {
-  const tournament = await apiFetch<{ categories: Category[] }>(
+  const tournament = await apiFetch<{ categories: Category[] } & Documents>(
     `/api/v1/tournaments/${id}`,
   );
   const [categories, matches] = await Promise.all([
@@ -43,7 +63,7 @@ async function fetchCompetition(id: string) {
     ),
     apiFetch<Match[]>(`/api/v1/tournaments/${id}/schedule`),
   ]);
-  return { categories, matches };
+  return { categories, matches, documents: tournament as Documents };
 }
 function Competition({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -51,6 +71,7 @@ function Competition({ params }: { params: Promise<{ id: string }> }) {
   const [selected, setSelected] = useState("");
   const [rules, setRules] = useState<Rules>(PRESETS.STANDARD);
   const [matches, setMatches] = useState<Match[]>([]);
+  const [documents, setDocuments] = useState<Documents>();
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [stageId, setStageId] = useState("");
@@ -70,6 +91,12 @@ function Competition({ params }: { params: Promise<{ id: string }> }) {
   >([]);
   const [rulesFor, setRulesFor] = useState("");
   const category = categories.find((c) => c.id === selected);
+  const usesGroups = category?.format === "GROUP_KNOCKOUT";
+  const usesStandings =
+    usesGroups || ["ROUND_ROBIN", "LEAGUE"].includes(category?.format ?? "");
+  const categoryMatches = matches.filter((m) =>
+    category?.stages.some((s) => s.id === m.stageId),
+  );
   // Reset the rules form only when another category is chosen, so reloading
   // after an unrelated save does not discard unsaved edits.
   if (category && rulesFor !== selected) {
@@ -82,6 +109,7 @@ function Competition({ params }: { params: Promise<{ id: string }> }) {
     (data: Awaited<ReturnType<typeof fetchCompetition>>) => {
       setCategories(data.categories);
       setMatches(data.matches);
+      setDocuments(data.documents);
       setSelected((s) => s || data.categories[0]?.id || "");
     },
     [],
@@ -113,12 +141,13 @@ function Competition({ params }: { params: Promise<{ id: string }> }) {
         ← Kelola turnamen
       </Link>
       <div className="app-page-heading">
-        <p className="page-eyebrow">PENGATURAN LANJUTAN</p>
-        <h1 className="page-heading">Aturan & operasional kompetisi</h1>
+        <p className="page-eyebrow">Pengaturan lanjutan</p>
+        <h1 className="page-heading">Aturan rinci & dokumen kompetisi</h1>
       </div>
       <p className="text-secondary">
-        Konfigurasi lokal ditentukan penyelenggara. Aturan pertandingan yang
-        telah dimulai tidak berubah.
+        Halaman ini untuk aturan per fase, kelayakan peserta, undian berdasarkan
+        unggulan, dan dokumen. Aturan pertandingan yang telah dimulai tidak
+        berubah.
       </p>
       <p role="status" className="text-brand">
         {message}
@@ -128,7 +157,7 @@ function Competition({ params }: { params: Promise<{ id: string }> }) {
         <select value={selected} onChange={(e) => setSelected(e.target.value)}>
           {categories.map((c) => (
             <option key={c.id} value={c.id}>
-              {c.name} · {c.format}
+              {c.name} · {formatLabel(c.format)}
             </option>
           ))}
         </select>
@@ -155,7 +184,7 @@ function Competition({ params }: { params: Promise<{ id: string }> }) {
             }}
           >
             <h2 className="text-xl font-bold md:col-span-3">
-              Format pertandingan
+              Aturan skor per fase atau babak
             </h2>
             <div className="md:col-span-3">
               <OptionCards
@@ -283,7 +312,7 @@ function Competition({ params }: { params: Promise<{ id: string }> }) {
                       })
                     }
                   />
-                  Match tie-break set penentu
+                  Set penentu memakai match tie-break
                 </label>
                 <label className="flex gap-2 items-center">
                   <input
@@ -293,7 +322,7 @@ function Competition({ params }: { params: Promise<{ id: string }> }) {
                       setRules({ ...rules, allowDraw: e.target.checked })
                     }
                   />
-                  Izinkan seri (timed grup)
+                  Izinkan hasil seri (laga grup berbatas waktu)
                 </label>
               </>
             )}
@@ -302,6 +331,7 @@ function Competition({ params }: { params: Promise<{ id: string }> }) {
             </button>
           </form>
           <form
+            key={selected}
             className="panel grid md:grid-cols-3 gap-4"
             onSubmit={(e) => {
               e.preventDefault();
@@ -324,27 +354,38 @@ function Competition({ params }: { params: Promise<{ id: string }> }) {
                         .filter(Boolean),
                       notes: f.get("notes"),
                     },
-                    standingsPolicy: {
-                      ...DEFAULT_STANDINGS,
-                      winPoints: Number(f.get("win")),
-                      tieBreakers: String(f.get("tieBreakers")).split(","),
-                    },
-                    qualificationPolicy: {
-                      perGroup: Number(f.get("perGroup")),
-                      bestRunnersUp: Number(f.get("runners")),
-                      normalization: f.get("normalization"),
-                    },
+                    ...(usesStandings && {
+                      standingsPolicy: {
+                        ...DEFAULT_STANDINGS,
+                        winPoints: Number(f.get("win")),
+                        tieBreakers: String(f.get("tieBreakers")).split(","),
+                      },
+                    }),
+                    ...(usesGroups && {
+                      qualificationPolicy: {
+                        perGroup: Number(f.get("perGroup")),
+                        bestRunnersUp: Number(f.get("runners")),
+                        normalization: f.get("normalization"),
+                      },
+                    }),
                   }),
                 }),
               );
             }}
           >
             <h2 className="text-xl font-bold md:col-span-3">
-              Kelayakan, klasemen & kelolosan
+              {usesGroups
+                ? "Kelayakan, klasemen & kelolosan"
+                : usesStandings
+                  ? "Kelayakan & klasemen"
+                  : "Kelayakan peserta"}
             </h2>
             <label className="field">
-              Gender
-              <select name="gender">
+              Kelompok peserta
+              <select
+                name="gender"
+                defaultValue={category.eligibility?.gender ?? "ANY"}
+              >
                 <option value="ANY">Terbuka</option>
                 <option value="MALE">Putra</option>
                 <option value="FEMALE">Putri</option>
@@ -353,68 +394,122 @@ function Competition({ params }: { params: Promise<{ id: string }> }) {
             </label>
             <label className="field">
               Usia minimum
-              <input type="number" name="minAge" min={0} />
-            </label>
-            <label className="field">
-              Usia maksimum
-              <input type="number" name="maxAge" max={120} />
-            </label>
-            <label className="field">
-              Level (pisahkan koma)
-              <input name="levels" placeholder="Beginner, Intermediate" />
-            </label>
-            <label className="field">
-              Persyaratan lain
-              <input name="notes" />
-            </label>
-            <label className="field">
-              Poin kemenangan
-              <select name="win">
-                <option value="2">2 poin</option>
-                <option value="3">3 poin</option>
-              </select>
-            </label>
-            <label className="field">
-              Urutan pemecah seri
-              <select name="tieBreakers">
-                <option value="POINTS,HEAD_TO_HEAD,SET_DIFFERENCE,GAME_DIFFERENCE,PLAYOFF">
-                  Poin → pertemuan → selisih set → game → playoff
-                </option>
-                <option value="WINS,SET_DIFFERENCE,GAME_DIFFERENCE,HEAD_TO_HEAD,PLAYOFF">
-                  Kemenangan → selisih set → game → pertemuan → playoff
-                </option>
-                <option value="POINTS,SET_DIFFERENCE,GAME_DIFFERENCE,SETS_WON,GAMES_WON,PLAYOFF">
-                  Poin → selisih set → game → set/game menang → playoff
-                </option>
-              </select>
-            </label>
-            <label className="field">
-              Lolos per grup
               <input
                 type="number"
-                name="perGroup"
-                min={1}
-                max={4}
-                defaultValue={2}
+                name="minAge"
+                min={0}
+                defaultValue={category.eligibility?.minAge ?? ""}
               />
             </label>
             <label className="field">
-              Best runners-up
-              <input type="number" name="runners" min={0} defaultValue={0} />
+              Usia maksimum
+              <input
+                type="number"
+                name="maxAge"
+                max={120}
+                defaultValue={category.eligibility?.maxAge ?? ""}
+              />
             </label>
             <label className="field">
-              Grup tidak seimbang
-              <select name="normalization">
-                <option value="NONE">Tolak perbandingan langsung</option>
-                <option value="PER_MATCH">Rata-rata per pertandingan</option>
-              </select>
+              Tingkat permainan (pisahkan dengan koma)
+              <input
+                name="levels"
+                placeholder="Pemula, Menengah"
+                defaultValue={category.eligibility?.levels?.join(", ") ?? ""}
+              />
             </label>
+            <label className="field">
+              Persyaratan lain
+              <input
+                name="notes"
+                defaultValue={category.eligibility?.notes ?? ""}
+              />
+            </label>
+            {usesStandings && (
+              <>
+                <label className="field">
+                  Poin kemenangan
+                  <select
+                    name="win"
+                    defaultValue={String(
+                      category.standingsPolicy?.winPoints ?? 2,
+                    )}
+                  >
+                    <option value="2">2 poin</option>
+                    <option value="3">3 poin</option>
+                  </select>
+                </label>
+                <label className="field">
+                  Urutan pemecah seri
+                  <select
+                    name="tieBreakers"
+                    defaultValue={
+                      category.standingsPolicy?.tieBreakers?.join(",") ??
+                      "POINTS,HEAD_TO_HEAD,SET_DIFFERENCE,GAME_DIFFERENCE,PLAYOFF"
+                    }
+                  >
+                    <option value="POINTS,HEAD_TO_HEAD,SET_DIFFERENCE,GAME_DIFFERENCE,PLAYOFF">
+                      Poin → pertemuan → selisih set → game → playoff
+                    </option>
+                    <option value="WINS,SET_DIFFERENCE,GAME_DIFFERENCE,HEAD_TO_HEAD,PLAYOFF">
+                      Kemenangan → selisih set → game → pertemuan → playoff
+                    </option>
+                    <option value="POINTS,SET_DIFFERENCE,GAME_DIFFERENCE,SETS_WON,GAMES_WON,PLAYOFF">
+                      Poin → selisih set → game → set/game menang → playoff
+                    </option>
+                  </select>
+                </label>
+              </>
+            )}
+            {usesGroups && (
+              <>
+                <label className="field">
+                  Lolos per grup
+                  <input
+                    type="number"
+                    name="perGroup"
+                    min={1}
+                    max={4}
+                    defaultValue={category.qualificationPolicy?.perGroup ?? 2}
+                  />
+                </label>
+                <label className="field">
+                  Peringkat berikutnya terbaik yang ikut lolos
+                  <input
+                    type="number"
+                    name="runners"
+                    min={0}
+                    defaultValue={
+                      category.qualificationPolicy?.bestRunnersUp ?? 0
+                    }
+                  />
+                </label>
+                <label className="field">
+                  Jika jumlah laga antargrup berbeda
+                  <select
+                    name="normalization"
+                    defaultValue={
+                      category.qualificationPolicy?.normalization ?? "NONE"
+                    }
+                  >
+                    <option value="NONE">Tolak perbandingan langsung</option>
+                    <option value="PER_MATCH">
+                      Rata-rata per pertandingan
+                    </option>
+                  </select>
+                </label>
+              </>
+            )}
             <button className="btn-primary" disabled={busy}>
               Simpan kebijakan
             </button>
           </form>
           <section className="panel space-y-4">
-            <h2 className="text-xl font-bold">Bagan & hasil</h2>
+            <h2 className="text-xl font-bold">Undian bagan & klasemen</h2>
+            <p className="text-secondary">
+              Undian mengganti bagan yang belum dimainkan. Pasangan unggulan
+              diatur lewat nomor unggulan di daftar peserta.
+            </p>
             <div className="flex flex-wrap gap-3">
               {(["SEEDED", "RANDOM"] as const).map((mode) => (
                 <button
@@ -440,42 +535,58 @@ function Competition({ params }: { params: Promise<{ id: string }> }) {
                       );
                   }}
                 >
-                  {mode === "SEEDED" ? "Undi berdasarkan seed" : "Undi acak"}
+                  {mode === "SEEDED"
+                    ? "Undi berdasarkan unggulan"
+                    : "Undi acak"}
                 </button>
               ))}
-              <button
-                className="btn-secondary"
-                onClick={() =>
-                  apiFetch<typeof standings>(
-                    `/api/v2/categories/${selected}/standings`,
-                  )
-                    .then(setStandings)
-                    .catch((e) => setMessage(e.message))
-                }
-              >
-                Lihat klasemen disahkan
-              </button>
-              <button
-                className="btn-secondary"
-                disabled={busy}
-                onClick={() =>
-                  run(() =>
-                    apiFetch(`/api/v2/categories/${selected}/qualify`, {
-                      method: "POST",
-                      body: "{}",
-                    }),
-                  )
-                }
-              >
-                Bentuk babak kelolosan
-              </button>
+              {usesStandings && (
+                <button
+                  className="btn-secondary"
+                  onClick={() =>
+                    apiFetch<typeof standings>(
+                      `/api/v2/categories/${selected}/standings`,
+                    )
+                      .then((rows) => {
+                        setStandings(rows);
+                        setMessage(
+                          rows.length
+                            ? ""
+                            : "Belum ada klasemen. Klasemen muncul setelah hasil laga grup disahkan.",
+                        );
+                      })
+                      .catch((e) => setMessage(e.message))
+                  }
+                >
+                  Lihat klasemen disahkan
+                </button>
+              )}
+              {usesGroups && (
+                <button
+                  className="btn-secondary"
+                  disabled={busy}
+                  onClick={() =>
+                    run(() =>
+                      apiFetch(`/api/v2/categories/${selected}/qualify`, {
+                        method: "POST",
+                        body: "{}",
+                      }),
+                    )
+                  }
+                >
+                  Bentuk babak kelolosan
+                </button>
+              )}
             </div>
             {standings.map((g) => (
               <div key={g.id}>
                 <h3 className="font-bold">{g.name}</h3>
                 {g.standings.map((r) => (
                   <p key={r.id}>
-                    #{r.rank} · {r.id} · {r.points} poin{" "}
+                    {r.rank}.{" "}
+                    {category.entries?.find((e) => e.id === r.id)?.name ??
+                      "Pasangan"}{" "}
+                    · {r.points} poin{" "}
                     {r.needsPlayoff
                       ? "(perlu playoff atau keputusan admin)"
                       : ""}
@@ -484,64 +595,24 @@ function Competition({ params }: { params: Promise<{ id: string }> }) {
               </div>
             ))}
           </section>
-          <section className="panel space-y-4">
-            <h2 className="text-xl font-bold">Pertandingan & wasit</h2>
-            {matches
-              .filter((m) => category.stages.some((s) => s.id === m.stageId))
-              .map((m) => (
-                <div
-                  key={m.id}
-                  className="border-t border-line py-4 flex flex-wrap gap-3 items-center"
-                >
-                  <span className="flex-1">
-                    #{m.matchNumber} · {m.entryA?.name ?? "Menunggu"} vs{" "}
-                    {m.entryB?.name ?? "Menunggu"}
-                    <br />
-                    <small>
-                      {m.status} · {m.approvalStatus}
-                    </small>
-                  </span>
-                  <Link className="btn-secondary" href={`/referee/v2/${m.id}`}>
-                    Konsol wasit
-                  </Link>
-                  <button
-                    className="btn-secondary"
-                    disabled={busy}
-                    onClick={() => {
-                      const userId = prompt(
-                        "ID akun wasit dari daftar tim organisasi",
-                      );
-                      if (userId)
-                        void run(() =>
-                          apiFetch(`/api/v2/matches/${m.id}/officials`, {
-                            method: "POST",
-                            body: JSON.stringify({ userId }),
-                          }),
-                        );
-                    }}
-                  >
-                    Tugaskan wasit
-                  </button>
-                  <button
-                    className="btn-kinetic"
-                    disabled={busy || m.approvalStatus === "APPROVED"}
-                    onClick={() =>
-                      run(() =>
-                        apiFetch(`/api/v2/matches/${m.id}/approve`, {
-                          method: "POST",
-                          body: "{}",
-                        }),
-                      )
-                    }
-                  >
-                    Sahkan hasil
-                  </button>
-                </div>
-              ))}
+          <section className="panel space-y-3">
+            <h2 className="text-xl font-bold">Wasit & pengesahan hasil</h2>
+            <p className="text-secondary">
+              {categoryMatches.length
+                ? `${categoryMatches.length} laga di kategori ini, ${categoryMatches.filter((m) => m.approvalStatus === "APPROVED").length} sudah disahkan. Penugasan wasit dan pengesahan hasil dilakukan di langkah 4 halaman kelola.`
+                : "Belum ada laga. Buat bagan terlebih dahulu."}
+            </p>
+            <Link
+              className="btn-secondary"
+              href={`/admin/tournaments/${id}?step=3`}
+            >
+              Buka langkah 4: jalankan & hasil
+            </Link>
           </section>
         </>
       )}
       <form
+        key={documents ? "loaded" : "loading"}
         className="panel grid md:grid-cols-2 gap-4"
         onSubmit={(e) => {
           e.preventDefault();
@@ -561,15 +632,23 @@ function Competition({ params }: { params: Promise<{ id: string }> }) {
         <h2 className="text-xl font-bold md:col-span-2">Dokumen kompetisi</h2>
         <label className="field">
           Penanggung jawab
-          <input name="responsible" />
+          <input
+            name="responsible"
+            defaultValue={documents?.responsibleName ?? ""}
+          />
         </label>
         <label className="field">
-          Tautan technical handbook
-          <input name="handbook" type="url" />
+          Tautan buku panduan teknis
+          <input
+            name="handbook"
+            type="url"
+            placeholder="https://"
+            defaultValue={documents?.handbookUrl ?? ""}
+          />
         </label>
         <label className="field">
           Catatan persetujuan penyelenggara
-          <textarea name="note" />
+          <textarea name="note" defaultValue={documents?.approvalNote ?? ""} />
         </label>
         <button className="btn-primary" disabled={busy}>
           Simpan dokumen

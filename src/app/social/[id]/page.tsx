@@ -42,7 +42,7 @@ function PublicSocial({ params }: { params: Promise<{ id: string }> }) {
       </Link>
       <header className="social-event-heading">
         <div>
-          <p className="page-eyebrow">GOOD GAMES. GREAT COMPANY.</p>
+          <p className="page-eyebrow">Sesi sosial</p>
           <h1 className="page-heading">
             {event?.name ?? "Pertandingan sosial"}
           </h1>
@@ -69,8 +69,7 @@ function PublicSocial({ params }: { params: Promise<{ id: string }> }) {
         <section className="panel social-leaderboard">
           <div className="dashboard-section-heading">
             <div>
-              <p className="page-eyebrow">EVERY POINT COUNTS.</p>
-              <h2 className="panel-title">Leaderboard</h2>
+              <h2 className="panel-title">Peringkat pemain</h2>
             </div>
             <Icon name="trophy" size={25} />
           </div>

@@ -1,4 +1,5 @@
 "use client";
+import { matchStatusLabel } from "@/lib/labels";
 
 import { Icon } from "@/components/ui/Icon";
 
@@ -265,7 +266,7 @@ function RefereeScoringContent({
       {/* Main Scoreboard & Controls */}
       <main className="p-4 sm:p-6 space-y-4 flex-1 flex flex-col">
         <div>
-          <p className="page-eyebrow">POINT BY POINT.</p>
+          <p className="page-eyebrow">Pencatatan skor</p>
           <h1 className="page-heading">Papan skor wasit</h1>
         </div>
         {/* Error Alert */}
@@ -453,7 +454,7 @@ function RefereeScoringContent({
             <h3 className="text-base font-bold text-ink">
               {match.status === "FINISHED"
                 ? "Pertandingan selesai"
-                : `Status: ${match.status}`}
+                : `Status: ${matchStatusLabel(match.status)}`}
             </h3>
             <p className="text-xs text-secondary">
               {match.winner

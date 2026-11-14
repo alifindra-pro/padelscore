@@ -1,4 +1,5 @@
 "use client";
+import { matchStatusLabel } from "@/lib/labels";
 
 import { Icon } from "@/components/ui/Icon";
 
@@ -157,7 +158,7 @@ export default function RefereeDashboardPage() {
                           : "bg-surface-tint text-secondary"
                     }`}
                   >
-                    {m.status}
+                    {matchStatusLabel(m.status)}
                   </span>
                 </div>
 

@@ -210,6 +210,12 @@ export async function syncActions(user: AuthUser, id: string, input: unknown) {
       });
       if (changed.count !== 1)
         throw AppError.conflict("Skor berubah pada perangkat lain");
+      // A published tournament is running once its first match starts; drafts stay private.
+      if (state.status !== "NOT_STARTED" && !m.startedAt)
+        await tx.tournament.updateMany({
+          where: { id: m.stage.category.tournamentId, status: "PUBLISHED" },
+          data: { status: "IN_PROGRESS" },
+        });
       const [pointsA, pointsB] = pointLabels(state);
       const snapshot = {
         currentSet: state.sets.length,
