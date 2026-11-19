@@ -2821,16 +2821,41 @@
 .rules-path li:last-child .rules-path-step, .rules-path li:last-child .rules-path-text { color: #c5d3de; }
 @media (max-width: 899px) { .rules-path li + li { border-left: 0; border-top: 1px solid var(--color-line); } }
 
-/* Bracket v2: short two-line matches with a connector into the next round. */
-.rules-bracket { gap: 28px; }
-.rules-bracket-round { width: 160px; }
-.rules-bracket-matches { gap: 14px; }
-.rules-bracket-match { position: relative; gap: 0; padding: 0; overflow: visible; border-left-width: 1px; border-color: var(--color-line); }
+/* Bracket v3: every column shares one height and splits it into equal cells,
+   so a match always sits halfway between the two matches that feed it and the
+   connector lines meet exactly. --g is the gap the lines cross. */
+.rules-bracket { --g: 36px; --line: color-mix(in srgb, var(--color-ink) 75%, var(--color-card)); display: flex; align-items: stretch; gap: var(--g); overflow-x: auto; padding: 2px 2px 10px; scroll-snap-type: x proximity; }
+.rules-bracket-round { flex: 1 0 150px; width: auto; min-width: 150px; display: flex; flex-direction: column; }
+.rules-bracket-cells { flex: 1; display: flex; flex-direction: column; }
+.rules-cell { position: relative; flex: 1 1 0; display: flex; flex-direction: column; }
+.rules-sub { position: relative; flex: 1 1 0; display: flex; align-items: center; padding: 7px 0; }
+.rules-bracket-match { position: relative; width: 100%; gap: 0; padding: 0; overflow: visible; border: 1px solid var(--color-line); border-radius: 8px; background: var(--color-card); }
 .rules-bracket-label { padding: 6px 10px 2px; }
-.rules-slot { padding: 6px 10px; font-size: 14px; font-weight: 700; color: var(--color-secondary); }
+.rules-slot { padding: 6px 10px; font-size: 14px; font-weight: 700; color: var(--color-secondary); overflow-wrap: anywhere; }
 .rules-slot + .rules-slot { border-top: 1px solid var(--color-line-subtle); }
 .rules-slot.is-seed { color: var(--color-ink); }
 .rules-slot.is-seed::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 8px; border-radius: 2px; background: var(--color-brand); vertical-align: 2px; }
-.rules-bracket-round:not(:last-child) .rules-bracket-match::after { content: ""; position: absolute; top: 50%; right: -15px; width: 14px; border-top: 2px solid var(--color-line); }
-.rules-bracket-round:not(:first-child) .rules-bracket-match::before { content: ""; position: absolute; top: 50%; left: -15px; width: 14px; border-top: 2px solid var(--color-line); }
-.rules-bracket-round:last-child .rules-bracket-match { border-color: var(--color-ink); border-width: 2px; }
+.rules-bracket-round:last-child .rules-bracket-match { border: 2px solid var(--color-ink); }
+.rules-bracket-match::before, .rules-bracket-match::after, .rules-cell::after, .rules-sub::after { content: none; position: absolute; pointer-events: none; }
+/* Out of every match that is not the final: half the gap to the right. */
+.rules-bracket-round:not(:last-child) .rules-bracket-match::after { content: ""; top: 50%; right: calc(var(--g) / -2); width: calc(var(--g) / 2); border-top: 2px solid var(--line); }
+/* Into a match that waits for a winner: half the gap from the left. */
+.rules-bracket-match.has-feed::before { content: ""; top: 50%; left: calc(var(--g) / -2); width: calc(var(--g) / 2); border-top: 2px solid var(--line); }
+/* Full rounds: join each pair of matches with a vertical line. */
+.rules-bracket-round:not(.is-opening):not(:last-child) .rules-cell::after { content: ""; right: calc(var(--g) / -2 - 1px); width: 0; border-right: 2px solid var(--line); }
+.rules-bracket-round:not(.is-opening):not(:last-child) .rules-cell:nth-child(odd)::after { top: 50%; bottom: 0; }
+.rules-bracket-round:not(.is-opening):not(:last-child) .rules-cell:nth-child(even)::after { top: 0; bottom: 50%; }
+/* Opening round, one game into a match: the line runs straight across. */
+.rules-bracket-round.is-opening .rules-cell-1 .rules-bracket-match::after { right: calc(var(--g) * -1); width: var(--g); }
+/* Opening round, two games into one match: join them, then run across. */
+.rules-bracket-round.is-opening .rules-cell-2 .rules-sub::after { content: ""; right: calc(var(--g) / -2 - 1px); width: 0; border-right: 2px solid var(--line); }
+.rules-bracket-round.is-opening .rules-cell-2 .rules-sub:first-child::after { top: 50%; bottom: 0; }
+.rules-bracket-round.is-opening .rules-cell-2 .rules-sub:last-child::after { top: 0; bottom: 50%; }
+.rules-bracket-round.is-opening .rules-cell-2::after { content: ""; top: 50%; right: calc(var(--g) * -1); width: calc(var(--g) / 2); border-top: 2px solid var(--line); }
+@media (max-width: 640px) {
+  .rules-bracket { --g: 24px; margin-inline: -4px; }
+  .rules-bracket-round { flex-basis: 132px; min-width: 132px; }
+  .rules-bracket-round h5 { font-size: 12px; padding: 5px 6px; }
+  .rules-slot { padding: 5px 8px; font-size: 13px; }
+  .rules-bracket-label { padding: 5px 8px 1px; }
+}

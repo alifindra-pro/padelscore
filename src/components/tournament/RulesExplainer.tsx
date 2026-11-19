@@ -91,6 +91,8 @@ function Path({ info }: { info: RulesInfo }) {
   );
 }
 
+type Node = ReturnType<typeof draw>[number];
+
 function Bracket({ qualifiers }: { qualifiers: number }) {
   const nodes = draw(
     Array.from({ length: qualifiers }, (_, i) => ({
@@ -103,70 +105,118 @@ function Bracket({ qualifiers }: { qualifiers: number }) {
   );
   const rounds = [...new Set(nodes.map((n) => n.round))].sort((a, b) => a - b);
   const lastRound = rounds.at(-1)!;
-  // Names per match, then what each slot of a later match is waiting for.
-  const label = new Map<number, string>();
-  const feed = new Map<string, string>();
-  for (const round of rounds) {
-    const real = nodes.filter((n) => n.round === round && !n.bye);
-    const size = 2 ** (lastRound - round + 1);
-    real.forEach((n, i) =>
-      label.set(
-        n.number,
-        round === lastRound
-          ? "Final"
-          : size === 4
-            ? `SF ${i + 1}`
-            : size === 8
-              ? `QF ${i + 1}`
-              : `Laga ${i + 1}`,
-      ),
-    );
+  const feeders = (n: Node) =>
+    nodes
+      .filter((x) => x.winnerTo?.[0] === n.number)
+      .sort((x, y) => x.winnerTo![1].localeCompare(y.winnerTo![1]));
+  // Top-to-bottom order of every round, walked back from the final so the two
+  // matches that feed one match always sit next to each other.
+  const order = new Map<number, Node[]>();
+  let level = nodes.filter((n) => n.round === lastRound);
+  for (let r = lastRound; level.length; r--) {
+    order.set(r, level);
+    level = level.flatMap(feeders);
   }
+  const label = new Map<number, string>();
+  for (const round of rounds) {
+    const size = 2 ** (lastRound - round + 1);
+    (order.get(round) ?? [])
+      .filter((n) => !n.bye)
+      .forEach((n, i) =>
+        label.set(
+          n.number,
+          round === lastRound
+            ? "Final"
+            : size === 4
+              ? `SF ${i + 1}`
+              : size === 8
+                ? `QF ${i + 1}`
+                : `Laga ${i + 1}`,
+        ),
+      );
+  }
+  const feed = new Map<string, string>();
   for (const n of nodes)
     if (n.winnerTo)
       feed.set(
         `${n.winnerTo[0]}:${n.winnerTo[1]}`,
         n.bye ? (n.a ?? n.b ?? "") : `Pemenang ${label.get(n.number)}`,
       );
-  const slot = (n: (typeof nodes)[number], side: "a" | "b") =>
+  const slot = (n: Node, side: "a" | "b") =>
     (side === "a" ? n.a : n.b) ?? feed.get(`${n.number}:${side}`) ?? "";
-  const columns = rounds
-    .map((round) => ({
-      round,
-      size: 2 ** (lastRound - round + 1),
-      matches: nodes.filter((n) => n.round === round && !n.bye),
-    }))
-    .filter((c) => c.matches.length);
+  const hasFeed = (n: Node) => feeders(n).some((f) => !f.bye);
+
+  // A first round with byes is drawn next to the match each game feeds, so its
+  // line runs straight across; full rounds pair up two matches per line.
+  const columns = rounds.flatMap((round, i) => {
+    const list = order.get(round) ?? [];
+    const size = 2 ** (lastRound - round + 1);
+    if (list.every((n) => !n.bye))
+      return [
+        {
+          round,
+          title: roundName(size),
+          opening: false,
+          cells: list.map((n) => [n]),
+        },
+      ];
+    const next = order.get(rounds[i + 1]) ?? [];
+    const cells = next.map((t) => feeders(t).filter((f) => !f.bye));
+    return cells.some((c) => c.length)
+      ? [{ round, title: "Babak awal", opening: true, cells }]
+      : [];
+  });
+
   return (
     <section className="rules-block">
       <h4>Bagan babak gugur</h4>
       <p className="rules-swipe">Geser ke kanan untuk melihat sampai final.</p>
       <div className="rules-bracket" role="list">
         {columns.map((c) => (
-          <div className="rules-bracket-round" role="listitem" key={c.round}>
-            <h5>
-              {c.round === rounds[0] && c.matches.length < c.size / 2
-                ? "Babak awal"
-                : roundName(c.size)}
-            </h5>
-            <div className="rules-bracket-matches">
-              {c.matches.map((n) => (
-                <div className="rules-bracket-match" key={n.number}>
-                  <span className="rules-bracket-label">
-                    {label.get(n.number)}
-                  </span>
-                  {(["a", "b"] as const).map((side) => {
-                    const text = slot(n, side);
-                    const seed = /^P\d+$/.test(text);
-                    return (
-                      <span
-                        key={side}
-                        className={seed ? "rules-slot is-seed" : "rules-slot"}
+          <div
+            className={
+              c.opening ? "rules-bracket-round is-opening" : "rules-bracket-round"
+            }
+            role="listitem"
+            key={c.round}
+          >
+            <h5>{c.title}</h5>
+            <div className="rules-bracket-cells">
+              {c.cells.map((cell, ci) => (
+                <div
+                  className={`rules-cell rules-cell-${cell.length}`}
+                  key={ci}
+                >
+                  {cell.map((n) => (
+                    <div className="rules-sub" key={n.number}>
+                      <div
+                        className={
+                          hasFeed(n)
+                            ? "rules-bracket-match has-feed"
+                            : "rules-bracket-match"
+                        }
                       >
-                        {text}
-                      </span>
-                    );
-                  })}
+                        <span className="rules-bracket-label">
+                          {label.get(n.number)}
+                        </span>
+                        {(["a", "b"] as const).map((side) => {
+                          const text = slot(n, side);
+                          return (
+                            <span
+                              key={side}
+                              className={
+                                /^P\d+$/.test(text)
+                                  ? "rules-slot is-seed"
+                                  : "rules-slot"
+                              }
+                            >
+                              {text}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ))}
             </div>
