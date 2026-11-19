@@ -23,11 +23,14 @@ export function HeaderPreview({
   settings,
   children,
   meta,
+  showBanner = true,
 }: {
   id: string;
   name: string;
   settings?: HeaderSettings;
   children?: ReactNode;
+  /** The public page shows the banner as its own poster section instead. */
+  showBanner?: boolean;
   /** Shown right under the title, before the description (status, date, venue). */
   meta?: ReactNode;
 }) {
@@ -39,7 +42,7 @@ export function HeaderPreview({
       className="space-y-4 rounded-xl p-4 sm:p-5"
       style={{ background: theme.soft, borderTop: `4px solid ${theme.accent}` }}
     >
-      {settings?.hasBanner && (
+      {showBanner && settings?.hasBanner && (
         <div className="overflow-hidden rounded-xl bg-surface-tint">
           {/* Access-controlled images are served by the application. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -124,16 +127,39 @@ export function TournamentHeader({
   name,
   children,
   meta,
+  showBanner,
 }: {
   id: string;
   name: string;
   children?: ReactNode;
   meta?: ReactNode;
+  showBanner?: boolean;
 }) {
   const settings = useContext(HeaderContext);
   return (
-    <HeaderPreview id={id} name={name} settings={settings} meta={meta}>
+    <HeaderPreview
+      id={id}
+      name={name}
+      settings={settings}
+      meta={meta}
+      showBanner={showBanner}
+    >
       {children}
     </HeaderPreview>
+  );
+}
+
+/** The uploaded banner shown full size, e.g. the event poster. Renders nothing without one. */
+export function TournamentPoster({ id, name }: { id: string; name: string }) {
+  const settings = useContext(HeaderContext);
+  if (!settings?.hasBanner) return null;
+  const src = `/api/v2/tournaments/${id}/header?image=banner&v=${encodeURIComponent(settings.version)}`;
+  return (
+    <a className="event-poster" href={src} target="_blank" rel="noopener">
+      {/* Access-controlled images are served by the application. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={src} alt={`Poster ${settings.title || name}`} />
+      <span>Buka poster ukuran penuh</span>
+    </a>
   );
 }

@@ -26,6 +26,7 @@ import Link from "next/link";
 import { entryStatusLabel, isMainEntry } from "@/lib/entry-status";
 import {
   TournamentHeader,
+  TournamentPoster,
   TournamentTheme,
 } from "@/components/tournament/TournamentHeader";
 import { RegistrationForm } from "@/components/tournament/RegistrationForm";
@@ -52,6 +53,8 @@ type TabKey =
 type MatchFilter = "ALL" | "IN_PROGRESS" | "FINISHED" | "SCHEDULED";
 
 interface PublicCategory {
+  /** Plain-language rule lines prepared by the server, "Label: text". */
+  rulesSummary?: string[];
   maxEntries?: number | null;
   id: string;
   name: string;
@@ -277,6 +280,18 @@ function TournamentPublicContent({
       (matchFilter === "ALL" || m.status === matchFilter) &&
       (categoryFilter === "ALL" || m.categoryId === categoryFilter),
   );
+  // Categories with identical rules share one card instead of repeating it.
+  const ruleGroups = (tournament.categories ?? []).reduce<
+    { key: string; names: string[]; lines: string[] }[]
+  >((acc, cat) => {
+    const lines = cat.rulesSummary ?? [];
+    if (!lines.length) return acc;
+    const key = lines.join("|");
+    const same = acc.find((g) => g.key === key);
+    if (same) same.names.push(cat.name);
+    else acc.push({ key, names: [cat.name], lines });
+    return acc;
+  }, []);
   // One event, several categories ("nomor"): each shows its pairs and its own start.
   const nomor = (tournament.categories ?? []).map((cat) => {
     const first = cat.stages
@@ -303,11 +318,6 @@ function TournamentPublicContent({
       (c) => c.stages?.map((st) => st.type) ?? [],
     ),
   );
-  const entryCount =
-    tournament.categories?.reduce(
-      (acc, c) => acc + (c.entries?.filter(isMainEntry).length || 0),
-      0,
-    ) || 0;
   // Only tabs with something to show; before the draw that is just the pairs.
   const visibleTabs: { key: TabKey; label: string }[] = [
     ...(allMatches.length
@@ -333,18 +343,19 @@ function TournamentPublicContent({
           },
         ]
       : []),
-    { key: "entries" as const, label: `Peserta (${entryCount})` },
     ...(allMatches.some((m) => ["FINISHED", "APPROVED"].includes(m.status))
       ? [{ key: "disputes" as const, label: "Sanggah hasil" }]
       : []),
   ];
-  const currentTab: TabKey = visibleTabs.some((t) => t.key === activeTab)
+  const currentTab: TabKey | null = visibleTabs.some((t) => t.key === activeTab)
     ? activeTab
-    : tournament.status === "IN_PROGRESS" && allMatches.length
-      ? "live"
-      : stageTypes.has("GROUP")
-        ? "groups"
-        : "entries";
+    : (visibleTabs.find((t) =>
+        tournament.status === "IN_PROGRESS"
+          ? t.key === "live"
+          : t.key !== "live",
+      )?.key ??
+      visibleTabs[0]?.key ??
+      null);
   return (
     <TournamentTheme id={tournament.id}>
       {/* Tournament Header */}
@@ -353,6 +364,7 @@ function TournamentPublicContent({
           <TournamentHeader
             id={tournament.id}
             name={tournament.name}
+            showBanner={false}
             meta={
               <p className="event-meta">
                 <span
@@ -401,20 +413,9 @@ function TournamentPublicContent({
       </header>
 
       {/* Main Hub Content */}
-      <main className="flex-1 page-shell py-8 space-y-8">
-        {tournament.status === "REGISTRATION" && (
-          <RegistrationForm
-            categories={tournament.categories ?? []}
-            onRegistered={() => {
-              void fetchTournament(slug).then((data) =>
-                setTournament(data.tournament),
-              );
-            }}
-          />
-        )}
-        <Sponsors tournamentId={tournament.id} />
+      <main className="flex-1 page-shell py-8 space-y-10">
         {/* Navigation Tabs */}
-        {visibleTabs.length > 1 && (
+        {visibleTabs.length > 0 && (
           <div className="app-tabs flex border-b border-line space-x-6 overflow-x-auto pb-1">
             {visibleTabs.map((tab) => (
               <button
@@ -741,7 +742,37 @@ function TournamentPublicContent({
         )}
 
         {/* Tab 4: Registered Pairs */}
-        {currentTab === "entries" && (
+        <TournamentPoster id={tournament.id} name={tournament.name} />
+        {ruleGroups.length > 0 && (
+          <section className="event-section" aria-labelledby="rules-title">
+            <h2 id="rules-title">Aturan main</h2>
+            <div className="rules-grid">
+              {ruleGroups.map((group) => (
+                <article key={group.key} className="rules-card">
+                  <h3>
+                    {group.names.length > 1
+                      ? `Berlaku untuk ${group.names.join(" dan ")}`
+                      : group.names[0]}
+                  </h3>
+                  <dl>
+                    {group.lines.map((line) => {
+                      const [term, ...rest] = line.split(": ");
+                      return (
+                        <div key={line}>
+                          <dt>{term}</dt>
+                          <dd>{rest.join(": ")}</dd>
+                        </div>
+                      );
+                    })}
+                  </dl>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
+        <section className="event-section" aria-labelledby="pairs-title">
+          <h2 id="pairs-title">Peserta</h2>
+
           <div className="space-y-8">
             {tournament.categories?.map((cat) => {
               const list = (cat.entries ?? []).filter(
@@ -824,7 +855,18 @@ function TournamentPublicContent({
               );
             })}
           </div>
+        </section>
+        {tournament.status === "REGISTRATION" && (
+          <RegistrationForm
+            categories={tournament.categories ?? []}
+            onRegistered={() => {
+              void fetchTournament(slug).then((data) =>
+                setTournament(data.tournament),
+              );
+            }}
+          />
         )}
+        <Sponsors tournamentId={tournament.id} />
       </main>
 
       {/* Spectator Footer */}

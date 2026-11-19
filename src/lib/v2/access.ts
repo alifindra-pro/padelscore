@@ -171,6 +171,7 @@ const allowed = new Set([
   "approvalStatus",
   "groupId",
   "bracketSide",
+  "rulesSummary",
 ]);
 export function publicProjection(value: unknown): unknown {
   if (value instanceof Date) return value.toISOString();
