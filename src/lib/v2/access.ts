@@ -172,6 +172,20 @@ const allowed = new Set([
   "groupId",
   "bracketSide",
   "rulesSummary",
+  // Public rules diagram: plain numbers and labels only.
+  "rulesInfo",
+  "deuce",
+  "groupSize",
+  "qualifiers",
+  "perGroup",
+  "bestRunnersUp",
+  "winPoints",
+  "tieBreakers",
+  "groupMatch",
+  "knockoutMatch",
+  "finalMatch",
+  "kind",
+  "games",
 ]);
 export function publicProjection(value: unknown): unknown {
   if (value instanceof Date) return value.toISOString();

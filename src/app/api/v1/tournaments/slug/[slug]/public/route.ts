@@ -2,7 +2,7 @@ import { withLegacyAccess } from "@/lib/v2/access";
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { handleApiError, AppError } from "@/lib/errors";
-import { rulesSummary } from "@/lib/rules-summary";
+import { rulesInfo, rulesSummary } from "@/lib/rules-summary";
 import type { Rules } from "../../../../../../../../packages/core/src";
 
 async function handleGET(
@@ -96,6 +96,13 @@ async function handleGET(
           c.rulesV2 as unknown as Rules | null,
           c.qualificationPolicy as Parameters<typeof rulesSummary>[2],
           c.maxEntries,
+        ),
+        rulesInfo: rulesInfo(
+          c.format,
+          c.rulesV2 as unknown as Rules | null,
+          c.qualificationPolicy as Parameters<typeof rulesInfo>[2],
+          c.maxEntries,
+          c.standingsPolicy as Parameters<typeof rulesInfo>[4],
         ),
       })),
     };

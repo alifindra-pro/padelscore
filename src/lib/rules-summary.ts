@@ -82,3 +82,78 @@ export function rulesSummary(
   if (d) lines.push(`Deuce: ${d}`);
   return lines;
 }
+
+/** How one match is decided, reduced to what a public explainer needs. */
+export interface MatchKind {
+  kind: "RACE" | "TOTAL_GAMES" | "STANDARD" | "POINTS" | "TIMED";
+  games: number;
+  setsToWin: number;
+}
+export interface RulesInfo {
+  format: string;
+  deuce: string;
+  groups: number;
+  groupSize: number;
+  qualifiers: number;
+  perGroup: number;
+  bestRunnersUp: number;
+  winPoints: number;
+  tieBreakers: string[];
+  groupMatch: MatchKind;
+  knockoutMatch: MatchKind;
+  finalMatch: MatchKind;
+}
+const kindOf = (r: Rules): MatchKind => ({
+  kind:
+    r.mode === "POINTS"
+      ? "POINTS"
+      : r.mode === "TIMED"
+        ? "TIMED"
+        : (r.setFormat ?? "STANDARD"),
+  games: r.mode === "POINTS" ? (r.totalPoints ?? 0) : r.gamesPerSet,
+  setsToWin: r.setsToWin,
+});
+
+/**
+ * Numbers for the public rules diagram (groups, qualifiers, scoring). Built on
+ * the server so only these plain values leave it, never raw rule objects.
+ */
+export function rulesInfo(
+  format: string,
+  rules: Rules | null,
+  policy: QualificationPolicy | null,
+  maxEntries: number | null | undefined,
+  standings: { winPoints?: number; tieBreakers?: string[] } | null,
+): RulesInfo | null {
+  if (!rules) return null;
+  const groups = format === "GROUP_KNOCKOUT" ? (policy?.groups ?? 0) : 0;
+  const perGroup = policy?.perGroup ?? 2;
+  const bestRunnersUp = policy?.bestRunnersUp ?? 0;
+  return {
+    format,
+    deuce: rules.deuce,
+    groups,
+    groupSize:
+      groups && maxEntries && maxEntries % groups === 0
+        ? maxEntries / groups
+        : 0,
+    qualifiers: groups ? groups * perGroup + bestRunnersUp : 0,
+    perGroup,
+    bestRunnersUp,
+    winPoints: standings?.winPoints ?? 2,
+    tieBreakers: standings?.tieBreakers ?? [
+      "POINTS",
+      "HEAD_TO_HEAD",
+      "SET_DIFFERENCE",
+      "GAME_DIFFERENCE",
+      "PLAYOFF",
+    ],
+    groupMatch: kindOf(rules),
+    knockoutMatch: kindOf({ ...rules, ...policy?.knockoutRules }),
+    finalMatch: kindOf({
+      ...rules,
+      ...policy?.knockoutRules,
+      ...policy?.finalRules,
+    }),
+  };
+}

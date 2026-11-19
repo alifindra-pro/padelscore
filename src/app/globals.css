@@ -2763,3 +2763,47 @@
 .event-hero-status span { padding: 0; border-radius: 0; background: none; font-size: 15px; font-weight: 700; color: #c5d3de; }
 .event-hero-status span::before { content: none; }
 .event-hero-status span.is-live { padding: 4px 10px; border-radius: 6px; background: var(--color-kinetic); color: var(--color-ink); }
+
+/* ---- Rules explainer: path, bracket, scoring --------------------------- */
+.rules-explainer { display: grid; gap: 22px; margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--color-line); }
+.rules-block h4 { margin-bottom: 12px; font-size: 17px; font-weight: 800; color: var(--color-ink); }
+.rules-note { margin-top: 10px; font-size: 14px; color: var(--color-secondary); }
+.rules-path { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); gap: 10px; }
+.rules-path li { position: relative; display: grid; align-content: start; gap: 4px; padding: 14px; border: 1px solid var(--color-line); border-radius: 10px; background: var(--color-canvas); }
+.rules-path-number { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--color-ink); color: var(--color-inverse); font-size: 13px; font-weight: 800; }
+.rules-path strong { font-size: 15px; color: var(--color-ink); }
+.rules-path span:last-child { font-size: 13px; line-height: 1.5; color: var(--color-secondary); }
+@media (min-width: 900px) {
+  .rules-path li:not(:last-child)::after { content: "→"; position: absolute; right: -9px; top: 18px; color: var(--color-secondary); font-weight: 800; }
+}
+.rules-bracket { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 6px; scroll-snap-type: x proximity; }
+.rules-bracket-round { flex: 0 0 auto; display: flex; flex-direction: column; width: 170px; scroll-snap-align: start; }
+.rules-bracket-round h5 { margin-bottom: 10px; padding: 6px 10px; border-radius: 8px; background: var(--color-ink); color: var(--color-inverse); font-size: 13px; font-weight: 800; text-align: center; }
+.rules-bracket-matches { flex: 1; display: flex; flex-direction: column; justify-content: space-around; gap: 10px; }
+.rules-bracket-match { display: grid; gap: 2px; padding: 10px 12px; border: 1px solid var(--color-line); border-left: 3px solid var(--color-brand); border-radius: 8px; background: var(--color-card); font-size: 14px; font-weight: 700; color: var(--color-ink); }
+.rules-bracket-label { font-size: 11px; font-weight: 700; color: var(--color-secondary); }
+.rules-bracket-vs { font-size: 11px; font-weight: 600; color: var(--color-secondary); }
+.rules-game > p:first-child { margin-bottom: 8px; font-size: 13px; font-weight: 700; color: var(--color-secondary); }
+.rules-points { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.rules-points li { display: inline-grid; place-items: center; min-width: 52px; height: 44px; padding: 0 12px; border-radius: 8px; background: var(--color-surface-tint); font-size: 18px; font-weight: 800; color: var(--color-ink); font-variant-numeric: tabular-nums; }
+.rules-points li:last-child { background: var(--color-ink); color: var(--color-inverse); font-size: 15px; }
+.rules-points li + li::before { content: "›"; position: relative; left: -12px; margin-right: -6px; color: var(--color-secondary); }
+.rules-phases { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 10px; margin-top: 16px; }
+.rules-phases article { display: grid; align-content: start; gap: 4px; padding: 14px; border: 1px solid var(--color-line); border-radius: 10px; }
+.rules-phases article > span { font-size: 12px; font-weight: 700; color: var(--color-secondary); }
+.rules-phases strong { font-size: 18px; color: var(--color-ink); }
+.rules-phases p { font-size: 14px; color: var(--color-secondary); }
+.rules-examples b { display: inline-block; margin: 4px 6px 0 0; padding: 2px 8px; border-radius: 6px; background: var(--color-surface-tint); color: var(--color-ink); font-variant-numeric: tabular-nums; }
+.rules-standings { margin-top: 16px; padding: 14px; border-radius: 10px; background: var(--color-surface-tint); font-size: 14px; color: var(--color-ink); }
+.rules-standings p + p { margin-top: 6px; color: var(--color-secondary); }
+.rules-points li { min-width: 0; height: auto; padding: 0; background: none; font-size: inherit; }
+.rules-points li + li::before { content: none; }
+.rules-points li { display: inline-flex; align-items: center; gap: 6px; }
+.rules-points-step { color: var(--color-secondary); font-weight: 800; }
+.rules-points-value { display: inline-grid; place-items: center; min-width: 52px; height: 44px; padding: 0 12px; border-radius: 8px; background: var(--color-surface-tint); font-size: 18px; font-weight: 800; color: var(--color-ink); font-variant-numeric: tabular-nums; }
+.rules-points li:last-child { background: none; }
+.rules-points li:last-child .rules-points-value { background: var(--color-ink); color: var(--color-inverse); font-size: 15px; }
+/* Keep the bracket's horizontal scroll inside its own box on phones. */
+.rules-grid > *, .rules-card, .rules-explainer, .rules-block { min-width: 0; }
+.rules-swipe { display: none; margin: -4px 0 10px; font-size: 13px; color: var(--color-secondary); }
+@media (max-width: 767px) { .rules-swipe { display: block; } }

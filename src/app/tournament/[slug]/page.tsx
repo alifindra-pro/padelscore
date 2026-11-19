@@ -32,6 +32,8 @@ import { RegistrationForm } from "@/components/tournament/RegistrationForm";
 import { DisputeForm } from "@/components/tournament/DisputeForm";
 import { EventHero } from "@/components/tournament/EventHero";
 import { categoryStyle } from "@/lib/category-color";
+import { RulesExplainer } from "@/components/tournament/RulesExplainer";
+import type { RulesInfo } from "@/lib/rules-summary";
 import { PlayerPhoto } from "@/components/PlayerPhoto";
 import { apiFetch } from "@/lib/api-client";
 import { useSSE } from "@/hooks/useSSE";
@@ -56,6 +58,8 @@ type MatchFilter = "ALL" | "IN_PROGRESS" | "FINISHED" | "SCHEDULED";
 interface PublicCategory {
   /** Plain-language rule lines prepared by the server, "Label: text". */
   rulesSummary?: string[];
+  /** Plain numbers for the rules diagram. */
+  rulesInfo?: RulesInfo | null;
   maxEntries?: number | null;
   id: string;
   name: string;
@@ -283,14 +287,20 @@ function TournamentPublicContent({
   );
   // Categories with identical rules share one card instead of repeating it.
   const ruleGroups = (tournament.categories ?? []).reduce<
-    { key: string; names: string[]; lines: string[] }[]
+    {
+      key: string;
+      names: string[];
+      lines: string[];
+      info: RulesInfo | null;
+    }[]
   >((acc, cat) => {
     const lines = cat.rulesSummary ?? [];
     if (!lines.length) return acc;
     const key = lines.join("|");
     const same = acc.find((g) => g.key === key);
     if (same) same.names.push(cat.name);
-    else acc.push({ key, names: [cat.name], lines });
+    else
+      acc.push({ key, names: [cat.name], lines, info: cat.rulesInfo ?? null });
     return acc;
   }, []);
   // One event, several categories ("nomor"): each shows its pairs and its own start.
@@ -780,6 +790,7 @@ function TournamentPublicContent({
                       );
                     })}
                   </dl>
+                  {group.info && <RulesExplainer info={group.info} />}
                 </article>
               ))}
             </div>
