@@ -2757,3 +2757,9 @@
 .event-hero-details dt { font-size: 12px; font-weight: 700; color: #a9bccb; }
 .event-hero-details dd { font-size: 16px; font-weight: 700; color: var(--color-inverse); overflow-wrap: anywhere; }
 .event-hero-details a { color: var(--color-kinetic); text-decoration: underline; text-underline-offset: 3px; }
+
+/* Status reads as a plain line above the title; only a live tournament gets
+   a filled label, because only then is there a state worth flagging. */
+.event-hero-status span { padding: 0; border-radius: 0; background: none; font-size: 15px; font-weight: 700; color: #c5d3de; }
+.event-hero-status span::before { content: none; }
+.event-hero-status span.is-live { padding: 4px 10px; border-radius: 6px; background: var(--color-kinetic); color: var(--color-ink); }
