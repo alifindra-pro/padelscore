@@ -12,14 +12,14 @@ export function LandingHeader() {
         <Link
           href="/"
           className={styles.brand}
-          aria-label="Padel Score for Padel Addictive, beranda"
+          aria-label="Berpadel Score for Padel Addictive, beranda"
         >
           <span className={styles.brandMark}>
             <Icon name="court" size={23} />
           </span>
           <span className={styles.brandCopy}>
             <strong>
-              PADEL<span> SCORE</span>
+              BERPADEL<span> SCORE</span>
             </strong>
             <small>for PADEL ADDICTIVE</small>
           </span>

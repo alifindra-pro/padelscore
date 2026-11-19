@@ -11,7 +11,7 @@ const jakarta = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Padel Score for Padel Addictive | Turnamen & Live Scoring",
+  title: "Berpadel Score for Padel Addictive | Turnamen & Live Scoring",
   description:
     "Satu tempat untuk turnamen padel, skor langsung, komunitas, dan pengelolaan pertandingan.",
 };

@@ -33,7 +33,7 @@ export function PublicShell({
         {children}
       </div>
       <footer className="app-public-footer page-shell">
-        <span>PADEL SCORE for PADEL ADDICTIVE</span>
+        <span>BERPADEL SCORE for PADEL ADDICTIVE</span>
         <span>Setiap lapangan. Setiap poin. Setiap pertandingan.</span>
       </footer>
     </div>

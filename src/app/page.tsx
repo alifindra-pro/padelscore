@@ -8,7 +8,7 @@ import { EventExplorer } from "@/components/landing/EventExplorer";
 import styles from "@/components/landing/landing.module.css";
 
 export const metadata: Metadata = {
-  title: "Padel Score for Padel Addictive | Jadwal, skor, dan hasil pertandingan",
+  title: "Berpadel Score for Padel Addictive | Jadwal, skor, dan hasil pertandingan",
   description:
     "Lihat jadwal, bagan, dan skor turnamen padel serta hasil Americano dan Mexicano tanpa membuat akun.",
 };
@@ -286,7 +286,7 @@ export default function Home() {
               <Icon name="court" size={23} />
             </span>
             <span className={styles.brandCopy}>
-              <strong>PADEL<span> SCORE</span></strong>
+              <strong>BERPADEL<span> SCORE</span></strong>
               <small>for PADEL ADDICTIVE</small>
             </span>
           </Link>
@@ -296,7 +296,7 @@ export default function Home() {
           </a>
         </div>
         <div className={`${styles.shell} ${styles.footerBottom}`}>
-          <span>© Padel Score for Padel Addictive</span>
+          <span>© Berpadel Score for Padel Addictive</span>
           <span>TURNAMEN & MANAGEMENT SYSTEM</span>
         </div>
       </footer>
