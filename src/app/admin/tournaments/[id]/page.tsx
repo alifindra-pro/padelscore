@@ -109,6 +109,7 @@ export default function Workspace({
   const [notice, setNotice] = useState("");
   const [addExisting, setAddExisting] = useState(false);
   const [copyFrom, setCopyFrom] = useState("");
+  const [pendingObjections, setPendingObjections] = useState(0);
   const [editingEntry, setEditingEntry] = useState("");
   const [ceremony, setCeremony] = useState<{
     title: string;
@@ -132,7 +133,7 @@ export default function Workspace({
         ? s
         : (data.categories[0]?.id ?? ""),
     );
-    const [p, m, orgs] = await Promise.all([
+    const [p, m, orgs, disputes] = await Promise.all([
       apiFetch<{ items: Player[] }>("/api/v1/players", {
         params: { organizationId: data.organizationId, limit: 100 },
       }),
@@ -140,7 +141,13 @@ export default function Workspace({
       apiFetch<
         { id: string; members: { user: { id: string; fullName: string } }[] }[]
       >("/api/v2/organizations"),
+      apiFetch<{ status: string; entry: { id: string } | null }[]>(
+        `/api/v2/tournaments/${id}/disputes`,
+      ).catch(() => []),
     ]);
+    setPendingObjections(
+      disputes.filter((d) => d.status === "PENDING" && d.entry).length,
+    );
     setPlayers(p.items);
     setMatches(m);
     setStaff(
@@ -302,63 +309,69 @@ export default function Workspace({
             action: "Tambah peserta",
             go: 1,
           }
-        : !stages.length
+        : !stages.length && pendingObjections
           ? {
-              text: `${mainEntries.length} pasangan sudah terdaftar di ${category?.name ?? "kategori ini"}. Bagan belum dibuat.`,
-              action: "Buat bagan",
-              go: 2,
+              text: `${pendingObjections} sanggahan peserta menunggu ditinjau. Putuskan sebelum undian.`,
+              action: "Tinjau sanggahan",
+              href: `/admin/tournaments/${id}/community`,
             }
-          : unscheduled.length
+          : !stages.length
             ? {
-                text: `${unscheduled.length} laga belum punya jadwal.`,
-                action: "Susun jadwal",
+                text: `${mainEntries.length} pasangan sudah terdaftar di ${category?.name ?? "kategori ini"}. Bagan belum dibuat.`,
+                action: "Buat bagan",
                 go: 2,
               }
-            : ["DRAFT", "REGISTRATION"].includes(t.status)
+            : unscheduled.length
               ? {
-                  text: "Bagan dan jadwal siap, tetapi penonton belum bisa melihatnya.",
-                  action: "Terbitkan turnamen",
-                  status: true,
+                  text: `${unscheduled.length} laga belum punya jadwal.`,
+                  action: "Susun jadwal",
+                  go: 2,
                 }
-              : t.status === "PUBLISHED"
+              : ["DRAFT", "REGISTRATION"].includes(t.status)
                 ? {
-                    text: withoutReferee.length
-                      ? `${withoutReferee.length} laga belum punya wasit. Tugaskan wasit, lalu mulai turnamen.`
-                      : "Turnamen sudah terbit. Mulai saat laga pertama siap dimainkan.",
-                    action: withoutReferee.length
-                      ? "Tugaskan wasit"
-                      : "Mulai turnamen",
-                    go: withoutReferee.length ? 3 : undefined,
-                    status: !withoutReferee.length,
+                    text: "Bagan dan jadwal siap, tetapi penonton belum bisa melihatnya.",
+                    action: "Terbitkan turnamen",
+                    status: true,
                   }
-                : t.status === "IN_PROGRESS"
-                  ? awaitingApproval.length
-                    ? {
-                        text: `${awaitingApproval.length} hasil menunggu disahkan.`,
-                        action: "Periksa hasil",
-                        go: 3,
-                      }
-                    : unfinished.length
+                : t.status === "PUBLISHED"
+                  ? {
+                      text: withoutReferee.length
+                        ? `${withoutReferee.length} laga belum punya wasit. Tugaskan wasit, lalu mulai turnamen.`
+                        : "Turnamen sudah terbit. Mulai saat laga pertama siap dimainkan.",
+                      action: withoutReferee.length
+                        ? "Tugaskan wasit"
+                        : "Mulai turnamen",
+                      go: withoutReferee.length ? 3 : undefined,
+                      status: !withoutReferee.length,
+                    }
+                  : t.status === "IN_PROGRESS"
+                    ? awaitingApproval.length
                       ? {
-                          text: `${unfinished.length} laga belum selesai.`,
-                          action: "Lihat pertandingan",
+                          text: `${awaitingApproval.length} hasil menunggu disahkan.`,
+                          action: "Periksa hasil",
                           go: 3,
                         }
-                      : {
-                          text: "Semua hasil sudah disahkan.",
-                          action: "Selesaikan turnamen",
-                          status: true,
+                      : unfinished.length
+                        ? {
+                            text: `${unfinished.length} laga belum selesai.`,
+                            action: "Lihat pertandingan",
+                            go: 3,
+                          }
+                        : {
+                            text: "Semua hasil sudah disahkan.",
+                            action: "Selesaikan turnamen",
+                            status: true,
+                          }
+                    : t.status === "ARCHIVED"
+                      ? {
+                          text: "Turnamen diarsipkan dan tidak tampil di halaman publik.",
+                          action: "",
                         }
-                  : t.status === "ARCHIVED"
-                    ? {
-                        text: "Turnamen diarsipkan dan tidak tampil di halaman publik.",
-                        action: "",
-                      }
-                    : {
-                        text: "Turnamen selesai. Hasil dapat dibagikan dari halaman publik.",
-                        action: "Lihat halaman publik",
-                        href: `/tournament/${t.slug}`,
-                      };
+                      : {
+                          text: "Turnamen selesai. Hasil dapat dibagikan dari halaman publik.",
+                          action: "Lihat halaman publik",
+                          href: `/tournament/${t.slug}`,
+                        };
   return (
     <div className="tournament-workspace space-y-6">
       {ceremony && (

@@ -29,6 +29,7 @@ import {
   TournamentTheme,
 } from "@/components/tournament/TournamentHeader";
 import { RegistrationForm } from "@/components/tournament/RegistrationForm";
+import { DisputeForm } from "@/components/tournament/DisputeForm";
 import { PlayerPhoto } from "@/components/PlayerPhoto";
 import { apiFetch } from "@/lib/api-client";
 import { useSSE } from "@/hooks/useSSE";
@@ -116,6 +117,10 @@ function TournamentPublicContent({
   // Match status filter
   const [matchFilter, setMatchFilter] = useState<MatchFilter>("ALL");
   const [categoryFilter, setCategoryFilter] = useState("ALL");
+  const [objection, setObjection] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   const applyData = useCallback(
     ({ tournament, courts }: Awaited<ReturnType<typeof fetchTournament>>) => {
@@ -742,6 +747,9 @@ function TournamentPublicContent({
               const list = (cat.entries ?? []).filter(
                 (e) => e.status !== "WITHDRAWN",
               );
+              // Objections to a pair are taken until this category is drawn.
+              const open = !cat.stages?.length && list.length > 0;
+              const objected = list.find((e) => e.id === objection?.id);
               return (
                 <section key={cat.id} className="entry-board">
                   <header>
@@ -752,6 +760,21 @@ function TournamentPublicContent({
                       · {formatLabel(cat.format)}
                     </span>
                   </header>
+                  {open && (
+                    <p className="entry-note">
+                      Ada pasangan yang menurut Anda tidak memenuhi syarat?
+                      Tekan <strong>Sanggah</strong> di baris pasangan itu.
+                      Sanggahan dibuka sampai undian {cat.name}.
+                    </p>
+                  )}
+                  {objected && (
+                    <DisputeForm
+                      key={objected.id}
+                      tournamentId={tournament.id}
+                      entry={{ id: objected.id, name: objected.name }}
+                      onClose={() => setObjection(null)}
+                    />
+                  )}
                   {list.length ? (
                     <ol>
                       {list.map((e, i) => (
@@ -777,6 +800,18 @@ function TournamentPublicContent({
                               {entryStatusLabel(e, cat.entries ?? [])}
                             </span>
                           ) : null}
+                          {open && e.status !== "DISQUALIFIED" && (
+                            <button
+                              className="entry-object"
+                              aria-label={`Sanggah ${e.name}`}
+                              aria-pressed={objection?.id === e.id}
+                              onClick={() =>
+                                setObjection({ id: e.id, name: e.name })
+                              }
+                            >
+                              Sanggah
+                            </button>
+                          )}
                         </li>
                       ))}
                     </ol>

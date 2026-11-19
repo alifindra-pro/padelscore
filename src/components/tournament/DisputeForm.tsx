@@ -9,9 +9,14 @@ const statusLabels: Record<string, string> = {
 export function DisputeForm({
   tournamentId,
   matchId,
+  entry,
+  onClose,
 }: {
   tournamentId: string;
-  matchId: string;
+  matchId?: string;
+  /** Objection to a pair taking part, filed before its category's draw. */
+  entry?: { id: string; name: string };
+  onClose?: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -23,14 +28,16 @@ export function DisputeForm({
   return (
     <section className="panel space-y-4" aria-labelledby="dispute-title">
       <h2 id="dispute-title" className="text-xl font-bold">
-        Sanggah hasil pertandingan
+        {entry
+          ? `Sanggah peserta: ${entry.name}`
+          : "Sanggah hasil pertandingan"}
       </h2>
       <p className="text-sm text-secondary">
-        Ada hasil yang perlu diperiksa? Peserta dapat mengirim alasan kepada
-        admin. Skor dan bagan tetap berlaku sampai panitia menyelesaikan
-        peninjauan. Nama dan kontak Anda tidak ditampilkan kepada penonton.
+        {entry
+          ? "Keberatan atas keikutsertaan pasangan ini, misalnya tidak memenuhi syarat rookie. Panitia meninjau sebelum undian. Nama dan kontak Anda tidak ditampilkan kepada penonton."
+          : "Ada hasil yang perlu diperiksa? Peserta dapat mengirim alasan kepada admin. Skor dan bagan tetap berlaku sampai panitia menyelesaikan peninjauan. Nama dan kontak Anda tidak ditampilkan kepada penonton."}
       </p>
-      <details>
+      <details open={!!entry}>
         <summary className="section-link cursor-pointer py-3">
           Ajukan sanggahan
         </summary>
@@ -50,7 +57,7 @@ export function DisputeForm({
               }>(`/api/v2/tournaments/${tournamentId}/disputes`, {
                 method: "POST",
                 body: JSON.stringify({
-                  matchId,
+                  ...(entry ? { entryId: entry.id } : { matchId }),
                   reporterName: data.get("reporterName"),
                   contact: data.get("contact"),
                   reason: data.get("reason"),
@@ -71,7 +78,7 @@ export function DisputeForm({
           }}
         >
           <label className="field">
-            Nama peserta pengaju
+            {entry ? "Nama pengaju" : "Nama peserta pengaju"}
             <input
               name="reporterName"
               minLength={2}
@@ -97,7 +104,11 @@ export function DisputeForm({
               minLength={20}
               maxLength={2000}
               rows={4}
-              placeholder="Jelaskan skor yang tercatat, bagian yang keliru, dan kejadian yang perlu ditinjau."
+              placeholder={
+                entry
+                  ? "Jelaskan syarat yang tidak dipenuhi dan buktinya, misalnya turnamen yang pernah dijuarai."
+                  : "Jelaskan skor yang tercatat, bagian yang keliru, dan kejadian yang perlu ditinjau."
+              }
               required
               disabled={busy}
             />
@@ -105,9 +116,16 @@ export function DisputeForm({
           <div hidden aria-hidden="true">
             <input name="website" tabIndex={-1} autoComplete="off" />
           </div>
-          <button className="btn-primary" disabled={busy}>
-            {busy ? "Mengirim…" : "Kirim sanggahan"}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button className="btn-primary" disabled={busy}>
+              {busy ? "Mengirim…" : "Kirim sanggahan"}
+            </button>
+            {onClose && (
+              <button type="button" className="btn-secondary" onClick={onClose}>
+                Batal
+              </button>
+            )}
+          </div>
         </form>
       </details>
       <p role="status">{message}</p>

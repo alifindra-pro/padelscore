@@ -17,7 +17,9 @@ type Dispute = {
     version: number;
     entryA: { name: string } | null;
     entryB: { name: string } | null;
-  };
+  } | null;
+  /** Set when the objection is about a pair taking part, not a result. */
+  entry: { id: string; name: string; category: { name: string } } | null;
 };
 export function DisputeReview({ tournamentId }: { tournamentId: string }) {
   const [items, setItems] = useState<Dispute[]>([]);
@@ -104,28 +106,42 @@ export function DisputeReview({ tournamentId }: { tournamentId: string }) {
                 )[d.status]
               }
             </span>
-            <h3 className="font-bold mt-2">
-              Laga {d.match.matchNumber} · {d.match.entryA?.name} vs{" "}
-              {d.match.entryB?.name}
-            </h3>
+            {d.entry ? (
+              <h3 className="font-bold mt-2">
+                Sanggahan peserta · {d.entry.category.name} · {d.entry.name}
+              </h3>
+            ) : d.match ? (
+              <h3 className="font-bold mt-2">
+                Laga {d.match.matchNumber} · {d.match.entryA?.name} vs{" "}
+                {d.match.entryB?.name}
+              </h3>
+            ) : null}
             <p className="text-xs text-secondary">
-              {new Date(d.createdAt).toLocaleString("id-ID")} · versi skor{" "}
-              {d.scoreVersion}
+              {new Date(d.createdAt).toLocaleString("id-ID")}
+              {d.match ? ` · versi skor ${d.scoreVersion}` : ""}
             </p>
           </header>
           <p>
             <strong>{d.reporterName}</strong> · {d.contact}
           </p>
           <p className="whitespace-pre-wrap break-words">{d.reason}</p>
-          {d.match.version !== d.scoreVersion && (
+          {d.match && d.match.version !== d.scoreVersion && (
             <p className="text-sm text-secondary">
               Skor telah berubah sejak pengajuan. Periksa hasil terbaru sebelum
               memutuskan.
             </p>
           )}
-          <Link className="section-link" href={`/match/${d.match.id}`}>
-            Lihat hasil pertandingan →
-          </Link>
+          {d.match && (
+            <Link className="section-link" href={`/match/${d.match.id}`}>
+              Lihat hasil pertandingan →
+            </Link>
+          )}
+          {d.entry && (
+            <p className="text-sm text-secondary">
+              Jika sanggahan diterima, keluarkan pasangan ini dari daftar
+              peserta sebelum undian (langkah 2 halaman kelola).
+            </p>
+          )}
           {d.status === "PENDING" ? (
             <form
               className="space-y-3"

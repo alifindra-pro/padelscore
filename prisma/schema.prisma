@@ -261,6 +261,7 @@ model Entry {
   matchesAsA  Match[]       @relation("MatchEntryA")
   matchesAsB  Match[]       @relation("MatchEntryB")
   wonMatches  Match[]       @relation("MatchWinner")
+  objections  MatchDispute[]
   bracketSlots BracketSlot[]
   standings   Standing[]
 
@@ -633,7 +634,9 @@ model TournamentSponsor {
 model MatchDispute {
   id String @id @default(uuid())
   tournamentId String
-  matchId String
+  // A dispute targets a finished match result, or a pair before its category's draw.
+  matchId String?
+  entryId String?
   reporterName String
   contact String
   reason String
@@ -641,13 +644,15 @@ model MatchDispute {
   response String?
   reviewedBy String?
   reviewedAt DateTime?
-  scoreVersion Int
+  scoreVersion Int @default(0)
   receiptHash String @unique
   submitterHash String
   createdAt DateTime @default(now())
   tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
-  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  match Match? @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  entry Entry? @relation(fields: [entryId], references: [id], onDelete: Cascade)
   @@index([tournamentId, status, createdAt])
+  @@index([entryId])
   @@index([submitterHash, createdAt])
   @@map("match_disputes")
 }
