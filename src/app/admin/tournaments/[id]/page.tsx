@@ -63,6 +63,7 @@ interface Entry {
   id: string;
   name: string;
   seed: number | null;
+  players?: { player: { id: string; fullName: string } }[];
 }
 interface Match {
   id: string;
@@ -108,6 +109,7 @@ export default function Workspace({
   const [notice, setNotice] = useState("");
   const [addExisting, setAddExisting] = useState(false);
   const [copyFrom, setCopyFrom] = useState("");
+  const [editingEntry, setEditingEntry] = useState("");
   const [ceremony, setCeremony] = useState<{
     title: string;
     groups: string[];
@@ -945,6 +947,75 @@ export default function Workspace({
                             {entryStatusLabel(e, entries)}
                           </p>
                         </div>
+                        {e.players?.length === 2 && editingEntry !== e.id && (
+                          <button
+                            className="btn-secondary text-xs"
+                            disabled={busy}
+                            onClick={() => setEditingEntry(e.id)}
+                          >
+                            Ubah nama
+                          </button>
+                        )}
+                        {editingEntry === e.id && e.players?.length === 2 && (
+                          <form
+                            className="grid sm:grid-cols-2 gap-3 w-full"
+                            onSubmit={(ev) => {
+                              ev.preventDefault();
+                              const f = new FormData(ev.currentTarget);
+                              const names = [0, 1].map((k) =>
+                                String(f.get(`p${k}`)).trim(),
+                              );
+                              // Names can change even after the draw; the pair stays in its slot.
+                              void run(async () => {
+                                for (const [
+                                  k,
+                                  { player },
+                                ] of e.players!.entries())
+                                  if (names[k] !== player.fullName)
+                                    await apiFetch(
+                                      `/api/v1/players/${player.id}`,
+                                      {
+                                        method: "PATCH",
+                                        body: JSON.stringify({
+                                          fullName: names[k],
+                                        }),
+                                      },
+                                    );
+                                await apiFetch(`/api/v1/entries/${e.id}`, {
+                                  method: "PATCH",
+                                  body: JSON.stringify({
+                                    name: names.join(" / "),
+                                  }),
+                                });
+                                setEditingEntry("");
+                              }, "Nama pasangan diperbarui");
+                            }}
+                          >
+                            {e.players.map(({ player }, k) => (
+                              <label className="field" key={player.id}>
+                                Pemain {k + 1}
+                                <input
+                                  name={`p${k}`}
+                                  defaultValue={player.fullName}
+                                  minLength={2}
+                                  required
+                                />
+                              </label>
+                            ))}
+                            <div className="flex gap-2 sm:col-span-2">
+                              <button className="btn-primary" disabled={busy}>
+                                Simpan nama
+                              </button>
+                              <button
+                                type="button"
+                                className="btn-secondary"
+                                onClick={() => setEditingEntry("")}
+                              >
+                                Batal
+                              </button>
+                            </div>
+                          </form>
+                        )}
                         {!stages.length &&
                           (isMainEntry(e) || e.status === "WAITLISTED") && (
                             <div className="flex flex-wrap gap-2 w-full">
