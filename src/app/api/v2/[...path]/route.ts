@@ -38,6 +38,7 @@ import {
   CATEGORY_NAMES,
   Rules,
   validateRules,
+  resolveRules,
   nextSocialRound,
   leaderboard,
   SocialRound,
@@ -511,13 +512,30 @@ async function dispatch(req: NextRequest, context: Context): Promise<Response> {
             qualificationPolicy: z
               .object({
                 perGroup: z.number().int().min(1).max(4),
+                // Kept so saving the policy does not reset the draw to 2 groups.
+                groups: z.number().int().min(1).max(16).optional(),
                 bestRunnersUp: z.number().int().min(0).max(16).default(0),
                 normalization: z.enum(["NONE", "PER_MATCH"]).default("NONE"),
+                // Applied to the knockout stage when it is formed after the groups.
+                knockoutRules: rulesSchema.partial().optional(),
+                finalRules: rulesSchema.partial().optional(),
               })
               .optional(),
           })
           .parse(await req.json());
         if (body.rules) validateRules(body.rules);
+        for (const extra of [
+          body.qualificationPolicy?.knockoutRules,
+          body.qualificationPolicy?.finalRules,
+        ])
+          if (extra)
+            resolveRules(
+              (body.rules ??
+                category.rulesV2 ??
+                PRESETS.STANDARD) as unknown as Rules,
+              body.qualificationPolicy?.knockoutRules,
+              extra,
+            );
         if (
           body.eligibility?.minAge !== undefined &&
           body.eligibility.maxAge !== undefined &&
@@ -581,12 +599,19 @@ async function dispatch(req: NextRequest, context: Context): Promise<Response> {
                 perGroup: number;
                 bestRunnersUp: number;
                 normalization: string;
+                knockoutRules?: Partial<Rules>;
+                finalRules?: Partial<Rules>;
               } | null;
               if (!policy)
                 throw AppError.badRequest("Atur kebijakan kelolosan dahulu");
-              if (groups.some((g) => g.standings.some((r) => r.needsPlayoff)))
+              // Only ties that decide who qualifies block the knockout; a 3rd/4th tie does not.
+              const decisive = policy.perGroup + (policy.bestRunnersUp ? 1 : 0);
+              const tiedGroup = groups.find((g) =>
+                g.standings.slice(0, decisive).some((r) => r.needsPlayoff),
+              );
+              if (tiedGroup)
                 throw AppError.conflict(
-                  "Masih ada peringkat seri: selesaikan playoff/keputusan admin dahulu",
+                  `Peringkat ${tiedGroup.name} masih seri di posisi lolos: selesaikan playoff dahulu`,
                 );
               if (
                 !groups.length ||
@@ -595,10 +620,10 @@ async function dispatch(req: NextRequest, context: Context): Promise<Response> {
                 throw AppError.badRequest(
                   "Belum ada grup atau kuota lolos melebihi peserta grup",
                 );
-              const qualified = Array.from(
+              const qualifiedTiers = Array.from(
                 { length: policy.perGroup },
                 (_, rank) => groups.map((g) => g.standings[rank]),
-              ).flat();
+              );
               const candidates = groups
                 .map((g) => g.standings[policy.perGroup])
                 .filter(Boolean);
@@ -610,28 +635,45 @@ async function dispatch(req: NextRequest, context: Context): Promise<Response> {
                 throw AppError.badRequest(
                   "Pilih normalisasi untuk grup yang tidak seimbang",
                 );
-              candidates.sort((a, b) =>
-                policy.normalization === "PER_MATCH"
-                  ? b.points / Math.max(1, b.played) -
-                    a.points / Math.max(1, a.played)
-                  : b.points - a.points,
+              const runnerKey = (r: (typeof candidates)[number]) => {
+                const per = (v: number) =>
+                  policy.normalization === "PER_MATCH"
+                    ? v / Math.max(1, r.played)
+                    : v;
+                return [
+                  per(r.points),
+                  per(r.gamesWon - r.gamesLost),
+                  per(r.gamesWon),
+                ];
+              };
+              const compareRunners = (
+                a: (typeof candidates)[number],
+                b: (typeof candidates)[number],
+              ) => {
+                const [x, y] = [runnerKey(a), runnerKey(b)];
+                return x.map((v, k) => y[k] - v).find((d) => d !== 0) ?? 0;
+              };
+              // Best runners-up: points, then game difference, then games won.
+              candidates.sort(compareRunners);
+              // Seeds follow results: all group winners first (best one is seed 1),
+              // then each next tier, each ordered by the same comparison.
+              const qualified = qualifiedTiers.flatMap((tier) =>
+                [...tier].sort(compareRunners),
               );
               if (policy.bestRunnersUp > candidates.length)
                 throw AppError.badRequest(
                   "Kuota runner-up melebihi kandidat yang tersedia",
                 );
-              const runnerValue = (r: (typeof candidates)[number]) =>
-                policy.normalization === "PER_MATCH"
-                  ? r.points / Math.max(1, r.played)
-                  : r.points;
               if (
                 policy.bestRunnersUp > 0 &&
                 candidates[policy.bestRunnersUp] &&
-                runnerValue(candidates[policy.bestRunnersUp - 1]) ===
-                  runnerValue(candidates[policy.bestRunnersUp])
+                compareRunners(
+                  candidates[policy.bestRunnersUp - 1],
+                  candidates[policy.bestRunnersUp],
+                ) === 0
               )
                 throw AppError.conflict(
-                  "Batas best runners-up masih seri; perlu playoff",
+                  "Runner-up terakhir yang lolos masih seri poin, selisih game, dan jumlah game; perlu playoff",
                 );
               qualified.push(...candidates.slice(0, policy.bestRunnersUp));
               if (qualified.length < 2)
@@ -660,6 +702,15 @@ async function dispatch(req: NextRequest, context: Context): Promise<Response> {
                   type: "SINGLE_ELIMINATION",
                   order: 2,
                   config: json({ draw: nodes }),
+                  rulesOverride: policy.knockoutRules
+                    ? json(policy.knockoutRules)
+                    : undefined,
+                  roundRules: policy.finalRules
+                    ? json({
+                        [String(Math.max(...nodes.map((n) => n.round)))]:
+                          policy.finalRules,
+                      })
+                    : undefined,
                 },
               });
               for (const n of nodes)
@@ -703,12 +754,25 @@ async function dispatch(req: NextRequest, context: Context): Promise<Response> {
           });
           if (participants.length < 2)
             throw AppError.badRequest("Minimal dua pasangan");
+          // Shuffle with a CSPRNG so groups never follow registration order.
+          // Grouping sorts seeded pairs first and keeps the shuffled order for the rest.
+          const shuffledParticipants = [...participants];
+          for (let i = shuffledParticipants.length - 1; i > 0; i--) {
+            const j = randomInt(i + 1);
+            [shuffledParticipants[i], shuffledParticipants[j]] = [
+              shuffledParticipants[j],
+              shuffledParticipants[i],
+            ];
+          }
           const entries =
             input.mode === "MANUAL"
               ? input.entryOrder?.map((entryId) =>
                   participants.find((e) => e.id === entryId)!,
                 )
-              : participants;
+              : category.format === "GROUP_KNOCKOUT" ||
+                  category.format === "ROUND_ROBIN"
+                ? shuffledParticipants
+                : participants;
           if (
             !entries ||
             entries.length !== participants.length ||
@@ -820,6 +884,25 @@ async function dispatch(req: NextRequest, context: Context): Promise<Response> {
               },
             });
             let number = 0;
+            // Placement order of the draw, so a live reveal shows the saved result.
+            const placements: {
+              entryId: string;
+              name: string;
+              group: string;
+            }[] = [];
+            const groupOf = new Map<string, string>();
+            for (const pool of pools)
+              for (const m of pool.matches)
+                for (const e of [m.entryA, m.entryB])
+                  if (e) groupOf.set(e.id, pool.groupName);
+            for (const e of [...entries].sort((a, b) =>
+              a.seed && b.seed ? a.seed - b.seed : a.seed ? -1 : b.seed ? 1 : 0,
+            ))
+              placements.push({
+                entryId: e.id,
+                name: e.name,
+                group: groupOf.get(e.id) ?? pools[0].groupName,
+              });
             for (const pool of pools) {
               const group = await tx.group.create({
                 data: { stageId: stage.id, name: pool.groupName },
@@ -836,7 +919,11 @@ async function dispatch(req: NextRequest, context: Context): Promise<Response> {
                   },
                 });
             }
-            return stage;
+            return {
+              ...stage,
+              groups: pools.map((p) => p.groupName),
+              placements,
+            };
           }
           throw AppError.badRequest(
             "Gunakan menu Pertandingan Sosial untuk Americano/Mexicano",

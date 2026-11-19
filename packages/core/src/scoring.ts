@@ -29,6 +29,13 @@ export interface Rules {
   decidingMatchTiebreak: boolean;
   matchTiebreakPoints: number;
   mode: "SETS" | "TIMED" | "POINTS";
+  /**
+   * How a games set ends (SETS mode only). STANDARD: reach gamesPerSet with a
+   * two-game lead, tie-break at tiebreakAt-all. RACE: the first to gamesPerSet
+   * wins, no lead needed (4-3). TOTAL_GAMES: exactly gamesPerSet games are
+   * played; a tie (2-2) is settled by one extra game (3-2).
+   */
+  setFormat?: "STANDARD" | "RACE" | "TOTAL_GAMES";
   totalPoints?: number;
   pointsFormat?: "TOTAL" | "TARGET";
   pointsWinBy?: 1 | 2;
@@ -90,8 +97,55 @@ export const PRESETS: Record<string, Rules> = {
     totalPoints: 24,
     setsToWin: 1,
   },
+  TOTAL_4: {
+    ...base,
+    name: "Total 4 Game",
+    source: "LOCAL",
+    setsToWin: 1,
+    setFormat: "TOTAL_GAMES",
+    gamesPerSet: 4,
+    tiebreakAt: 4,
+  },
+  RACE_4: {
+    ...base,
+    name: "Race to 4",
+    source: "LOCAL",
+    setsToWin: 1,
+    setFormat: "RACE",
+    gamesPerSet: 4,
+    tiebreakAt: 4,
+  },
+  RACE_6: {
+    ...base,
+    name: "Race to 6",
+    source: "LOCAL",
+    setsToWin: 1,
+    setFormat: "RACE",
+    gamesPerSet: 6,
+    tiebreakAt: 6,
+  },
   CUSTOM: { ...base, name: "Format Kustom", source: "LOCAL" },
 };
+/**
+ * How a later round plays, taken from a preset but keeping the category's own
+ * deuce rule, so "Race to 6, golden point" stays golden point in the final.
+ */
+export function roundFormat(key: string): Partial<Rules> {
+  const p = PRESETS[key];
+  if (!p) throw new Error("Preset aturan tidak dikenal");
+  return {
+    name: p.name,
+    mode: p.mode,
+    setsToWin: p.setsToWin,
+    setFormat: p.setFormat ?? "STANDARD",
+    gamesPerSet: p.gamesPerSet,
+    tiebreakAt: p.tiebreakAt,
+    tiebreakPoints: p.tiebreakPoints,
+    decidingMatchTiebreak: p.decidingMatchTiebreak,
+    matchTiebreakPoints: p.matchTiebreakPoints,
+    allowDraw: p.allowDraw,
+  };
+}
 export function validateRules(r: Rules): Rules {
   if (
     r.version !== 2 ||
@@ -128,6 +182,12 @@ export function validateRules(r: Rules): Rules {
   ] as const)
     if (!Number.isInteger(r[key]) || r[key] < 1 || r[key] > 120)
       throw new Error(`Konfigurasi ${key} tidak valid`);
+  if (
+    r.setFormat !== undefined &&
+    (!["STANDARD", "RACE", "TOTAL_GAMES"].includes(r.setFormat) ||
+      (r.setFormat !== "STANDARD" && r.mode !== "SETS"))
+  )
+    throw new Error("Format set hanya berlaku untuk hitungan game & set");
   if (
     r.setsToWin > 3 ||
     r.tiebreakAt < r.gamesPerSet - 1 ||
@@ -242,11 +302,25 @@ export function initialState(rules: Rules): ScoreState {
     finalized: false,
   };
 }
+/** RACE and TOTAL_GAMES sets are always decided by games, never a tie-break. */
+const gamesOnly = (r: Rules) =>
+  r.setFormat === "RACE" || r.setFormat === "TOTAL_GAMES";
+/** The set winner once the set is over, or null while it continues. */
+function setWinner(r: Rules, games: [number, number]): Team | null {
+  const lead: Team = games[0] > games[1] ? "A" : "B";
+  const [hi, lo] = games[0] > games[1] ? games : [games[1], games[0]];
+  if (r.setFormat === "TOTAL_GAMES")
+    // The last game of 3–1 can go to the trailing pair; the leader still wins.
+    return hi + lo >= r.gamesPerSet && hi > lo ? lead : null;
+  if (r.setFormat === "RACE") return hi >= r.gamesPerSet ? lead : null;
+  return hi >= r.gamesPerSet && hi - lo >= 2 ? lead : null;
+}
 export function isTiebreak(s: ScoreState) {
   const set = s.sets.at(-1)!;
   return (
     set.kind === "MATCH_TIEBREAK" ||
     (s.rules.mode === "SETS" &&
+      !gamesOnly(s.rules) &&
       set.games[0] === s.rules.tiebreakAt &&
       set.games[1] === s.rules.tiebreakAt)
   );
@@ -386,12 +460,9 @@ function award(s: ScoreState, team: Team) {
     s.points = [0, 0];
     s.advantageCycles = 0;
     s.tiebreakFirstServer = s.serverIndex;
-    if (
-      s.rules.mode === "SETS" &&
-      set.games[i] >= s.rules.gamesPerSet &&
-      set.games[i] - set.games[j] >= 2
-    )
-      finishSet(s, team);
+    const winner =
+      s.rules.mode === "SETS" ? setWinner(s.rules, set.games) : null;
+    if (winner) finishSet(s, winner);
   }
   if (s.rules.mode === "TIMED" && s.timerExpired) {
     const games = s.sets.reduce(

@@ -14,6 +14,7 @@ import {
   PRESETS,
   Rules,
   DEFAULT_STANDINGS,
+  roundFormat,
 } from "../../../../../packages/core/src";
 interface Category {
   id: string;
@@ -32,8 +33,11 @@ interface Category {
   standingsPolicy?: { winPoints?: number; tieBreakers?: string[] } | null;
   qualificationPolicy?: {
     perGroup?: number;
+    groups?: number;
     bestRunnersUp?: number;
     normalization?: string;
+    knockoutRules?: Partial<Rules>;
+    finalRules?: Partial<Rules>;
   } | null;
 }
 interface Documents {
@@ -51,6 +55,17 @@ interface Match {
   stageId: string;
   round: number;
 }
+const ROUND_PRESETS = [
+  "RACE_4",
+  "RACE_6",
+  "TOTAL_4",
+  "SINGLE",
+  "SHORT",
+  "STANDARD",
+];
+/** The preset a saved round format came from, matched by its name. */
+const presetKey = (r?: Partial<Rules>) =>
+  ROUND_PRESETS.find((p) => PRESETS[p].name === r?.name) ?? "";
 async function fetchCompetition(id: string) {
   const tournament = await apiFetch<{ categories: Category[] } & Documents>(
     `/api/v1/tournaments/${id}`,
@@ -364,8 +379,19 @@ function Competition({ params }: { params: Promise<{ id: string }> }) {
                     ...(usesGroups && {
                       qualificationPolicy: {
                         perGroup: Number(f.get("perGroup")),
+                        ...(category.qualificationPolicy?.groups && {
+                          groups: category.qualificationPolicy.groups,
+                        }),
                         bestRunnersUp: Number(f.get("runners")),
                         normalization: f.get("normalization"),
+                        ...(f.get("knockoutPreset") && {
+                          knockoutRules: roundFormat(
+                            String(f.get("knockoutPreset")),
+                          ),
+                        }),
+                        ...(f.get("finalPreset") && {
+                          finalRules: roundFormat(String(f.get("finalPreset"))),
+                        }),
                       },
                     }),
                   }),
@@ -498,6 +524,33 @@ function Competition({ params }: { params: Promise<{ id: string }> }) {
                     </option>
                   </select>
                 </label>
+                {(
+                  [
+                    [
+                      "knockoutPreset",
+                      "Babak gugur sebelum final",
+                      "knockoutRules",
+                    ],
+                    ["finalPreset", "Final", "finalRules"],
+                  ] as const
+                ).map(([name, label, key]) => (
+                  <label className="field" key={name}>
+                    {label}
+                    <select
+                      name={name}
+                      defaultValue={presetKey(
+                        category.qualificationPolicy?.[key],
+                      )}
+                    >
+                      <option value="">Sama dengan aturan kategori</option>
+                      {ROUND_PRESETS.map((p) => (
+                        <option key={p} value={p}>
+                          {PRESETS[p].name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ))}
               </>
             )}
             <button className="btn-primary" disabled={busy}>

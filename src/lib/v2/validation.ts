@@ -12,6 +12,7 @@ export const rulesSchema = z.object({
   decidingMatchTiebreak: z.boolean(),
   matchTiebreakPoints: z.number().int().min(2).max(100),
   mode: z.enum(["SETS", "TIMED", "POINTS"]),
+  setFormat: z.enum(["STANDARD", "RACE", "TOTAL_GAMES"]).optional(),
   pointsFormat: z.enum(["TOTAL", "TARGET"]).optional(),
   pointsWinBy: z.union([z.literal(1), z.literal(2)]).optional(),
   totalPoints: z.number().int().min(1).max(200).optional(),

@@ -4,6 +4,11 @@ import Link from "next/link";
 import { PlayerPhoto } from "@/components/PlayerPhoto";
 import { Icon } from "@/components/ui/Icon";
 import { StageView, MatchView } from "@/types/match";
+/** A bracket slot where one pair advances without playing. */
+const isBye = (m: MatchView) =>
+  (m.approvalStatus === "APPROVED" || m.status === "APPROVED") &&
+  !!m.winnerId &&
+  (!m.entryA || !m.entryB);
 function MatchCard({ match: m }: { match: MatchView }) {
   const snap = m.scoreSnapshot;
   const approved = m.approvalStatus === "APPROVED" || m.status === "APPROVED";
@@ -265,7 +270,15 @@ function Knockout({ stage }: { stage: StageView }) {
                               : "Final"
                             : side === "WINNERS" && column.length === 2
                               ? "Semifinal"
-                              : `Babak ${rounds[i]}`}
+                              : side === "WINNERS" &&
+                                  column.length === 4 &&
+                                  i === columns.length - 3
+                                ? "Perempat final"
+                                : side === "WINNERS" &&
+                                    i === 0 &&
+                                    column.some(isBye)
+                                  ? "Babak awal"
+                                  : `Babak ${rounds[i]}`}
                     </h4>
                     <div
                       className="bracket-round-matches"

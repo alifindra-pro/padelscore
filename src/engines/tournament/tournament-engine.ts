@@ -279,7 +279,7 @@ export function generateGroupStageWithKnockout(
   const groupLetters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 
   for (let i = 0; i < numGroups; i++) {
-    const groupName = `Group ${groupLetters[i] || i + 1}`;
+    const groupName = `Grup ${groupLetters[i] || i + 1}`;
     const groupEntries = groupLists[i];
     const groupMatches = generateRoundRobinSchedule(groupEntries);
 

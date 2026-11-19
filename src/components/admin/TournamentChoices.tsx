@@ -79,6 +79,27 @@ export const PRESET_OPTIONS = [
     icon: "live",
   },
   {
+    value: "TOTAL_4",
+    label: "Total 4 game",
+    description: "Selalu main 4 game. Jika 2–2, satu game penentu (3–2).",
+    detail: "Cocok untuk fase grup",
+    icon: "court",
+  },
+  {
+    value: "RACE_4",
+    label: "Race to 4",
+    description: "Siapa duluan 4 game menang. 3–3 diputus game berikutnya.",
+    detail: "Tanpa tie-break",
+    icon: "live",
+  },
+  {
+    value: "RACE_6",
+    label: "Race to 6",
+    description: "Siapa duluan 6 game menang. 5–5 diputus game berikutnya.",
+    detail: "Tanpa tie-break",
+    icon: "trophy",
+  },
+  {
     value: "MATCH_TIEBREAK",
     label: "Dua set + tie-break",
     description: "Jika set 1–1, penentunya match tie-break sampai 10 poin.",

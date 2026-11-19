@@ -14,6 +14,8 @@ export interface AutoScheduleParams {
   startTime: Date | string;
   matchDurationMinutes?: number;
   minRestMinutes?: number;
+  /** Limit scheduling to one category; other categories keep their slots. */
+  categoryId?: string;
   userId: string;
 }
 
@@ -24,6 +26,7 @@ export class SchedulingService {
       startTime,
       matchDurationMinutes = 60,
       minRestMinutes = 30,
+      categoryId,
       userId,
     } = params;
 
@@ -32,6 +35,7 @@ export class SchedulingService {
       include: {
         courts: { where: { isActive: true }, orderBy: { priority: "desc" } },
         categories: {
+          ...(categoryId ? { where: { id: categoryId } } : {}),
           include: {
             stages: {
               include: {

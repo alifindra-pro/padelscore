@@ -16,6 +16,10 @@ import { apiFetch } from "@/lib/api-client";
 import { Icon } from "@/components/ui/Icon";
 import { BracketViewer } from "@/components/BracketViewer";
 import {
+  GroupDrawCeremony,
+  type Placement,
+} from "@/components/admin/GroupDrawCeremony";
+import {
   OptionCards,
   SCORING_OPTIONS,
   DirectPointsSettings,
@@ -103,6 +107,12 @@ export default function Workspace({
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [addExisting, setAddExisting] = useState(false);
+  const [copyFrom, setCopyFrom] = useState("");
+  const [ceremony, setCeremony] = useState<{
+    title: string;
+    groups: string[];
+    placements: Placement[];
+  } | null>(null);
   const [newCategoryFormat, setNewCategoryFormat] =
     useState("SINGLE_ELIMINATION");
   const [rules, setRules] = useState<Rules>(PRESETS.STANDARD);
@@ -203,7 +213,14 @@ export default function Workspace({
         {error || "Menyiapkan ruang turnamen…"}
       </div>
     );
-  const visibleMatches = matches.filter((m) => m.stage.categoryId === selected);
+  // Bye slots advance a pair automatically; there is nothing to play or approve.
+  const isBye = (m: Match) =>
+    (m.approvalStatus === "APPROVED" || m.status === "APPROVED") &&
+    !!m.winnerId &&
+    (!m.entryA || !m.entryB);
+  const visibleMatches = matches.filter(
+    (m) => m.stage.categoryId === selected && !isBye(m),
+  );
   const approved = (m: Match) =>
     m.approvalStatus === "APPROVED" || m.status === "APPROVED";
   const playable = matches.filter((m) => m.entryA && m.entryB);
@@ -216,6 +233,13 @@ export default function Workspace({
     (m) => !m.officials?.length && !approved(m) && m.status !== "FINISHED",
   );
   const isPublic = ["PUBLISHED", "IN_PROGRESS", "COMPLETED"].includes(t.status);
+  const rulesShown =
+    rulesOpen ?? (loadedCategory === selected && !stages.length);
+  const groupDraw = ["GROUP_KNOCKOUT", "ROUND_ROBIN"].includes(
+    category?.format ?? "",
+  );
+  // Each category can start at its own time when an event has several.
+  const perCategory = t.categories.length > 1;
   // The lifecycle button follows what the tournament actually needs next:
   // once a bracket exists entries are locked, so registration is no longer offered.
   const lifecycle: { label: string; next: string; done: string } | null = [
@@ -335,6 +359,9 @@ export default function Workspace({
                       };
   return (
     <div className="tournament-workspace space-y-6">
+      {ceremony && (
+        <GroupDrawCeremony {...ceremony} onClose={() => setCeremony(null)} />
+      )}
       <Link href="/admin/tournaments" className="text-xs text-secondary">
         ← Semua turnamen
       </Link>
@@ -507,20 +534,54 @@ export default function Workspace({
                   e.preventDefault();
                   const f = new FormData(e.currentTarget);
                   const form = e.currentTarget;
-                  void run(async () => {
-                    const c = await apiFetch<Category>(
-                      `/api/v1/tournaments/${id}/categories`,
-                      {
-                        method: "POST",
-                        body: JSON.stringify({
-                          name: f.get("name"),
-                          format: f.get("format"),
-                        }),
-                      },
-                    );
-                    setSelected(c.id);
-                    form.reset();
-                  }, "Kategori ditambahkan. Lanjutkan dengan peserta.");
+                  const sourceId = String(f.get("copyFrom") ?? "");
+                  void run(
+                    async () => {
+                      // Copying keeps one event's categories on identical rules and capacity.
+                      const source = sourceId
+                        ? await apiFetch<
+                            Category & {
+                              standingsPolicy?: unknown;
+                              qualificationPolicy?: unknown;
+                            }
+                          >(`/api/v2/categories/${sourceId}`)
+                        : null;
+                      const c = await apiFetch<Category>(
+                        `/api/v1/tournaments/${id}/categories`,
+                        {
+                          method: "POST",
+                          body: JSON.stringify({
+                            name: f.get("name"),
+                            format: source?.format ?? f.get("format"),
+                            ...(source?.maxEntries
+                              ? { maxEntries: source.maxEntries }
+                              : {}),
+                          }),
+                        },
+                      );
+                      if (source)
+                        await apiFetch(`/api/v2/categories/${c.id}`, {
+                          method: "PATCH",
+                          body: JSON.stringify({
+                            ...(source.rulesV2 && { rules: source.rulesV2 }),
+                            ...(source.standingsPolicy
+                              ? { standingsPolicy: source.standingsPolicy }
+                              : {}),
+                            ...(source.qualificationPolicy
+                              ? {
+                                  qualificationPolicy:
+                                    source.qualificationPolicy,
+                                }
+                              : {}),
+                          }),
+                        });
+                      setSelected(c.id);
+                      form.reset();
+                    },
+                    sourceId
+                      ? "Kategori ditambahkan dengan aturan yang sama. Lanjutkan dengan peserta."
+                      : "Kategori ditambahkan. Lanjutkan dengan peserta.",
+                  );
                 }}
               >
                 <label className="field">
@@ -538,17 +599,40 @@ export default function Workspace({
                     ))}
                   </datalist>
                 </label>
-                <OptionCards
-                  legend="Cara menentukan lawan"
-                  name="format"
-                  value={newCategoryFormat}
-                  onChange={setNewCategoryFormat}
-                  options={[
-                    ...FORMAT_OPTIONS.slice(0, 2),
-                    ...EXTRA_FORMAT_OPTIONS,
-                  ]}
-                  compact
-                />
+                {t.categories.length > 0 && (
+                  <label className="field">
+                    Salin aturan dari
+                    <select
+                      name="copyFrom"
+                      value={copyFrom}
+                      onChange={(e) => setCopyFrom(e.target.value)}
+                    >
+                      <option value="">Tidak, atur sendiri</option>
+                      {t.categories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name} ({formatLabel(c.format)})
+                        </option>
+                      ))}
+                    </select>
+                    <small className="text-secondary">
+                      Menyalin sistem pertandingan, aturan skor tiap babak,
+                      jumlah slot, dan kuota lolos. Peserta tidak ikut disalin.
+                    </small>
+                  </label>
+                )}
+                {!copyFrom && (
+                  <OptionCards
+                    legend="Cara menentukan lawan"
+                    name="format"
+                    value={newCategoryFormat}
+                    onChange={setNewCategoryFormat}
+                    options={[
+                      ...FORMAT_OPTIONS.slice(0, 2),
+                      ...EXTRA_FORMAT_OPTIONS,
+                    ]}
+                    compact
+                  />
+                )}
                 <button className="btn-secondary w-full" disabled={busy}>
                   <Icon name="plus" size={16} />
                   Tambah kategori
@@ -977,14 +1061,14 @@ export default function Workspace({
             </>
           ) : step === 2 ? (
             <>
-              <details
-                className="panel rules-details"
-                open={
-                  rulesOpen ?? (loadedCategory === selected && !stages.length)
-                }
-                onToggle={(e) => setRulesOpen(e.currentTarget.open)}
-              >
-                <summary>
+              <details className="panel rules-details" open={rulesShown}>
+                {/* Only a click changes it; onToggle would also fire for the automatic open. */}
+                <summary
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setRulesOpen(!rulesShown);
+                  }}
+                >
                   <span>
                     <span className="rules-summary-label">Aturan skor</span>
                     <strong>
@@ -1095,21 +1179,40 @@ export default function Workspace({
                         confirm("Ganti bagan yang belum digunakan?")
                       )
                         void run(
-                          () =>
-                            apiFetch(`/api/v2/categories/${selected}/draw`, {
+                          async () => {
+                            const result = await apiFetch<{
+                              groups?: string[];
+                              placements?: Placement[];
+                            }>(`/api/v2/categories/${selected}/draw`, {
                               method: "POST",
                               body: JSON.stringify({
                                 mode: entries.some((e) => e.seed)
                                   ? "SEEDED"
                                   : "RANDOM",
                               }),
-                            }),
-                          "Bagan siap. Selanjutnya atur jadwal.",
+                            });
+                            // Groups are revealed live; the result is already saved.
+                            if (result.groups && result.placements?.length)
+                              setCeremony({
+                                title: category.name,
+                                groups: result.groups,
+                                placements: result.placements,
+                              });
+                          },
+                          groupDraw
+                            ? "Grup sudah diundi dan disimpan. Selanjutnya atur jadwal."
+                            : "Bagan siap. Selanjutnya atur jadwal.",
                         );
                     }}
                   >
                     <Icon name="trophy" size={18} />
-                    {stages.length ? "Undi ulang bagan" : "Buat bagan otomatis"}
+                    {groupDraw
+                      ? stages.length
+                        ? "Undi ulang grup"
+                        : "Undi grup dengan animasi"
+                      : stages.length
+                        ? "Undi ulang bagan"
+                        : "Buat bagan otomatis"}
                   </button>
                   <Link
                     className="btn-secondary"
@@ -1152,7 +1255,11 @@ export default function Workspace({
                 {stages.length > 0 && <BracketViewer stages={stages} />}
               </section>
               <section className="panel space-y-4">
-                <h2 className="panel-title">Jadwal pertandingan</h2>
+                <h2 className="panel-title">
+                  {perCategory
+                    ? `Jadwal ${category.name}`
+                    : "Jadwal pertandingan"}
+                </h2>
                 <form
                   className="grid sm:grid-cols-3 gap-4"
                   onSubmit={(e) => {
@@ -1174,9 +1281,12 @@ export default function Workspace({
                             ).toISOString(),
                             matchDurationMinutes: Number(f.get("duration")),
                             minRestMinutes: Number(f.get("rest")),
+                            ...(perCategory && { categoryId: selected }),
                           }),
                         }),
-                      "Jadwal tersimpan",
+                      perCategory
+                        ? `Jadwal ${category.name} tersimpan`
+                        : "Jadwal tersimpan",
                     );
                   }}
                 >
@@ -1215,7 +1325,9 @@ export default function Workspace({
                     ? "Tambahkan lapangan di langkah 1 sebelum menyusun jadwal."
                     : !stages.length
                       ? "Buat bagan pertandingan terlebih dahulu sebelum menyusun jadwal."
-                      : "Jadwal akan disimpan untuk seluruh kategori turnamen, mengikuti waktu mulai dan jeda istirahat di atas."}
+                      : perCategory
+                        ? `Hanya laga ${category.name} yang belum dimulai yang dijadwalkan. Lapangan yang sudah dipakai kategori lain tetap dihindari. Jalankan lagi setelah babak gugur terbentuk.`
+                        : "Jadwal akan disimpan untuk seluruh kategori turnamen, mengikuti waktu mulai dan jeda istirahat di atas."}
                 </p>
               </section>
               <div className="step-actions justify-between">

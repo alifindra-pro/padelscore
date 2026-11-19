@@ -45,6 +45,9 @@ function NewTournament() {
     slotCount: 8,
     groups: 2,
     advancePerGroup: 2,
+    bestRunnersUp: 0,
+    knockoutPreset: "SINGLE",
+    finalPreset: "SINGLE",
   });
   const [social, setSocial] = useState<
     Pick<SocialConfig, "target" | "rounds" | "ranking" | "pairing">
@@ -426,11 +429,32 @@ function NewTournament() {
                           required
                         />
                       </label>
+                      <label className="field">
+                        Peringkat berikutnya terbaik yang ikut lolos
+                        <input
+                          type="number"
+                          min={0}
+                          max={data.groups}
+                          value={data.bestRunnersUp}
+                          onChange={(e) =>
+                            setData({
+                              ...data,
+                              bestRunnersUp: Number(e.target.value),
+                            })
+                          }
+                        />
+                      </label>
                       <p className="text-secondary sm:col-span-2">
                         Pasangan dibagi merata secara acak.{" "}
-                        {data.advancePerGroup} terbaik tiap grup lolos ke
-                        knockout setelah seluruh hasil grup disahkan. Babak
-                        knockout dibuat melalui kelola turnamen.
+                        {data.advancePerGroup} terbaik tiap grup lolos
+                        {data.bestRunnersUp > 0
+                          ? `, ditambah ${data.bestRunnersUp} peringkat ${data.advancePerGroup + 1} terbaik (dibandingkan dari poin, lalu selisih game)`
+                          : ""}
+                        . Total{" "}
+                        {data.groups * data.advancePerGroup +
+                          data.bestRunnersUp}{" "}
+                        pasangan masuk babak gugur setelah seluruh hasil grup
+                        disahkan.
                       </p>
                     </div>
                   )}
@@ -480,14 +504,57 @@ function NewTournament() {
                       ) : (
                         <>
                           <OptionCards
-                            legend="Format skor"
-                            help="Tentukan jumlah set yang harus dimenangkan oleh satu pasangan."
+                            legend={
+                              data.format === "GROUP_KNOCKOUT"
+                                ? "Format skor fase grup"
+                                : "Format skor"
+                            }
+                            help="Tentukan bagaimana satu laga dimenangkan."
                             name="preset"
                             value={data.preset}
-                            options={PRESET_OPTIONS.slice(0, 3)}
+                            options={PRESET_OPTIONS.filter((o) =>
+                              GAME_PRESETS.includes(o.value),
+                            )}
                             onChange={(preset) => setData({ ...data, preset })}
                             compact
                           />
+                          {data.format === "GROUP_KNOCKOUT" && (
+                            <div className="grid sm:grid-cols-2 gap-4">
+                              {(
+                                [
+                                  [
+                                    "knockoutPreset",
+                                    "Babak gugur sebelum final",
+                                  ],
+                                  ["finalPreset", "Final"],
+                                ] as const
+                              ).map(([key, label]) => (
+                                <label className="field" key={key}>
+                                  {label}
+                                  <select
+                                    value={data[key]}
+                                    onChange={(e) =>
+                                      setData({
+                                        ...data,
+                                        [key]: e.target.value,
+                                      })
+                                    }
+                                  >
+                                    {PRESET_OPTIONS.filter((o) =>
+                                      GAME_PRESETS.includes(o.value),
+                                    ).map((o) => (
+                                      <option key={o.value} value={o.value}>
+                                        {o.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                              ))}
+                              <p className="text-secondary sm:col-span-2">
+                                Aturan deuce di bawah berlaku untuk semua babak.
+                              </p>
+                            </div>
+                          )}
                           <OptionCards
                             legend="Jika skor 40–40 (deuce)"
                             name="deuce"
@@ -950,6 +1017,15 @@ function NewTournament() {
   );
 }
 
+// Game-and-set formats offered in the wizard, in display order.
+const GAME_PRESETS = [
+  "SINGLE",
+  "STANDARD",
+  "SHORT",
+  "TOTAL_4",
+  "RACE_4",
+  "RACE_6",
+];
 export default function Page() {
   return (
     <Suspense

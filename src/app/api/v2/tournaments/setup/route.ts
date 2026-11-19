@@ -8,6 +8,7 @@ import { organizationFor } from "@/lib/v2/access";
 import { AppError, handleApiError } from "@/lib/errors";
 import {
   PRESETS,
+  roundFormat,
   draw,
   nextSocialRound,
 } from "../../../../../../packages/core/src";
@@ -26,7 +27,23 @@ const schema = z.object({
   timezone: z.enum(["Asia/Jakarta", "Asia/Makassar", "Asia/Jayapura"]),
   category: z.string().trim().min(2).max(100),
   courts: z.number().int().min(1).max(16),
-  preset: z.enum(["SINGLE", "STANDARD", "SHORT", "POINTS"]),
+  preset: z.enum([
+    "SINGLE",
+    "STANDARD",
+    "SHORT",
+    "POINTS",
+    "TOTAL_4",
+    "RACE_4",
+    "RACE_6",
+  ]),
+  // Group + knockout: how the knockout rounds and the final are played.
+  knockoutPreset: z
+    .enum(["SINGLE", "STANDARD", "SHORT", "RACE_4", "RACE_6", "TOTAL_4"])
+    .optional(),
+  finalPreset: z
+    .enum(["SINGLE", "STANDARD", "SHORT", "RACE_4", "RACE_6", "TOTAL_4"])
+    .optional(),
+  bestRunnersUp: z.number().int().min(0).max(16).default(0),
   pointsFormat: z.enum(["TOTAL", "TARGET"]).optional(),
   pointsWinBy: z.union([z.literal(1), z.literal(2)]).optional(),
   pointsSetsToWin: z.number().int().min(1).max(3).default(1),
@@ -198,10 +215,11 @@ export async function POST(req: NextRequest) {
             (body.registrationLater ? capacity : body.pairs.length) /
               body.groups,
           ) ||
-        body.groups * body.advancePerGroup < 2)
+        body.groups * body.advancePerGroup < 2 ||
+        body.bestRunnersUp > body.groups)
     )
       throw AppError.badRequest(
-        "Setiap grup perlu minimal dua pasangan, kuota lolos tidak boleh melebihi ukuran grup, dan knockout perlu minimal dua pasangan.",
+        "Setiap grup perlu minimal dua pasangan, kuota lolos tidak boleh melebihi ukuran grup, runner-up tambahan tidak melebihi jumlah grup, dan knockout perlu minimal dua pasangan.",
       );
     if (body.playerIds && body.playerIds.length !== body.pairs.length)
       throw AppError.badRequest("Daftar pemain tersimpan tidak sesuai peserta");
@@ -275,8 +293,14 @@ export async function POST(req: NextRequest) {
                 ? {
                     perGroup: body.advancePerGroup,
                     groups: body.groups,
-                    bestRunnersUp: 0,
+                    bestRunnersUp: body.bestRunnersUp,
                     normalization: "NONE",
+                    ...(body.knockoutPreset && {
+                      knockoutRules: roundFormat(body.knockoutPreset),
+                    }),
+                    ...(body.finalPreset && {
+                      finalRules: roundFormat(body.finalPreset),
+                    }),
                   }
                 : undefined,
             rulesV2: JSON.parse(
