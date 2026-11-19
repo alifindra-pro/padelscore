@@ -38,7 +38,7 @@ const base = process.env.TEST_BASE_URL || "http://127.0.0.1:3199";
       await expect(
         page
           .getByRole("link", {
-            name: "Padel Score by Padel Addictive, beranda",
+            name: "Padel Score for Padel Addictive, beranda",
           })
           .first(),
       ).toBeVisible();

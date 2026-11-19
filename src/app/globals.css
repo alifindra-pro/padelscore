@@ -72,7 +72,7 @@
   }
 }
 
-/* Shared palette: approved Padel Score by Padel Addictive landing page. */
+/* Shared palette: approved Padel Score for Padel Addictive landing page. */
 @theme inline {
   --font-sans: var(--font-jakarta), Arial, Helvetica, sans-serif;
   --radius-xl: 8px;
@@ -1321,7 +1321,7 @@
   }
 }
 
-/* Padel Score by Padel Addictive application system — extends the approved landing design. */
+/* Padel Score for Padel Addictive application system — extends the approved landing design. */
 @layer components {
   .app-brand {
     display: inline-flex;

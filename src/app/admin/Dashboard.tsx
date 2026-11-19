@@ -161,8 +161,8 @@ export default function Dashboard() {
           <div className="dashboard-court-scene" aria-hidden="true">
             <CourtScene className="dashboard-vector" />
             <span className="court-caption">
-              PADEL SCORE by PADEL ADDICTIVE{" "}
-              <span>TURNAMEN & PERTANDINGAN SOSIAL</span>
+              PADEL SCORE for PADEL ADDICTIVE{" "}
+              <span>TURNAMEN & MANAGEMENT SYSTEM</span>
             </span>
           </div>
         </section>
@@ -220,7 +220,7 @@ export default function Dashboard() {
         <Icon name="court" size={17} />
         <span>Peserta dan hasil pertandingan dikelola oleh admin.</span>
         <span className="ml-auto font-bold">
-          PADEL SCORE by PADEL ADDICTIVE
+          PADEL SCORE for PADEL ADDICTIVE
         </span>
       </div>
     </div>

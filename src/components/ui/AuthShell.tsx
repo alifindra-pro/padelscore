@@ -26,8 +26,8 @@ export function AuthShell({
         </div>
       </header>
       <main className="account-grid page-shell">
-        <section className="account-story" aria-label="Padel Score by Padel Addictive">
-          <p className="page-eyebrow">PADEL SCORE by PADEL ADDICTIVE</p>
+        <section className="account-story" aria-label="Padel Score for Padel Addictive">
+          <p className="page-eyebrow">PADEL SCORE for PADEL ADDICTIVE</p>
           <h2>
             Jadwal,
             <br />
@@ -42,7 +42,7 @@ export function AuthShell({
           </p>
           <CourtScene className="account-court" />
           <div className="account-story-footer">
-            <span>TURNAMEN & PERTANDINGAN SOSIAL</span>
+            <span>TURNAMEN & MANAGEMENT SYSTEM</span>
             <Icon name="court" size={20} />
           </div>
         </section>
@@ -54,7 +54,7 @@ export function AuthShell({
         </section>
       </main>
       <footer className="app-public-footer page-shell">
-        <span>PADEL SCORE by PADEL ADDICTIVE</span>
+        <span>PADEL SCORE for PADEL ADDICTIVE</span>
         <span>Jadwal dan hasil pertandingan padel.</span>
       </footer>
     </div>

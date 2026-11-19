@@ -8,7 +8,7 @@ import { EventExplorer } from "@/components/landing/EventExplorer";
 import styles from "@/components/landing/landing.module.css";
 
 export const metadata: Metadata = {
-  title: "Padel Score by Padel Addictive | Jadwal, skor, dan hasil pertandingan",
+  title: "Padel Score for Padel Addictive | Jadwal, skor, dan hasil pertandingan",
   description:
     "Lihat jadwal, bagan, dan skor turnamen padel serta hasil Americano dan Mexicano tanpa membuat akun.",
 };
@@ -27,7 +27,7 @@ export default function Home() {
         >
           <div className={styles.heroCopy}>
             <p className={styles.eyebrow}>
-              <span className={styles.liveDot} /> TURNAMEN & PERTANDINGAN SOSIAL
+              TURNAMEN & MANAGEMENT SYSTEM
             </p>
             <h1 id="hero-title">
               Jadwal padel,
@@ -60,7 +60,7 @@ export default function Home() {
               <span>
                 TURNAMEN
                 <br />
-                <strong>& SESI SOSIAL</strong>
+                <strong>& MANAGEMENT SYSTEM</strong>
               </span>
             </div>
             <LiveScore />
@@ -287,7 +287,7 @@ export default function Home() {
             </span>
             <span className={styles.brandCopy}>
               <strong>PADEL<span> SCORE</span></strong>
-              <small>by PADEL ADDICTIVE</small>
+              <small>for PADEL ADDICTIVE</small>
             </span>
           </Link>
           <p>Jadwal, skor, dan hasil pertandingan padel.</p>
@@ -296,8 +296,8 @@ export default function Home() {
           </a>
         </div>
         <div className={`${styles.shell} ${styles.footerBottom}`}>
-          <span>© Padel Score by Padel Addictive</span>
-          <span>TURNAMEN & PERTANDINGAN SOSIAL</span>
+          <span>© Padel Score for Padel Addictive</span>
+          <span>TURNAMEN & MANAGEMENT SYSTEM</span>
         </div>
       </footer>
     </div>

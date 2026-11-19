@@ -63,7 +63,7 @@ export async function GET(
       { subset: true },
     );
     pdf.setTitle(`Hasil pertandingan ${m.matchNumber} - ${t.name}`);
-    pdf.setAuthor("Padel Score by Padel Addictive");
+    pdf.setAuthor("Padel Score for Padel Addictive");
     let page = pdf.addPage([595.28, 841.89]);
     let y = 790;
     const navy = rgb(0.09, 0.18, 0.25),
@@ -106,7 +106,7 @@ export async function GET(
             timeStyle: "medium",
           }).format(value)
         : "Tidak tercatat";
-    line("PADEL SCORE by PADEL ADDICTIVE", 12);
+    line("PADEL SCORE for PADEL ADDICTIVE", 12);
     line("HASIL AKHIR PERTANDINGAN", 22);
     line(t.name, 16);
     line(`${m.stage.category.name} | ${m.stage.name}`);
@@ -167,7 +167,7 @@ export async function GET(
     line(`Versi skor: ${m.version} | Dicetak: ${date(new Date())}`, 9);
     pdf.getPages().forEach((p, i) =>
       p.drawText(
-        `Padel Score by Padel Addictive | Hasil disahkan | ${i + 1}/${pages}`,
+        `Padel Score for Padel Addictive | Hasil disahkan | ${i + 1}/${pages}`,
         {
           x: 50,
           y: 30,

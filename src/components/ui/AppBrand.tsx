@@ -6,7 +6,7 @@ export function AppBrand({ href = "/" }: { href?: string }) {
     <Link
       href={href}
       className="app-brand"
-      aria-label="Padel Score by Padel Addictive, beranda"
+      aria-label="Padel Score for Padel Addictive, beranda"
     >
       <span className="app-brand-mark">
         <Icon name="court" size={23} />
@@ -15,7 +15,7 @@ export function AppBrand({ href = "/" }: { href?: string }) {
         <strong>
           PADEL<span> SCORE</span>
         </strong>
-        <small>by PADEL ADDICTIVE</small>
+        <small>for PADEL ADDICTIVE</small>
       </span>
     </Link>
   );
