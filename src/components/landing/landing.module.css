@@ -1810,3 +1810,51 @@
   height: 100%;
   object-fit: contain;
 }
+
+/* Featured tournament: the next event, large, above the list. */
+.featured {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.9fr) minmax(0, 1.4fr);
+  overflow: hidden;
+  margin-bottom: 28px;
+  border: 1px solid var(--lp-line);
+  border-top: 6px solid var(--lp-blue);
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 18px 40px rgb(20 46 67 / 8%);
+}
+.featuredArt {
+  display: grid;
+  place-items: center;
+  min-height: 280px;
+  padding: 24px;
+  background: #ffffff;
+  border-right: 1px solid var(--lp-line);
+  color: var(--lp-blue);
+}
+.featuredArt img { width: 100%; height: 100%; max-height: 320px; object-fit: contain; }
+.featuredBody { display: grid; align-content: center; gap: 14px; padding: clamp(22px, 3vw, 40px); }
+.featuredKicker { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.featuredKicker strong { font-size: 15px; font-weight: 800; color: var(--lp-ink); }
+.featuredBody h3 { font-size: clamp(28px, 3.4vw, 44px); line-height: 1.08; letter-spacing: -0.03em; font-weight: 800; color: var(--lp-ink); }
+.featuredBody h3 a:hover { color: var(--lp-blue); }
+.featuredFacts { display: flex; flex-wrap: wrap; gap: 8px 22px; font-size: 16px; font-weight: 600; color: var(--lp-ink); }
+.featuredFacts li { display: inline-flex; align-items: center; gap: 8px; }
+.featuredFacts svg { color: var(--lp-muted); }
+.featuredCategories { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
+.featuredCategories li { display: grid; gap: 2px; padding: 12px 14px; border-radius: 10px; background: var(--cat-soft); border-left: 4px solid var(--cat); }
+.featuredCategories strong { font-size: 16px; color: var(--cat); }
+.featuredCategories span { font-size: 14px; color: var(--lp-ink); }
+.featuredActions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
+.featuredPrimary, .featuredSecondary { display: inline-flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 22px; border-radius: 9px; font-size: 15px; font-weight: 700; }
+.featuredPrimary { background: var(--lp-blue); color: #ffffff; }
+.featuredPrimary:hover { background: var(--lp-blue-dark); }
+.featuredSecondary { border: 1px solid var(--lp-line); color: var(--lp-ink); }
+.featuredSecondary:hover { border-color: var(--lp-blue); }
+@media (max-width: 820px) {
+  .featured { grid-template-columns: 1fr; }
+  .featuredArt { min-height: 0; max-height: 260px; border-right: 0; border-bottom: 1px solid var(--lp-line); }
+  .featuredActions > a { flex: 1 1 100%; justify-content: center; }
+}
+/* Events open the page, so they sit closer to the header. */
+.eventsFirst { padding-block: 48px 56px; }

@@ -37,36 +37,49 @@ function Path({ info }: { info: RulesInfo }) {
   const groupGames = info.groupSize
     ? (info.groups * info.groupSize * (info.groupSize - 1)) / 2
     : 0;
-  const steps: { title: string; text: string }[] = [
+  const byes = size - q;
+  // Each step: one number worth remembering, one short line of context.
+  const steps: { title: string; big: string; text: string }[] = [
     {
       title: "Fase grup",
-      text: `${info.groups} grup${info.groupSize ? ` × ${info.groupSize} pasangan` : ""}. Semua pasangan dalam grup saling bertemu${info.groupSize ? ` (${info.groupSize - 1} laga per pasangan, ${groupGames} laga)` : ""}.`,
+      big: groupGames ? `${groupGames} laga` : `${info.groups} grup`,
+      text: info.groupSize
+        ? `${info.groups} grup × ${info.groupSize} pasangan, semua saling bertemu`
+        : "Semua pasangan dalam grup saling bertemu",
     },
     {
       title: "Lolos",
-      text: `${info.perGroup === 2 ? "Juara dan runner-up" : info.perGroup === 1 ? "Juara" : `${info.perGroup} teratas`} tiap grup${info.bestRunnersUp ? ` + ${info.bestRunnersUp} peringkat berikutnya terbaik` : ""}: ${q} pasangan, diberi nomor unggulan P1 sampai P${q} dari hasil grup.`,
+      big: `${q} pasangan`,
+      text: `${info.perGroup === 2 ? "Juara + runner-up" : info.perGroup === 1 ? "Juara" : `${info.perGroup} teratas`} tiap grup${info.bestRunnersUp ? ` + ${info.bestRunnersUp} terbaik` : ""}, jadi P1–P${q}`,
     },
   ];
   if (opening > 0 && opening < size / 2)
     steps.push({
       title: "Babak awal",
-      text: `${opening * 2} pasangan unggulan terbawah bermain ${opening} laga. P1 sampai P${size - q} langsung ke ${roundName(size / 2).toLowerCase()}.`,
+      big: `${opening} laga`,
+      text: `P${byes + 1}–P${q} bermain, P1–P${byes} langsung lolos`,
     });
   for (
     let s = opening > 0 && opening < size / 2 ? size / 2 : size;
     s >= 2;
     s /= 2
   )
-    steps.push({ title: roundName(s), text: `${s} pasangan, ${s / 2} laga.` });
+    steps.push({
+      title: roundName(s),
+      big: `${s / 2} laga`,
+      text: `${s} pasangan`,
+    });
   return (
     <section className="rules-block">
       <h4>Alur turnamen</h4>
       <ol className="rules-path">
         {steps.map((step, i) => (
           <li key={step.title}>
-            <span className="rules-path-number">{i + 1}</span>
-            <strong>{step.title}</strong>
-            <span>{step.text}</span>
+            <span className="rules-path-step">
+              {i + 1}. {step.title}
+            </span>
+            <strong>{step.big}</strong>
+            <span className="rules-path-text">{step.text}</span>
           </li>
         ))}
       </ol>
@@ -142,9 +155,18 @@ function Bracket({ qualifiers }: { qualifiers: number }) {
                   <span className="rules-bracket-label">
                     {label.get(n.number)}
                   </span>
-                  <span>{slot(n, "a")}</span>
-                  <span className="rules-bracket-vs">vs</span>
-                  <span>{slot(n, "b")}</span>
+                  {(["a", "b"] as const).map((side) => {
+                    const text = slot(n, side);
+                    const seed = /^P\d+$/.test(text);
+                    return (
+                      <span
+                        key={side}
+                        className={seed ? "rules-slot is-seed" : "rules-slot"}
+                      >
+                        {text}
+                      </span>
+                    );
+                  })}
                 </div>
               ))}
             </div>

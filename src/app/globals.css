@@ -72,7 +72,7 @@
   }
 }
 
-/* Shared palette: approved Padel Score for Padel Addictive landing page. */
+/* Shared palette: approved Berpadel Score for Padel Addictive landing page. */
 @theme inline {
   --font-sans: var(--font-jakarta), Arial, Helvetica, sans-serif;
   --radius-xl: 8px;
@@ -1321,7 +1321,7 @@
   }
 }
 
-/* Padel Score for Padel Addictive application system — extends the approved landing design. */
+/* Berpadel Score for Padel Addictive application system — extends the approved landing design. */
 @layer components {
   .app-brand {
     display: inline-flex;
@@ -2807,3 +2807,30 @@
 .rules-grid > *, .rules-card, .rules-explainer, .rules-block { min-width: 0; }
 .rules-swipe { display: none; margin: -4px 0 10px; font-size: 13px; color: var(--color-secondary); }
 @media (max-width: 767px) { .rules-swipe { display: block; } }
+
+/* Rules path v2: compact steps, one number each, joined by a line. */
+.rules-path { grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr)); gap: 0; border: 1px solid var(--color-line); border-radius: 12px; overflow: hidden; }
+.rules-path li { gap: 2px; padding: 14px 16px; border: 0; border-radius: 0; background: var(--color-card); }
+.rules-path li + li { border-left: 1px solid var(--color-line); }
+.rules-path li:not(:last-child)::after { content: none; }
+.rules-path-step { font-size: 12px; font-weight: 700; color: var(--color-secondary); }
+.rules-path strong { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; color: var(--color-ink); }
+.rules-path-text { font-size: 13px; line-height: 1.4; color: var(--color-secondary); }
+.rules-path li:last-child { background: var(--color-ink); }
+.rules-path li:last-child strong { color: var(--color-kinetic); }
+.rules-path li:last-child .rules-path-step, .rules-path li:last-child .rules-path-text { color: #c5d3de; }
+@media (max-width: 899px) { .rules-path li + li { border-left: 0; border-top: 1px solid var(--color-line); } }
+
+/* Bracket v2: short two-line matches with a connector into the next round. */
+.rules-bracket { gap: 28px; }
+.rules-bracket-round { width: 160px; }
+.rules-bracket-matches { gap: 14px; }
+.rules-bracket-match { position: relative; gap: 0; padding: 0; overflow: visible; border-left-width: 1px; border-color: var(--color-line); }
+.rules-bracket-label { padding: 6px 10px 2px; }
+.rules-slot { padding: 6px 10px; font-size: 14px; font-weight: 700; color: var(--color-secondary); }
+.rules-slot + .rules-slot { border-top: 1px solid var(--color-line-subtle); }
+.rules-slot.is-seed { color: var(--color-ink); }
+.rules-slot.is-seed::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 8px; border-radius: 2px; background: var(--color-brand); vertical-align: 2px; }
+.rules-bracket-round:not(:last-child) .rules-bracket-match::after { content: ""; position: absolute; top: 50%; right: -15px; width: 14px; border-top: 2px solid var(--color-line); }
+.rules-bracket-round:not(:first-child) .rules-bracket-match::before { content: ""; position: absolute; top: 50%; left: -15px; width: 14px; border-top: 2px solid var(--color-line); }
+.rules-bracket-round:last-child .rules-bracket-match { border-color: var(--color-ink); border-width: 2px; }

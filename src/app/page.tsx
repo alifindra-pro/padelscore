@@ -8,7 +8,8 @@ import { EventExplorer } from "@/components/landing/EventExplorer";
 import styles from "@/components/landing/landing.module.css";
 
 export const metadata: Metadata = {
-  title: "Berpadel Score for Padel Addictive | Jadwal, skor, dan hasil pertandingan",
+  title:
+    "Berpadel Score for Padel Addictive | Jadwal, skor, dan hasil pertandingan",
   description:
     "Lihat jadwal, bagan, dan skor turnamen padel serta hasil Americano dan Mexicano tanpa membuat akun.",
 };
@@ -22,13 +23,29 @@ export default function Home() {
       <LandingHeader />
       <main id="main">
         <section
+          id="events"
+          className={`${styles.shell} ${styles.eventsSection} ${styles.eventsFirst}`}
+          aria-labelledby="events-heading"
+        >
+          <div className={styles.sectionHeading}>
+            <div>
+              <p className={styles.eyebrow}>JADWAL ACARA</p>
+              <h2 id="events-heading">Turnamen padel terdekat</h2>
+            </div>
+            <p>
+              Cari berdasarkan nama acara atau lokasi.
+              <br />
+              Pilih acara untuk melihat detail pertandingan.
+            </p>
+          </div>
+          <EventExplorer />
+        </section>
+        <section
           className={`${styles.shell} ${styles.hero}`}
           aria-labelledby="hero-title"
         >
           <div className={styles.heroCopy}>
-            <p className={styles.eyebrow}>
-              TURNAMEN & MANAGEMENT SYSTEM
-            </p>
+            <p className={styles.eyebrow}>TURNAMEN & MANAGEMENT SYSTEM</p>
             <h1 id="hero-title">
               Jadwal padel,
               <br />
@@ -86,24 +103,6 @@ export default function Home() {
             </span>
           </div>
         </div>
-        <section
-          id="events"
-          className={`${styles.shell} ${styles.eventsSection}`}
-          aria-labelledby="events-heading"
-        >
-          <div className={styles.sectionHeading}>
-            <div>
-              <p className={styles.eyebrow}>ACARA PUBLIK</p>
-              <h2 id="events-heading">Cari turnamen atau sesi sosial.</h2>
-            </div>
-            <p>
-              Cari berdasarkan nama acara atau lokasi.
-              <br />
-              Pilih acara untuk melihat detail pertandingan.
-            </p>
-          </div>
-          <EventExplorer />
-        </section>
         <section
           id="features"
           className={styles.featuresSection}
@@ -286,7 +285,9 @@ export default function Home() {
               <Icon name="court" size={23} />
             </span>
             <span className={styles.brandCopy}>
-              <strong>BERPADEL<span> SCORE</span></strong>
+              <strong>
+                BERPADEL<span> SCORE</span>
+              </strong>
               <small>for PADEL ADDICTIVE</small>
             </span>
           </Link>

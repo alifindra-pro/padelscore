@@ -91,6 +91,21 @@ async function dispatch(req: NextRequest, context: Context): Promise<Response> {
             headerBannerKey: true,
             headerThemeColor: true,
             updatedAt: true,
+            categories: {
+              select: {
+                id: true,
+                name: true,
+                maxEntries: true,
+                _count: {
+                  select: {
+                    entries: {
+                      where: { status: { in: ["REGISTERED", "CONFIRMED"] } },
+                    },
+                  },
+                },
+              },
+              orderBy: { createdAt: "asc" },
+            },
           },
           take: 100,
           orderBy: { startDate: "desc" },
@@ -103,9 +118,16 @@ async function dispatch(req: NextRequest, context: Context): Promise<Response> {
               headerBannerKey,
               headerThemeColor,
               updatedAt,
+              categories,
               ...t
             }) => ({
               ...t,
+              categories: categories.map((c) => ({
+                id: c.id,
+                name: c.name,
+                maxEntries: c.maxEntries,
+                pairs: c._count.entries,
+              })),
               image: headerLogoKey ? "logo" : headerBannerKey ? "banner" : null,
               imageVersion: updatedAt.toISOString(),
               themeColor: headerThemeColor,
