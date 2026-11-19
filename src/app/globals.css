@@ -2665,3 +2665,16 @@
 .entry-board ol { grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); }
 .entry-object { min-height: 32px; padding: 0 8px; border-color: transparent; background: transparent; font-weight: 600; color: var(--color-secondary); text-decoration: underline; text-underline-offset: 3px; }
 .entry-object:hover, .entry-object[aria-pressed="true"] { border-color: transparent; color: var(--color-brand); }
+
+/* Public header: the uploaded header image as a faint backdrop on the right,
+   fading into the header colour so the title and text stay readable. */
+.header-has-backdrop { position: relative; overflow: hidden; isolation: isolate; }
+.header-has-backdrop > :not(.header-backdrop) { position: relative; z-index: 1; }
+.header-backdrop { position: absolute; inset: 0 0 0 auto; width: min(60%, 560px); z-index: 0; pointer-events: none; }
+.header-backdrop img { width: 100%; height: 100%; object-fit: contain; object-position: right center; opacity: 0.22; }
+.header-backdrop::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, var(--header-fade, #fbeff1) 0%, transparent 45%); }
+@media (max-width: 767px) {
+  .header-backdrop { width: 100%; }
+  .header-backdrop img { object-position: center top; opacity: 0.12; }
+  .header-backdrop::after { background: none; }
+}

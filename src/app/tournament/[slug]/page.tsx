@@ -743,6 +743,7 @@ function TournamentPublicContent({
 
         {/* Tab 4: Registered Pairs */}
         <TournamentPoster id={tournament.id} name={tournament.name} />
+        <Sponsors tournamentId={tournament.id} />
         {ruleGroups.length > 0 && (
           <section className="event-section" aria-labelledby="rules-title">
             <h2 id="rules-title">Aturan main</h2>
@@ -866,7 +867,6 @@ function TournamentPublicContent({
             }}
           />
         )}
-        <Sponsors tournamentId={tournament.id} />
       </main>
 
       {/* Spectator Footer */}

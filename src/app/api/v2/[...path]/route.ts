@@ -73,25 +73,44 @@ async function dispatch(req: NextRequest, context: Context): Promise<Response> {
     if (resource === "public" && method === "GET") {
       if (id === "tournaments") {
         const search = req.nextUrl.searchParams.get("search") ?? "";
+        const rows = await prisma.tournament.findMany({
+          where: {
+            ...publicWhere,
+            name: { contains: search, mode: "insensitive" },
+          },
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            location: true,
+            timezone: true,
+            startDate: true,
+            endDate: true,
+            status: true,
+            headerLogoKey: true,
+            headerBannerKey: true,
+            headerThemeColor: true,
+            updatedAt: true,
+          },
+          take: 100,
+          orderBy: { startDate: "desc" },
+        });
+        // Storage keys stay private; cards only learn which header image to request.
         return ok(
-          await prisma.tournament.findMany({
-            where: {
-              ...publicWhere,
-              name: { contains: search, mode: "insensitive" },
-            },
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-              location: true,
-              timezone: true,
-              startDate: true,
-              endDate: true,
-              status: true,
-            },
-            take: 100,
-            orderBy: { startDate: "desc" },
-          }),
+          rows.map(
+            ({
+              headerLogoKey,
+              headerBannerKey,
+              headerThemeColor,
+              updatedAt,
+              ...t
+            }) => ({
+              ...t,
+              image: headerLogoKey ? "logo" : headerBannerKey ? "banner" : null,
+              imageVersion: updatedAt.toISOString(),
+              themeColor: headerThemeColor,
+            }),
+          ),
         );
       }
       if (id === "matches") {

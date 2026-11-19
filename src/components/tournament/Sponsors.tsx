@@ -48,18 +48,24 @@ export function Sponsors({
     ) : null;
   return (
     <section
-      className="sponsor-section panel space-y-5"
+      className={
+        manage
+          ? "sponsor-section panel space-y-5"
+          : "sponsor-section event-section space-y-4"
+      }
       aria-label="Sponsor turnamen"
     >
-      <div>
-        <p className="page-eyebrow">MENDUKUNG PERTANDINGAN</p>
-        <h2 className="text-xl font-bold">Sponsor & partner</h2>
-        <p className="text-sm text-secondary mt-2">
-          {manage
-            ? "Logo hanya tampil pada turnamen ini. Gunakan PNG transparan agar logo tetap rapi."
-            : "Terima kasih kepada pihak yang mendukung turnamen ini."}
-        </p>
-      </div>
+      {manage ? (
+        <div>
+          <h2 className="text-xl font-bold">Sponsor & partner</h2>
+          <p className="text-sm text-secondary mt-2">
+            Logo hanya tampil pada turnamen ini. Gunakan PNG transparan agar
+            logo tetap rapi.
+          </p>
+        </div>
+      ) : (
+        <h2>Didukung oleh</h2>
+      )}
       {error && <p role="alert">{error}</p>}
       {(["MAIN", "PARTNER", "SUPPORTER"] as const).map(
         (tier) =>

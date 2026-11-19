@@ -37,11 +37,31 @@ export function HeaderPreview({
   const theme = tournamentTheme(settings?.themeColor);
   const source = (kind: string) =>
     `/api/v2/tournaments/${id}/header?image=${kind}&v=${encodeURIComponent(settings?.version ?? "")}`;
+  // Without the banner on top, the header image sits faintly behind the text.
+  const backdrop = !showBanner
+    ? settings?.hasLogo
+      ? "logo"
+      : settings?.hasBanner
+        ? "banner"
+        : null
+    : null;
   return (
     <div
-      className="space-y-4 rounded-xl p-4 sm:p-5"
-      style={{ background: theme.soft, borderTop: `4px solid ${theme.accent}` }}
+      className={`space-y-4 rounded-xl p-4 sm:p-5 ${backdrop ? "header-has-backdrop" : ""}`}
+      style={
+        {
+          background: theme.soft,
+          borderTop: `4px solid ${theme.accent}`,
+          "--header-fade": theme.soft,
+        } as CSSProperties
+      }
     >
+      {backdrop && (
+        <span className="header-backdrop" aria-hidden="true">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={source(backdrop)} alt="" />
+        </span>
+      )}
       {showBanner && settings?.hasBanner && (
         <div className="overflow-hidden rounded-xl bg-surface-tint">
           {/* Access-controlled images are served by the application. */}
@@ -54,7 +74,7 @@ export function HeaderPreview({
         </div>
       )}
       <div className="flex items-start gap-4">
-        {settings?.hasLogo && (
+        {settings?.hasLogo && !backdrop && (
           <>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img

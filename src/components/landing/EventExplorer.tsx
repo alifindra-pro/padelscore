@@ -14,6 +14,10 @@ interface Tournament {
   status: string;
   startDate: string;
   timezone: string;
+  /** Which uploaded header image the card can show, if any. */
+  image?: "logo" | "banner" | null;
+  imageVersion?: string;
+  themeColor?: string | null;
 }
 interface Social {
   id: string;
@@ -160,17 +164,36 @@ export function EventExplorer() {
                 className={styles.eventCard}
                 key={event.id}
               >
-                <div className={styles.eventArtwork}>
-                  <Icon name="trophy" size={40} />
-                  <span>
-                    JADWAL
-                    <br />
-                    BAGAN
-                    <br />
-                    <b>HASIL</b>
-                  </span>
-                  <span className={styles.eventCategory}>TURNAMEN</span>
-                </div>
+                {event.image ? (
+                  <div
+                    className={styles.eventCover}
+                    style={
+                      event.themeColor
+                        ? { borderBottomColor: event.themeColor }
+                        : undefined
+                    }
+                  >
+                    {/* Header images are served by the application with access checks. */}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={`/api/v2/tournaments/${event.id}/header?image=${event.image}&v=${encodeURIComponent(event.imageVersion ?? "")}`}
+                      alt=""
+                      loading="lazy"
+                    />
+                  </div>
+                ) : (
+                  <div className={styles.eventArtwork}>
+                    <Icon name="trophy" size={40} />
+                    <span>
+                      JADWAL
+                      <br />
+                      BAGAN
+                      <br />
+                      <b>HASIL</b>
+                    </span>
+                    <span className={styles.eventCategory}>TURNAMEN</span>
+                  </div>
+                )}
                 <div className={styles.eventBody}>
                   <span
                     className={
