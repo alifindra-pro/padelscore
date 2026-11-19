@@ -22,11 +22,14 @@ export function HeaderPreview({
   name,
   settings,
   children,
+  meta,
 }: {
   id: string;
   name: string;
   settings?: HeaderSettings;
   children?: ReactNode;
+  /** Shown right under the title, before the description (status, date, venue). */
+  meta?: ReactNode;
 }) {
   const theme = tournamentTheme(settings?.themeColor);
   const source = (kind: string) =>
@@ -65,6 +68,7 @@ export function HeaderPreview({
           >
             {settings?.title || name}
           </h1>
+          {meta}
           {settings?.description && (
             <p className="text-sm sm:text-base text-secondary mt-2 whitespace-pre-line break-words max-w-3xl">
               {settings.description}
@@ -119,14 +123,16 @@ export function TournamentHeader({
   id,
   name,
   children,
+  meta,
 }: {
   id: string;
   name: string;
   children?: ReactNode;
+  meta?: ReactNode;
 }) {
   const settings = useContext(HeaderContext);
   return (
-    <HeaderPreview id={id} name={name} settings={settings}>
+    <HeaderPreview id={id} name={name} settings={settings} meta={meta}>
       {children}
     </HeaderPreview>
   );

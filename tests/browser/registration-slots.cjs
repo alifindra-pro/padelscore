@@ -147,14 +147,12 @@ const base = process.env.TEST_BASE_URL || "http://127.0.0.1:3199";
     await expect(
       participant.getByRole("status").filter({ hasText: "Reserve One" }),
     ).toContainText("cadangan nomor 1");
-    await participant
-      .getByRole("button", { name: /Peserta terdaftar/ })
-      .click();
+    // The participant list is the opening view before any match exists.
+    const pairsTab = participant.getByRole("button", { name: /^Peserta/ });
+    if (await pairsTab.count()) await pairsTab.click();
     await expect(
-      participant.getByText("Ganda terbuka · Cadangan nomor 1", {
-        exact: true,
-      }),
-    ).toBeVisible();
+      participant.locator(".entry-board li", { hasText: "Reserve One" }),
+    ).toContainText("Cadangan nomor 1");
     await mkdir("/tmp/padel-registration", { recursive: true });
     for (const width of [390, 1440]) {
       await participant.setViewportSize({ width, height: 1000 });

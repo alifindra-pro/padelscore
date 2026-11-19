@@ -23,7 +23,7 @@ import { Icon } from "@/components/ui/Icon";
 
 import React, { useCallback, useEffect, useState, use, Suspense } from "react";
 import Link from "next/link";
-import { entryStatusLabel } from "@/lib/entry-status";
+import { entryStatusLabel, isMainEntry } from "@/lib/entry-status";
 import {
   TournamentHeader,
   TournamentTheme,
@@ -115,6 +115,7 @@ function TournamentPublicContent({
 
   // Match status filter
   const [matchFilter, setMatchFilter] = useState<MatchFilter>("ALL");
+  const [categoryFilter, setCategoryFilter] = useState("ALL");
 
   const applyData = useCallback(
     ({ tournament, courts }: Awaited<ReturnType<typeof fetchTournament>>) => {
@@ -159,10 +160,9 @@ function TournamentPublicContent({
     };
   }, [slug, applyData]);
 
-  // Load category bracket stages when bracket tab or category changes
+  // Load the selected category's stages; the groups tab can be the opening tab.
   useEffect(() => {
-    if (!["brackets", "groups"].includes(activeTab) || !selectedBracketCatId)
-      return;
+    if (!selectedBracketCatId) return;
     let active = true;
     apiFetch<StageView[]>(`/api/v1/categories/${selectedBracketCatId}/brackets`)
       .then((res) => {
@@ -183,7 +183,7 @@ function TournamentPublicContent({
     return () => {
       active = false;
     };
-  }, [activeTab, selectedBracketCatId, bracketRetry]);
+  }, [selectedBracketCatId, bracketRetry]);
 
   const bracketLoading = bracketsLoadedFor !== selectedBracketCatId;
 
@@ -261,63 +261,137 @@ function TournamentPublicContent({
           (st) =>
             st.matches?.map((m) => ({
               ...m,
+              categoryId: cat.id,
               categoryName: cat.name,
             })) || [],
         ) || [],
     ) || [];
 
-  const filteredMatches = allMatches.filter((m) => {
-    if (matchFilter === "ALL") return true;
-    return m.status === matchFilter;
+  const filteredMatches = allMatches.filter(
+    (m) =>
+      (matchFilter === "ALL" || m.status === matchFilter) &&
+      (categoryFilter === "ALL" || m.categoryId === categoryFilter),
+  );
+  // One event, several categories ("nomor"): each shows its pairs and its own start.
+  const nomor = (tournament.categories ?? []).map((cat) => {
+    const first = cat.stages
+      ?.flatMap((st) => st.matches ?? [])
+      .map((m) => m.scheduledAt)
+      .filter((d): d is string => !!d)
+      .sort()[0];
+    return {
+      id: cat.id,
+      name: cat.name,
+      pairs: cat.entries?.filter(isMainEntry).length ?? 0,
+      start: first
+        ? new Date(first).toLocaleTimeString("id-ID", {
+            timeZone: "Asia/Jakarta",
+            hour: "2-digit",
+            minute: "2-digit",
+          })
+        : null,
+    };
   });
 
-  const formats = (tournament.categories ?? []).map((c) => c.format);
+  const stageTypes = new Set(
+    (tournament.categories ?? []).flatMap(
+      (c) => c.stages?.map((st) => st.type) ?? [],
+    ),
+  );
+  const entryCount =
+    tournament.categories?.reduce(
+      (acc, c) => acc + (c.entries?.filter(isMainEntry).length || 0),
+      0,
+    ) || 0;
+  // Only tabs with something to show; before the draw that is just the pairs.
+  const visibleTabs: { key: TabKey; label: string }[] = [
+    ...(allMatches.length
+      ? [
+          {
+            key: "live" as const,
+            label: `Lapangan live (${liveCourts.filter((c) => c.activeMatch).length})`,
+          },
+        ]
+      : []),
+    ...(stageTypes.has("GROUP")
+      ? [{ key: "groups" as const, label: "Klasemen grup" }]
+      : []),
+    ...(stageTypes.has("SINGLE_ELIMINATION") ||
+    stageTypes.has("DOUBLE_ELIMINATION")
+      ? [{ key: "brackets" as const, label: "Bagan gugur" }]
+      : []),
+    ...(allMatches.length
+      ? [
+          {
+            key: "matches" as const,
+            label: `Jadwal pertandingan (${allMatches.length})`,
+          },
+        ]
+      : []),
+    { key: "entries" as const, label: `Peserta (${entryCount})` },
+    ...(allMatches.some((m) => ["FINISHED", "APPROVED"].includes(m.status))
+      ? [{ key: "disputes" as const, label: "Sanggah hasil" }]
+      : []),
+  ];
+  const currentTab: TabKey = visibleTabs.some((t) => t.key === activeTab)
+    ? activeTab
+    : tournament.status === "IN_PROGRESS" && allMatches.length
+      ? "live"
+      : stageTypes.has("GROUP")
+        ? "groups"
+        : "entries";
   return (
     <TournamentTheme id={tournament.id}>
       {/* Tournament Header */}
       <header className="event-context-header border-b border-line">
         <div className="page-shell py-5 space-y-4">
-          <TournamentHeader id={tournament.id} name={tournament.name}>
-            <div className="mt-3 flex flex-wrap gap-3 items-center">
-              <span
-                className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
-                  tournament.status === "IN_PROGRESS"
-                    ? "status-live"
-                    : tournament.status === "COMPLETED"
-                      ? "bg-surface-tint text-secondary border border-line"
-                      : "bg-brand-soft text-brand border border-brand-accent"
-                }`}
-              >
-                {tournament.status === "PUBLISHED"
-                  ? "Akan datang"
-                  : tournamentStatusLabel(tournament.status)}
-              </span>
-              <p className="text-xs text-secondary mt-0.5">
-                {tournament.location || "Lokasi belum diumumkan"} &bull;{" "}
-                {eventDates(tournament.startDate, tournament.endDate)}
+          <TournamentHeader
+            id={tournament.id}
+            name={tournament.name}
+            meta={
+              <p className="event-meta">
+                <span
+                  className={
+                    tournament.status === "IN_PROGRESS"
+                      ? "status-live"
+                      : "event-status"
+                  }
+                >
+                  {tournament.status === "PUBLISHED"
+                    ? "Akan datang"
+                    : tournamentStatusLabel(tournament.status)}
+                </span>
+                <span>
+                  {eventDates(tournament.startDate, tournament.endDate)} ·{" "}
+                  {tournament.location || "Lokasi belum diumumkan"}
+                </span>
               </p>
-            </div>
+            }
+          >
+            {nomor.length > 0 && (
+              <ul className="event-nomor" aria-label="Nomor pertandingan">
+                {nomor.map((n) => (
+                  <li key={n.id}>
+                    <strong>{n.name}</strong>
+                    <span>
+                      {n.pairs ? `${n.pairs} pasangan` : "Peserta menyusul"}
+                    </span>
+                    <span>
+                      {n.start ? `Mulai ${n.start} WIB` : "Jadwal menyusul"}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </TournamentHeader>
-          {/* SSE Connection Pill & Referee Link */}
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-card border border-line text-xs">
-              <span
-                className={`w-2 h-2 rounded-full ${
-                  isConnected ? "bg-kinetic" : "bg-amber-400"
-                }`}
-              />
-              <span className="text-[11px] font-extrabold uppercase tracking-wider text-secondary">
-                {isConnected ? "Skor terhubung" : "Menghubungkan"}
-              </span>
-            </div>
-
-            <Link
-              href="/login"
-              className="px-3.5 py-1.5 bg-surface-tint hover:bg-surface-hover text-xs font-semibold text-ink rounded-xl transition"
-            >
-              Ruang pengelola
-            </Link>
-          </div>
+          {tournament.status === "IN_PROGRESS" && (
+            <p className="event-connection" role="status">
+              <span className={isConnected ? "is-on" : ""} aria-hidden="true" />
+              {isConnected
+                ? "Skor diperbarui langsung"
+                : "Menghubungkan ke skor langsung…"}
+            </p>
+          )}
         </div>
       </header>
 
@@ -335,61 +409,26 @@ function TournamentPublicContent({
         )}
         <Sponsors tournamentId={tournament.id} />
         {/* Navigation Tabs */}
-        <div className="app-tabs flex border-b border-line space-x-6 overflow-x-auto pb-1">
-          {[
-            {
-              key: "live" as const,
-              label: `Lapangan live (${liveCourts.filter((c) => c.activeMatch).length})`,
-            },
-            ...(formats.some((f) =>
-              [
-                "SINGLE_ELIMINATION",
-                "DOUBLE_ELIMINATION",
-                "GROUP_KNOCKOUT",
-              ].includes(f),
-            )
-              ? [{ key: "brackets" as const, label: "Bagan gugur" }]
-              : []),
-            ...(formats.some((f) =>
-              ["GROUP_KNOCKOUT", "ROUND_ROBIN", "LEAGUE"].includes(f),
-            )
-              ? [{ key: "groups" as const, label: "Klasemen grup" }]
-              : []),
-            { key: "disputes" as const, label: "Sanggah hasil" },
-            {
-              key: "matches" as const,
-              label: `Jadwal pertandingan (${allMatches.length})`,
-            },
-            {
-              key: "entries" as const,
-              label: `Peserta terdaftar (${
-                tournament.categories?.reduce(
-                  (acc, c) => acc + (c.entries?.length || 0),
-                  0,
-                ) || 0
-              })`,
-            },
-            {
-              key: "categories" as const,
-              label: `Kategori & format (${tournament.categories?.length || 0})`,
-            },
-          ].map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              aria-pressed={activeTab === tab.key}
-              className={`pb-3 text-sm font-extrabold tracking-wide transition border-b-2 whitespace-nowrap cursor-pointer ${
-                activeTab === tab.key
-                  ? "border-brand text-white"
-                  : "border-transparent text-secondary hover:text-ink"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        {visibleTabs.length > 1 && (
+          <div className="app-tabs flex border-b border-line space-x-6 overflow-x-auto pb-1">
+            {visibleTabs.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                aria-pressed={currentTab === tab.key}
+                className={`pb-3 text-sm font-extrabold tracking-wide transition border-b-2 whitespace-nowrap cursor-pointer ${
+                  currentTab === tab.key
+                    ? "border-brand text-white"
+                    : "border-transparent text-secondary hover:text-ink"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        )}
 
-        {activeTab === "disputes" && (
+        {currentTab === "disputes" && (
           <section className="panel space-y-4">
             <h2 className="text-xl font-bold">Sanggah hasil pertandingan</h2>
             <p className="text-secondary">
@@ -429,7 +468,7 @@ function TournamentPublicContent({
           </section>
         )}
         {/* Tab 1: Live Courts */}
-        {activeTab === "live" && (
+        {currentTab === "live" && (
           <div className="space-y-6">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-lg font-extrabold text-ink tracking-tight">
@@ -553,7 +592,7 @@ function TournamentPublicContent({
         )}
 
         {/* Tab 2: Brackets & Standings (BracketViewer) */}
-        {["brackets", "groups"].includes(activeTab) && (
+        {["brackets", "groups"].includes(currentTab) && (
           <div className="space-y-6">
             {/* Category Select Pills */}
             <div className="flex items-center gap-2 overflow-x-auto pb-2">
@@ -593,14 +632,14 @@ function TournamentPublicContent({
             ) : (
               <BracketViewer
                 stages={bracketStages}
-                view={activeTab === "groups" ? "GROUP" : "KNOCKOUT"}
+                view={currentTab === "groups" ? "GROUP" : "KNOCKOUT"}
               />
             )}
           </div>
         )}
 
         {/* Tab 3: Matches & Schedule */}
-        {activeTab === "matches" && (
+        {currentTab === "matches" && (
           <div className="space-y-4">
             {/* Filter Pills */}
             <div className="flex flex-wrap items-center gap-2">
@@ -623,6 +662,28 @@ function TournamentPublicContent({
                 </button>
               ))}
             </div>
+            {nomor.length > 1 && (
+              <div
+                className="flex flex-wrap items-center gap-2"
+                role="group"
+                aria-label="Pilih nomor"
+              >
+                {[{ id: "ALL", name: "Semua nomor" }, ...nomor].map((n) => (
+                  <button
+                    key={n.id}
+                    aria-pressed={categoryFilter === n.id}
+                    onClick={() => setCategoryFilter(n.id)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+                      categoryFilter === n.id
+                        ? "bg-ink text-inverse"
+                        : "bg-card border border-line text-secondary hover:text-ink"
+                    }`}
+                  >
+                    {n.name}
+                  </button>
+                ))}
+              </div>
+            )}
 
             <div className="bg-card border border-line rounded-2xl overflow-hidden shadow-card">
               <div className="divide-y divide-line">
@@ -675,91 +736,58 @@ function TournamentPublicContent({
         )}
 
         {/* Tab 4: Registered Pairs */}
-        {activeTab === "entries" && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            {tournament.categories?.flatMap((cat) =>
-              cat.entries?.map((e) => (
-                <div
-                  key={e.id}
-                  className="p-4 bg-card border border-line rounded-2xl space-y-1 shadow-card"
-                >
-                  <div className="flex justify-between items-center">
-                    <span className="font-bold text-ink text-sm flex items-center gap-2">
-                      {e.players?.map(
-                        ({ player }) =>
-                          player && (
-                            <PlayerPhoto
-                              key={player.id}
-                              id={player.id}
-                              name={player.fullName}
-                            />
-                          ),
-                      )}
-                      {e.name}
+        {currentTab === "entries" && (
+          <div className="space-y-8">
+            {tournament.categories?.map((cat) => {
+              const list = (cat.entries ?? []).filter(
+                (e) => e.status !== "WITHDRAWN",
+              );
+              return (
+                <section key={cat.id} className="entry-board">
+                  <header>
+                    <h2>{cat.name}</h2>
+                    <span>
+                      {list.filter(isMainEntry).length}
+                      {cat.maxEntries ? ` dari ${cat.maxEntries}` : ""} pasangan
+                      · {formatLabel(cat.format)}
                     </span>
-                    {e.seed && (
-                      <span className="text-[10px] font-mono font-bold text-warning-ink bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-                        Unggulan #{e.seed}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-secondary">
-                    {cat.name} · {entryStatusLabel(e, cat.entries ?? [])}
-                  </p>
-                </div>
-              )),
-            )}
-          </div>
-        )}
-
-        {/* Tab 5: Categories */}
-        {activeTab === "categories" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {tournament.categories?.map((cat) => (
-              <div
-                key={cat.id}
-                className="bg-card border border-line rounded-2xl p-6 space-y-4"
-              >
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="text-base font-bold text-ink">{cat.name}</h3>
-                    <span className="text-xs bg-surface-tint text-secondary px-2 py-0.5 rounded mt-1 inline-block">
-                      {formatLabel(cat.format)}
-                    </span>
-                  </div>
-                  <span className="text-xs text-secondary">
-                    {cat.entries?.length || 0} pasangan terdaftar
-                  </span>
-                </div>
-
-                {cat.ruleset && (
-                  <div className="bg-canvas p-3.5 rounded-xl border border-line text-xs space-y-1.5 text-secondary">
-                    <div className="flex justify-between">
-                      <span>Sistem Set:</span>
-                      <span className="text-ink font-medium">
-                        Best of {cat.ruleset.setsToWin * 2 - 1} sets
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Format Deuce:</span>
-                      <span className="text-brand font-bold">
-                        {cat.ruleset.goldenPoint
-                          ? "Golden Point (Punto de Oro)"
-                          : "Advantage"}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Super Tiebreak:</span>
-                      <span className="text-ink font-medium">
-                        {cat.ruleset.superTiebreak
-                          ? `Super tiebreak ${cat.ruleset.superTiebreakPts} poin`
-                          : "Set penuh"}
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
+                  </header>
+                  {list.length ? (
+                    <ol>
+                      {list.map((e, i) => (
+                        <li key={e.id}>
+                          <span className="entry-number">{i + 1}</span>
+                          <span className="entry-photos" aria-hidden="true">
+                            {e.players?.map(
+                              ({ player }) =>
+                                player && (
+                                  <PlayerPhoto
+                                    key={player.id}
+                                    id={player.id}
+                                    name={player.fullName}
+                                  />
+                                ),
+                            )}
+                          </span>
+                          <span className="entry-name">{e.name}</span>
+                          {e.seed ? (
+                            <span className="entry-tag">Unggulan {e.seed}</span>
+                          ) : !isMainEntry(e) ? (
+                            <span className="entry-tag">
+                              {entryStatusLabel(e, cat.entries ?? [])}
+                            </span>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ol>
+                  ) : (
+                    <p className="entry-empty">
+                      Daftar pasangan diumumkan menyusul.
+                    </p>
+                  )}
+                </section>
+              );
+            })}
           </div>
         )}
       </main>

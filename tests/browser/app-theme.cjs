@@ -189,10 +189,8 @@ const prisma = new PrismaClient();
     });
     await page.goto(baseURL + `/tournament/${tournament.slug}`);
     for (const name of [
-      "Bagan & klasemen",
       "Jadwal pertandingan",
-      "Peserta terdaftar",
-      "Kategori & format",
+      "Peserta",
     ]) {
       await page.getByRole("button", { name, exact: false }).first().click();
       await expect(

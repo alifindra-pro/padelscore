@@ -202,3 +202,36 @@ it("seeds the 10 qualifiers by results into the 9-match knockout and applies rou
     deuce: "GOLDEN_POINT",
   });
 }, 120000);
+
+it("keeps registering the second category while the first is already playing", async () => {
+  const { EntryService } = await import("@/services/entry.service");
+  const men = await prisma.category.create({
+    data: {
+      tournamentId,
+      name: "Rookie Men",
+      format: "GROUP_KNOCKOUT",
+      maxEntries: 20,
+    },
+  });
+  await prisma.tournament.update({
+    where: { id: tournamentId },
+    data: { status: "IN_PROGRESS" },
+  });
+  const added = await EntryService.createEntry({
+    categoryId: men.id,
+    name: "Men A / Men B",
+    playerIds: [],
+    playerNames: ["Men A", "Men B"],
+    userId,
+  });
+  expect(added.status).toBe("REGISTERED");
+  await expect(
+    EntryService.createEntry({
+      categoryId,
+      name: "Late A / Late B",
+      playerIds: [],
+      playerNames: ["Late A", "Late B"],
+      userId,
+    }),
+  ).rejects.toThrow("bagan kategori ini sudah dibuat");
+}, 60000);

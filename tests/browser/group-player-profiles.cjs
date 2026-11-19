@@ -231,7 +231,8 @@ const base = process.env.TEST_BASE_URL || "http://127.0.0.1:3199";
     const viewer = await browser.newContext();
     const publicPage = await viewer.newPage();
     await publicPage.goto(base + "/tournament/" + t.slug);
-    await publicPage.getByRole("button", { name: /Peserta terdaftar/ }).click();
+    const pairsTab = publicPage.getByRole("button", { name: /^Peserta/ });
+    if (await pairsTab.count()) await pairsTab.click();
     await expect(
       publicPage.getByRole("img", { name: "Foto Andi Profile", exact: true }),
     ).toBeVisible();

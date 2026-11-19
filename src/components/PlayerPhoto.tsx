@@ -18,16 +18,19 @@ export function PlayerPhoto({
       </span>
     );
   // Authenticated images use the original URL; optimization would drop session cookies.
+  // The initial sits underneath, so nothing is blank while the photo loads.
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={url}
-      alt={`Foto ${name}`}
-      width={32}
-      height={32}
-      loading="lazy"
-      className="player-photo"
-      onError={() => setFailed(url)}
-    />
+    <span className="player-photo player-photo-initial player-photo-frame">
+      {name.charAt(0).toUpperCase()}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={url}
+        alt={`Foto ${name}`}
+        width={32}
+        height={32}
+        loading="lazy"
+        onError={() => setFailed(url)}
+      />
+    </span>
   );
 }

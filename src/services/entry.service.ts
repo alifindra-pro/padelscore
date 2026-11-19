@@ -54,14 +54,16 @@ export class EntryService {
           throw AppError.conflict(
             "Pendaftaran belum dibuka atau sudah ditutup",
           );
+        // Lock per category: one category may already be playing while another
+        // still registers pairs, e.g. women in the morning and men in the afternoon.
         if (
-          ["IN_PROGRESS", "COMPLETED", "ARCHIVED"].includes(
-            currentTournament.status,
-          ) ||
+          ["COMPLETED", "ARCHIVED"].includes(currentTournament.status) ||
           category._count.stages
         )
           throw AppError.conflict(
-            "Peserta dikunci karena bagan sudah dibuat atau turnamen telah berjalan",
+            category._count.stages
+              ? "Peserta dikunci karena bagan kategori ini sudah dibuat"
+              : "Turnamen sudah selesai; peserta tidak dapat ditambah",
           );
         const activeCount = await tx.entry.count({
           where: {
@@ -251,9 +253,7 @@ export class EntryService {
       if (params.status && params.status !== current.status) {
         if (
           (await tx.stage.count({ where: { categoryId: category.id } })) ||
-          ["IN_PROGRESS", "COMPLETED", "ARCHIVED"].includes(
-            category.tournament.status,
-          )
+          ["COMPLETED", "ARCHIVED"].includes(category.tournament.status)
         )
           throw AppError.conflict(
             "Bagan sudah dibuat. Perubahan peserta harus ditangani melalui pengelolaan pertandingan.",
