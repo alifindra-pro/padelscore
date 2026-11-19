@@ -966,7 +966,7 @@ export default function Workspace({
                             disabled={busy}
                             onClick={() => setEditingEntry(e.id)}
                           >
-                            Ubah nama
+                            Ubah nama & foto
                           </button>
                         )}
                         {editingEntry === e.id && e.players?.length === 2 && (
@@ -1005,15 +1005,53 @@ export default function Workspace({
                             }}
                           >
                             {e.players.map(({ player }, k) => (
-                              <label className="field" key={player.id}>
-                                Pemain {k + 1}
-                                <input
-                                  name={`p${k}`}
-                                  defaultValue={player.fullName}
-                                  minLength={2}
-                                  required
-                                />
-                              </label>
+                              <div className="space-y-2" key={player.id}>
+                                <label className="field">
+                                  Pemain {k + 1}
+                                  <input
+                                    name={`p${k}`}
+                                    defaultValue={player.fullName}
+                                    minLength={2}
+                                    required
+                                  />
+                                </label>
+                                <label className="field text-sm">
+                                  Foto pemain {k + 1} (JPEG, PNG, atau WebP,
+                                  maks. 4 MB)
+                                  <input
+                                    type="file"
+                                    accept="image/jpeg,image/png,image/webp"
+                                    disabled={busy}
+                                    onChange={(ev) => {
+                                      const file = ev.target.files?.[0];
+                                      ev.target.value = "";
+                                      if (!file) return;
+                                      // Uploads right away; the photo shows on
+                                      // the bracket and public pages for this player.
+                                      void run(async () => {
+                                        const body = new FormData();
+                                        body.set("photo", file);
+                                        const res = await fetch(
+                                          `/api/v2/players/${player.id}/photo`,
+                                          {
+                                            method: "POST",
+                                            body,
+                                            headers: {
+                                              "X-Organization-Id":
+                                                t.organizationId,
+                                            },
+                                          },
+                                        );
+                                        if (!res.ok)
+                                          throw Error(
+                                            (await res.json()).error?.message ??
+                                              "Foto gagal disimpan",
+                                          );
+                                      }, `Foto ${player.fullName} disimpan`);
+                                    }}
+                                  />
+                                </label>
+                              </div>
                             ))}
                             <div className="flex gap-2 sm:col-span-2">
                               <button className="btn-primary" disabled={busy}>

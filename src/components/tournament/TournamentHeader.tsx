@@ -183,3 +183,8 @@ export function TournamentPoster({ id, name }: { id: string; name: string }) {
     </a>
   );
 }
+
+/** Header settings of the tournament page this component sits in. */
+export function useTournamentHeader() {
+  return useContext(HeaderContext);
+}

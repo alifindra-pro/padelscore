@@ -25,12 +25,13 @@ import React, { useCallback, useEffect, useState, use, Suspense } from "react";
 import Link from "next/link";
 import { entryStatusLabel, isMainEntry } from "@/lib/entry-status";
 import {
-  TournamentHeader,
   TournamentPoster,
   TournamentTheme,
 } from "@/components/tournament/TournamentHeader";
 import { RegistrationForm } from "@/components/tournament/RegistrationForm";
 import { DisputeForm } from "@/components/tournament/DisputeForm";
+import { EventHero } from "@/components/tournament/EventHero";
+import { categoryStyle } from "@/lib/category-color";
 import { PlayerPhoto } from "@/components/PlayerPhoto";
 import { apiFetch } from "@/lib/api-client";
 import { useSSE } from "@/hooks/useSSE";
@@ -359,58 +360,45 @@ function TournamentPublicContent({
   return (
     <TournamentTheme id={tournament.id}>
       {/* Tournament Header */}
-      <header className="event-context-header border-b border-line">
-        <div className="page-shell py-5 space-y-4">
-          <TournamentHeader
-            id={tournament.id}
-            name={tournament.name}
-            showBanner={false}
-            meta={
-              <p className="event-meta">
-                <span
-                  className={
-                    tournament.status === "IN_PROGRESS"
-                      ? "status-live"
-                      : "event-status"
-                  }
-                >
-                  {tournament.status === "PUBLISHED"
-                    ? "Akan datang"
-                    : tournamentStatusLabel(tournament.status)}
-                </span>
-                <span>
-                  {eventDates(tournament.startDate, tournament.endDate)} ·{" "}
-                  {tournament.location || "Lokasi belum diumumkan"}
-                </span>
-              </p>
-            }
-          >
-            {nomor.length > 0 && (
-              <ul className="event-nomor" aria-label="Nomor pertandingan">
-                {nomor.map((n) => (
-                  <li key={n.id}>
-                    <strong>{n.name}</strong>
-                    <span>
-                      {n.pairs ? `${n.pairs} pasangan` : "Peserta menyusul"}
-                    </span>
-                    <span>
-                      {n.start ? `Mulai ${n.start} WIB` : "Jadwal menyusul"}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+      <EventHero
+        id={tournament.id}
+        name={tournament.name}
+        status={{
+          label:
+            tournament.status === "PUBLISHED"
+              ? "Akan datang"
+              : tournamentStatusLabel(tournament.status),
+          live: tournament.status === "IN_PROGRESS",
+        }}
+        dateText={eventDates(tournament.startDate, tournament.endDate)}
+        location={tournament.location || "Lokasi belum diumumkan"}
+        categories={nomor}
+        actions={
+          <>
+            <a className="event-hero-primary" href="#peserta">
+              Lihat peserta
+            </a>
+            {ruleGroups.length > 0 && (
+              <a className="event-hero-secondary" href="#aturan">
+                Aturan main
+              </a>
             )}
-          </TournamentHeader>
-          {tournament.status === "IN_PROGRESS" && (
-            <p className="event-connection" role="status">
-              <span className={isConnected ? "is-on" : ""} aria-hidden="true" />
-              {isConnected
-                ? "Skor diperbarui langsung"
-                : "Menghubungkan ke skor langsung…"}
-            </p>
-          )}
-        </div>
-      </header>
+            {tournament.status === "REGISTRATION" && (
+              <a className="event-hero-secondary" href="#registration">
+                Daftar pasangan
+              </a>
+            )}
+          </>
+        }
+      />
+      {tournament.status === "IN_PROGRESS" && (
+        <p className="page-shell event-connection" role="status">
+          <span className={isConnected ? "is-on" : ""} aria-hidden="true" />
+          {isConnected
+            ? "Skor diperbarui langsung"
+            : "Menghubungkan ke skor langsung…"}
+        </p>
+      )}
 
       {/* Main Hub Content */}
       <main className="flex-1 page-shell py-8 space-y-10">
@@ -708,8 +696,18 @@ function TournamentPublicContent({
                           {m.entryA?.name || "TBD"} vs {m.entryB?.name || "TBD"}
                         </div>
                         <div className="text-xs text-secondary mt-0.5">
-                          {m.categoryName} &bull;{" "}
-                          {m.court?.name || "Lapangan TBA"} &bull; Babak{" "}
+                          <span
+                            className="cat-chip"
+                            style={categoryStyle(
+                              m.categoryName,
+                              (tournament.categories ?? []).findIndex(
+                                (c) => c.id === m.categoryId,
+                              ),
+                            )}
+                          >
+                            {m.categoryName}
+                          </span>{" "}
+                          &bull; {m.court?.name || "Lapangan TBA"} &bull; Babak{" "}
                           {m.round}
                         </div>
                       </div>
@@ -745,15 +743,31 @@ function TournamentPublicContent({
         <TournamentPoster id={tournament.id} name={tournament.name} />
         <Sponsors tournamentId={tournament.id} />
         {ruleGroups.length > 0 && (
-          <section className="event-section" aria-labelledby="rules-title">
+          <section
+            id="aturan"
+            className="event-section"
+            aria-labelledby="rules-title"
+          >
             <h2 id="rules-title">Aturan main</h2>
             <div className="rules-grid">
               {ruleGroups.map((group) => (
                 <article key={group.key} className="rules-card">
                   <h3>
-                    {group.names.length > 1
-                      ? `Berlaku untuk ${group.names.join(" dan ")}`
-                      : group.names[0]}
+                    {group.names.length > 1 ? "Berlaku untuk " : ""}
+                    {group.names.map((n) => (
+                      <span
+                        key={n}
+                        className="cat-chip"
+                        style={categoryStyle(
+                          n,
+                          (tournament.categories ?? []).findIndex(
+                            (c) => c.name === n,
+                          ),
+                        )}
+                      >
+                        {n}
+                      </span>
+                    ))}
                   </h3>
                   <dl>
                     {group.lines.map((line) => {
@@ -771,11 +785,15 @@ function TournamentPublicContent({
             </div>
           </section>
         )}
-        <section className="event-section" aria-labelledby="pairs-title">
+        <section
+          id="peserta"
+          className="event-section"
+          aria-labelledby="pairs-title"
+        >
           <h2 id="pairs-title">Peserta</h2>
 
           <div className="space-y-8">
-            {tournament.categories?.map((cat) => {
+            {tournament.categories?.map((cat, catIndex) => {
               const list = (cat.entries ?? []).filter(
                 (e) => e.status !== "WITHDRAWN",
               );
@@ -783,13 +801,16 @@ function TournamentPublicContent({
               const open = !cat.stages?.length && list.length > 0;
               const objected = list.find((e) => e.id === objection?.id);
               return (
-                <section key={cat.id} className="entry-board">
+                <section
+                  key={cat.id}
+                  className="entry-board"
+                  style={categoryStyle(cat.name, catIndex)}
+                >
                   <header>
-                    <h2>{cat.name}</h2>
-                    <span>
-                      {list.filter(isMainEntry).length}
-                      {cat.maxEntries ? ` dari ${cat.maxEntries}` : ""} pasangan
-                      · {formatLabel(cat.format)}
+                    <h3>{cat.name}</h3>
+                    <span className="entry-count">
+                      <strong>{list.filter(isMainEntry).length}</strong>
+                      {cat.maxEntries ? ` / ${cat.maxEntries}` : ""} pasangan
                     </span>
                   </header>
                   {open && (
@@ -849,7 +870,14 @@ function TournamentPublicContent({
                     </ol>
                   ) : (
                     <p className="entry-empty">
-                      Daftar pasangan diumumkan menyusul.
+                      {tournament.status === "REGISTRATION" ? (
+                        <>
+                          Belum ada pasangan terdaftar.{" "}
+                          <a href="#registration">Daftarkan pasangan Anda</a>
+                        </>
+                      ) : (
+                        "Daftar pasangan diumumkan menyusul."
+                      )}
                     </p>
                   )}
                 </section>

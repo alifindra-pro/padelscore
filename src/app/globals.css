@@ -2678,3 +2678,82 @@
   .header-backdrop img { object-position: center top; opacity: 0.12; }
   .header-backdrop::after { background: none; }
 }
+
+/* ---- Public event hero ------------------------------------------------
+   Dark navy band so the title is the single focal point. The uploaded
+   poster is a faint backdrop (the "transparent header"); the uploaded
+   artwork sits crisp on a white card. The tournament colour is the accent. */
+.event-hero { position: relative; overflow: hidden; isolation: isolate; background: var(--color-ink); color: var(--color-inverse); border-top: 6px solid var(--color-brand); }
+.event-hero-backdrop { position: absolute; inset: 0; z-index: -1; }
+.event-hero-backdrop img { width: 100%; height: 100%; object-fit: cover; object-position: center 30%; opacity: 0.18; filter: grayscale(0.3); }
+.event-hero-backdrop::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, var(--color-ink) 0%, rgb(20 46 67 / 88%) 55%, rgb(20 46 67 / 55%) 100%); }
+.event-hero-inner { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 40px; padding-block: clamp(32px, 6vw, 64px); }
+.event-hero-copy { min-width: 0; }
+.event-hero-status span { display: inline-flex; align-items: center; gap: 8px; padding: 4px 12px; border-radius: 999px; background: rgb(255 255 255 / 12%); font-size: 13px; font-weight: 700; }
+.event-hero-status span::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #c5d3de; }
+.event-hero-status span.is-live { background: var(--color-kinetic); color: var(--color-ink); }
+.event-hero-status span.is-live::before { background: var(--color-ink); }
+.event-hero h1 { margin-top: 14px; font-size: clamp(34px, 5.2vw, 60px); font-weight: 800; line-height: 1.04; letter-spacing: -0.03em; overflow-wrap: anywhere; }
+.event-hero-facts { display: flex; flex-wrap: wrap; gap: 6px 20px; margin-top: 14px; font-size: 16px; font-weight: 600; color: #dbe5ec; }
+.event-hero-facts li + li::before { content: "·"; margin-right: 20px; color: #7f96a8; }
+.event-hero-description { max-width: 62ch; margin-top: 16px; font-size: 15px; line-height: 1.65; color: #c5d3de; white-space: pre-line; }
+.event-hero-categories { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; max-width: 640px; margin-top: 24px; }
+.event-hero-categories li { display: grid; gap: 2px; padding: 12px 14px; border: 1px solid rgb(255 255 255 / 16%); border-left: 4px solid var(--color-brand-accent); border-radius: 10px; background: rgb(255 255 255 / 6%); }
+.event-hero-categories strong { font-size: 17px; }
+.event-hero-categories span { font-size: 14px; color: #c5d3de; }
+.event-hero-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 26px; }
+.event-hero-primary, .event-hero-secondary { display: inline-flex; align-items: center; min-height: 46px; padding: 0 20px; border-radius: 8px; font-size: 15px; font-weight: 700; }
+.event-hero-primary { background: var(--color-kinetic); color: var(--color-ink); }
+.event-hero-primary:hover { background: var(--color-kinetic-hover); }
+.event-hero-secondary { border: 1px solid rgb(255 255 255 / 35%); color: var(--color-inverse); }
+.event-hero-secondary:hover { border-color: var(--color-inverse); background: rgb(255 255 255 / 8%); }
+.event-hero-art { width: clamp(220px, 26vw, 340px); aspect-ratio: 1; padding: 14px; border-radius: 16px; background: #ffffff; box-shadow: 0 20px 50px rgb(0 0 0 / 35%); }
+.event-hero-art img { width: 100%; height: 100%; object-fit: contain; }
+.event-hero-sponsors { border-top: 1px solid rgb(255 255 255 / 14%); background: rgb(0 0 0 / 18%); }
+.event-hero-sponsors .page-shell { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; padding-block: 14px; }
+.event-hero-sponsors span { font-size: 13px; font-weight: 700; color: #c5d3de; }
+.event-hero-sponsors ul { display: flex; flex-wrap: wrap; gap: 10px; }
+.event-hero-sponsors li { display: grid; place-items: center; height: 56px; padding: 6px 14px; border-radius: 8px; background: #ffffff; }
+.event-hero-sponsors img { max-height: 44px; max-width: 160px; object-fit: contain; }
+@media (max-width: 860px) {
+  .event-hero-inner { grid-template-columns: 1fr; gap: 24px; }
+  .event-hero-art { order: -1; width: min(200px, 55vw); }
+  .event-hero-backdrop::after { background: linear-gradient(180deg, rgb(20 46 67 / 80%), var(--color-ink) 70%); }
+}
+@media (max-width: 599px) {
+  .event-hero-actions > a { flex: 1 1 100%; justify-content: center; }
+  .event-hero-facts li + li::before { display: none; }
+  .event-hero-facts { flex-direction: column; }
+}
+
+/* ---- Sponsor spotlight by level ---------------------------------------- */
+.sponsor-section.event-section > h2 + * { margin-top: 0; }
+.event-section .sponsor-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); }
+.event-section .sponsor-main { grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); }
+.event-section .sponsor-main .sponsor-tile { padding: 28px 24px; border-top: 4px solid var(--color-brand); gap: 14px; }
+.event-section .sponsor-main .sponsor-tile img { height: 150px; max-width: 320px; }
+.event-section .sponsor-main .sponsor-tile strong, .event-section .sponsor-main .sponsor-tile a { font-size: 16px; }
+.event-section .sponsor-tile img { height: 80px; }
+
+/* ---- Category colours (women pink, men blue, ...) ---------------------- */
+.cat-chip { display: inline-flex; align-items: center; margin: 0 4px 4px 0; padding: 2px 10px; border-radius: 999px; background: var(--cat-soft); color: var(--cat); font-weight: 700; }
+.rules-card h3 { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.rules-card h3 .cat-chip { font-size: 14px; }
+.event-hero-categories li { border-left-color: var(--cat, var(--color-brand-accent)); }
+.event-hero-categories li strong { display: inline-flex; align-items: center; gap: 8px; }
+.event-hero-categories li strong::before { content: ""; width: 10px; height: 10px; border-radius: 3px; background: var(--cat, var(--color-brand-accent)); }
+.entry-board { padding: 18px; border: 1px solid var(--color-line); border-top: 5px solid var(--cat); border-radius: 14px; background: var(--color-card); }
+.entry-board + .entry-board { margin-top: 20px; }
+.entry-board > header { align-items: center; padding-bottom: 12px; margin-bottom: 14px; border-bottom: 1px solid var(--color-line-subtle); }
+.entry-board > header h3 { font-size: 22px; font-weight: 800; color: var(--cat); }
+.entry-board .entry-count { padding: 4px 12px; border-radius: 999px; background: var(--cat-soft); color: var(--cat); font-size: 14px; }
+.entry-board .entry-count strong { font-size: 16px; }
+.entry-board li { background: var(--color-canvas); }
+.entry-board .entry-number { display: inline-grid; place-items: center; min-width: 28px; height: 28px; border-radius: 8px; background: var(--cat-soft); color: var(--cat); }
+.entry-empty { background: var(--cat-soft); border-color: transparent; color: var(--color-ink); }
+.entry-empty a { color: var(--cat); font-weight: 700; text-decoration: underline; }
+.event-hero-details { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); gap: 12px 24px; max-width: 760px; margin-top: 20px; }
+.event-hero-details > div { display: grid; gap: 2px; padding-left: 12px; border-left: 2px solid rgb(255 255 255 / 22%); }
+.event-hero-details dt { font-size: 12px; font-weight: 700; color: #a9bccb; }
+.event-hero-details dd { font-size: 16px; font-weight: 700; color: var(--color-inverse); overflow-wrap: anywhere; }
+.event-hero-details a { color: var(--color-kinetic); text-decoration: underline; text-underline-offset: 3px; }
