@@ -77,7 +77,8 @@ function Content({ params }: { params: Promise<{ id: string }> }) {
   const [desk, setDesk] = useState<Desk>();
   const [svg, setSvg] = useState("");
   const [screen, setScreen] = useState(false);
-  const [filter, setFilter] = useState<"ALL" | "MISSING">("ALL");
+  const [filter, setFilter] = useState<"ALL" | "IN" | "OUT">("ALL");
+  const [query, setQuery] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
@@ -164,10 +165,21 @@ function Content({ params }: { params: Promise<{ id: string }> }) {
   const complete = entries.filter(
     (e) => e.players.length && e.players.every((p) => p.checkedInAt),
   ).length;
-  const shown =
-    filter === "MISSING"
-      ? entries.filter((e) => e.players.some((p) => !p.checkedInAt))
-      : entries;
+  const q = query.trim().toLowerCase();
+  const matches = (text: string) => !q || text.toLowerCase().includes(q);
+  const shownPairs = entries.filter(
+    (e) => matches(e.name) || e.players.some((p) => matches(p.player.fullName)),
+  );
+  // One row per player for the "present" and "absent" tabs.
+  const rows = entries
+    .flatMap((e) => e.players.map((p) => ({ ...p, entry: e })))
+    .filter((r) => (filter === "IN" ? r.checkedInAt : !r.checkedInAt))
+    .filter((r) => matches(r.player.fullName) || matches(r.entry.name))
+    .sort((a, b) =>
+      filter === "IN"
+        ? (b.checkedInAt ?? "").localeCompare(a.checkedInAt ?? "")
+        : a.entry.name.localeCompare(b.entry.name),
+    );
   const ttl = desk?.qr
     ? Math.max(1, Math.round((desk.qr.expiresAt - desk.serverTime) / 1000))
     : 0;
@@ -341,81 +353,143 @@ function Content({ params }: { params: Promise<{ id: string }> }) {
       </div>
 
       <section className="panel space-y-4" aria-labelledby="list-title">
-        <div className="checkin-list-head">
-          <div>
-            <h2 id="list-title" className="panel-title">
-              Kehadiran
-            </h2>
-            <p className="checkin-count">
-              <strong>{present}</strong> / {players.length} pemain hadir ·{" "}
-              <strong>{complete}</strong> / {entries.length} pasangan lengkap
-            </p>
-          </div>
-          <div className="checkin-filter" role="group" aria-label="Saring">
-            <button
-              aria-pressed={filter === "ALL"}
-              onClick={() => setFilter("ALL")}
-            >
-              Semua
-            </button>
-            <button
-              aria-pressed={filter === "MISSING"}
-              onClick={() => setFilter("MISSING")}
-            >
-              Belum lengkap ({entries.length - complete})
-            </button>
-          </div>
+        <div>
+          <h2 id="list-title" className="panel-title">
+            Kehadiran {category?.name}
+          </h2>
+          <p className="checkin-count">
+            <strong>{present}</strong> / {players.length} pemain hadir ·{" "}
+            <strong>{complete}</strong> / {entries.length} pasangan lengkap
+          </p>
         </div>
-        {shown.length ? (
-          <ol className="checkin-list">
-            {shown.map((e) => {
-              const n = e.players.filter((p) => p.checkedInAt).length;
-              return (
-                <li
-                  key={e.id}
-                  className={n === e.players.length && n ? "is-complete" : ""}
-                >
-                  <span className="checkin-pair">
-                    {e.name}
-                    <small>
-                      {n === e.players.length && n
-                        ? "Lengkap"
-                        : `${n} / ${e.players.length} hadir`}
-                    </small>
-                  </span>
-                  <span className="checkin-players">
-                    {e.players.map((p) => (
-                      <button
-                        key={p.player.id}
-                        className={
-                          p.checkedInAt ? "checkin-chip is-in" : "checkin-chip"
-                        }
-                        aria-pressed={!!p.checkedInAt}
-                        title={
-                          p.checkedInAt
-                            ? "Tekan untuk membatalkan check-in"
-                            : "Tekan untuk menandai hadir"
-                        }
-                        onClick={() => mark(e.id, p.player.id, !p.checkedInAt)}
-                      >
-                        <span>{p.player.fullName}</span>
-                        <small>
-                          {p.checkedInAt
-                            ? `Hadir ${clock(p.checkedInAt, tz)}${p.checkInMethod === "MANUAL" ? " · panitia" : ""}`
-                            : "Belum check-in"}
-                        </small>
-                      </button>
-                    ))}
-                  </span>
-                </li>
-              );
-            })}
+        <div
+          className="checkin-filter"
+          role="tablist"
+          aria-label="Daftar kehadiran"
+        >
+          {(
+            [
+              ["ALL", "Semua pasangan", entries.length],
+              ["IN", "Sudah check-in", present],
+              ["OUT", "Belum check-in", players.length - present],
+            ] as const
+          ).map(([key, label, count]) => (
+            <button
+              key={key}
+              role="tab"
+              aria-selected={filter === key}
+              className={`is-${key.toLowerCase()}`}
+              onClick={() => setFilter(key)}
+            >
+              {label}
+              <strong>{count}</strong>
+            </button>
+          ))}
+        </div>
+        <label className="field">
+          <span className="sr-only">Cari pemain atau pasangan</span>
+          <input
+            type="search"
+            placeholder="Cari nama pemain atau pasangan"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            autoComplete="off"
+          />
+        </label>
+
+        {filter === "ALL" ? (
+          shownPairs.length ? (
+            <ol className="checkin-list">
+              {shownPairs.map((e) => {
+                const n = e.players.filter((p) => p.checkedInAt).length;
+                const full = n > 0 && n === e.players.length;
+                return (
+                  <li key={e.id} className={full ? "is-complete" : ""}>
+                    <span className="checkin-pair">
+                      {e.name}
+                      <small>
+                        {full ? "Lengkap" : `${n} / ${e.players.length} hadir`}
+                      </small>
+                    </span>
+                    <span className="checkin-players">
+                      {e.players.map((p) =>
+                        p.checkedInAt ? (
+                          <span
+                            key={p.player.id}
+                            className="checkin-chip is-in"
+                          >
+                            <span>{p.player.fullName}</span>
+                            <small>
+                              Hadir {clock(p.checkedInAt, tz)}
+                              {p.checkInMethod === "MANUAL" ? " · panitia" : ""}
+                            </small>
+                          </span>
+                        ) : (
+                          <button
+                            key={p.player.id}
+                            className="checkin-chip"
+                            onClick={() => mark(e.id, p.player.id, true)}
+                          >
+                            <span>{p.player.fullName}</span>
+                            <small>Belum check-in · tandai hadir</small>
+                          </button>
+                        ),
+                      )}
+                    </span>
+                  </li>
+                );
+              })}
+            </ol>
+          ) : (
+            <p className="text-sm text-secondary">
+              {entries.length
+                ? "Nama tidak ditemukan."
+                : "Belum ada pasangan di kategori ini."}
+            </p>
+          )
+        ) : rows.length ? (
+          <ol className="checkin-rows">
+            {rows.map((r) => (
+              <li key={`${r.entry.id}:${r.player.id}`}>
+                <span className="checkin-row-name">
+                  {r.player.fullName}
+                  <small>{r.entry.name}</small>
+                </span>
+                {r.checkedInAt ? (
+                  <>
+                    <span className="checkin-row-time">
+                      {clock(r.checkedInAt, tz)}
+                      <small>
+                        {r.checkInMethod === "MANUAL"
+                          ? "oleh panitia"
+                          : "scan QR"}
+                      </small>
+                    </span>
+                    <button
+                      className="btn-secondary text-xs"
+                      onClick={() => mark(r.entry.id, r.player.id, false)}
+                    >
+                      Batalkan
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    className="btn-primary text-xs"
+                    onClick={() => mark(r.entry.id, r.player.id, true)}
+                  >
+                    Tandai hadir
+                  </button>
+                )}
+              </li>
+            ))}
           </ol>
         ) : (
           <p className="text-sm text-secondary">
-            {entries.length
-              ? "Semua pasangan sudah lengkap."
-              : "Belum ada pasangan di kategori ini."}
+            {q
+              ? "Nama tidak ditemukan."
+              : filter === "IN"
+                ? "Belum ada pemain yang check-in."
+                : "Semua pemain sudah check-in."}
           </p>
         )}
       </section>

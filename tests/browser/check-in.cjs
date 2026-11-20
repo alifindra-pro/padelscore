@@ -173,6 +173,40 @@ const shots = process.env.SCREENSHOT_DIR;
     await expect(desk.getByText("Lengkap", { exact: true })).toBeVisible();
     await expect(desk.getByText(/panitia/).first()).toBeVisible();
 
+    // Present / absent tabs list players one by one, with counts.
+    await expect(
+      desk.getByRole("tab", { name: /Sudah check-in\s*2/ }),
+    ).toBeVisible();
+    await expect(
+      desk.getByRole("tab", { name: /Belum check-in\s*2/ }),
+    ).toBeVisible();
+    await desk.getByRole("tab", { name: /Belum check-in/ }).click();
+    await expect(desk.locator(".checkin-rows li")).toHaveCount(2);
+    await desk.getByRole("tab", { name: /Sudah check-in/ }).click();
+    await expect(desk.locator(".checkin-rows li")).toHaveCount(2);
+    await expect(desk.getByText("scan QR")).toBeVisible();
+    await expect(desk.getByText("oleh panitia")).toBeVisible();
+    if (shots)
+      await desk.screenshot({
+        path: `${shots}/checkin-present.png`,
+        fullPage: true,
+      });
+    // Undo needs its own button, then the player is back on the absent tab.
+    await desk
+      .locator(".checkin-rows li", { hasText: "oleh panitia" })
+      .getByRole("button", { name: "Batalkan" })
+      .click();
+    await expect(
+      desk.getByRole("tab", { name: /Belum check-in\s*3/ }),
+    ).toBeVisible();
+    await desk
+      .getByPlaceholder("Cari nama pemain atau pasangan")
+      .fill("Pemain 1");
+    await desk.getByRole("tab", { name: /Belum check-in/ }).click();
+    await expect(desk.locator(".checkin-rows li")).toHaveCount(1);
+    await desk.getByPlaceholder("Cari nama pemain atau pasangan").fill("");
+    await desk.getByRole("tab", { name: /Semua pasangan/ }).click();
+
     // Full-screen QR for the venue desk.
     await desk.getByRole("button", { name: "Tampilkan layar QR" }).click();
     await expect(
@@ -181,10 +215,26 @@ const shots = process.env.SCREENSHOT_DIR;
     if (shots) await desk.screenshot({ path: `${shots}/checkin-screen.png` });
     await desk.getByRole("button", { name: "Tutup layar" }).click();
 
+    // The organizer desk also fits a phone.
+    await desk.setViewportSize({ width: 390, height: 844 });
+    await desk.getByRole("tab", { name: /Sudah check-in/ }).click();
+    assert.equal(
+      await desk.evaluate(
+        () => document.documentElement.scrollWidth > innerWidth + 1,
+      ),
+      false,
+      "desk overflows on a phone",
+    );
+    if (shots)
+      await desk.screenshot({
+        path: `${shots}/checkin-desk-phone.png`,
+        fullPage: true,
+      });
+
     // Spectators see attendance per pair.
     const pub = await phone.newPage();
     await pub.goto(`${base}/tournament/${tournament.slug}#peserta`);
-    await expect(pub.locator(".entry-checkin.is-in")).toHaveText("Hadir");
+    await expect(pub.locator(".entry-checkin").first()).toHaveText("Hadir 1/2");
     await expect(pub.getByText("Belum check-in")).toBeVisible();
 
     assert.deepEqual(errors, []);
