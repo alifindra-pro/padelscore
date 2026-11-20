@@ -11,7 +11,7 @@ export interface EntryView {
   id: string;
   name: string;
   seed?: number | null;
-  players?: { player?: PlayerView | null }[];
+  players?: { player?: PlayerView | null; checkedInAt?: string | null }[];
 }
 
 export interface ScoreSnapshotView {

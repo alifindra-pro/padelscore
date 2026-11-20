@@ -405,14 +405,24 @@ export default function Workspace({
             {t.location || "Lokasi belum diatur"}
           </p>
         </div>
-        {["PUBLISHED", "IN_PROGRESS", "COMPLETED", "ARCHIVED"].includes(
-          t.status,
-        ) && (
-          <Link className="btn-secondary" href={`/tournament/${t.slug}`}>
-            Lihat halaman publik
-            <Icon name="arrow" size={16} />
-          </Link>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {["REGISTRATION", "PUBLISHED", "IN_PROGRESS"].includes(t.status) && (
+            <Link
+              className="btn-kinetic"
+              href={`/admin/tournaments/${id}/checkin`}
+            >
+              Check-in peserta
+            </Link>
+          )}
+          {["PUBLISHED", "IN_PROGRESS", "COMPLETED", "ARCHIVED"].includes(
+            t.status,
+          ) && (
+            <Link className="btn-secondary" href={`/tournament/${t.slug}`}>
+              Lihat halaman publik
+              <Icon name="arrow" size={16} />
+            </Link>
+          )}
+        </div>
       </div>
       <section className="next-step" aria-labelledby="next-step-title">
         <div>

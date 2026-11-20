@@ -88,6 +88,8 @@ const allowed = new Set([
   "status",
   "format",
   "maxEntries",
+  "checkInOpensAt",
+  "checkedInAt",
   "createdAt",
   "seed",
   "round",

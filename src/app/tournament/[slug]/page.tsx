@@ -61,6 +61,8 @@ interface PublicCategory {
   /** Plain numbers for the rules diagram. */
   rulesInfo?: RulesInfo | null;
   maxEntries?: number | null;
+  /** Set once the organizer schedules venue check-in. */
+  checkInOpensAt?: string | null;
   id: string;
   name: string;
   format: string;
@@ -857,6 +859,9 @@ function TournamentPublicContent({
                             )}
                           </span>
                           <span className="entry-name">{e.name}</span>
+                          {cat.checkInOpensAt && isMainEntry(e) && (
+                            <CheckInTag players={e.players ?? []} />
+                          )}
                           {e.seed ? (
                             <span className="entry-tag">Unggulan {e.seed}</span>
                           ) : !isMainEntry(e) ? (
@@ -931,5 +936,20 @@ export default function TournamentPublicPage({
     >
       <TournamentPublicContent params={params} />
     </Suspense>
+  );
+}
+
+/** Venue attendance of one pair, shown once the organizer schedules check-in. */
+function CheckInTag({
+  players,
+}: {
+  players: { checkedInAt?: string | null }[];
+}) {
+  const n = players.filter((p) => p.checkedInAt).length;
+  const all = n > 0 && n === players.length;
+  return (
+    <span className={all ? "entry-checkin is-in" : "entry-checkin"}>
+      {all ? "Hadir" : n ? `Hadir ${n}/${players.length}` : "Belum check-in"}
+    </span>
   );
 }

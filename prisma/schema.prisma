@@ -193,6 +193,9 @@ model Category {
   description String?
   format      CategoryFormat
   maxEntries  Int?           @map("max_entries")
+  // Players check in at the venue between these times (set by the organizer).
+  checkInOpensAt  DateTime?  @map("check_in_opens_at")
+  checkInClosesAt DateTime?  @map("check_in_closes_at")
   status      CategoryStatus @default(DRAFT)
   createdAt   DateTime       @default(now()) @map("created_at")
   updatedAt   DateTime       @updatedAt @map("updated_at")
@@ -272,6 +275,9 @@ model EntryPlayer {
   id        String   @id @default(uuid())
   entryId   String   @map("entry_id")
   playerId  String   @map("player_id")
+  // Venue check-in: by scanning the organizer's QR, or marked by the organizer.
+  checkedInAt   DateTime? @map("checked_in_at")
+  checkInMethod String?   @map("check_in_method")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
