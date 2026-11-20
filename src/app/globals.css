@@ -2943,3 +2943,30 @@
 /* Public pair list */
 .entry-checkin { flex-shrink: 0; padding: 2px 8px; border-radius: 6px; font-size: 12px; font-weight: 700; background: var(--color-surface-tint); color: var(--color-secondary); }
 .entry-checkin.is-in { background: #e8f6f0; color: #0b7a55; }
+
+/* Match start code (referee) */
+.start-code { display: grid; gap: 12px; }
+.start-code-input { font-size: 32px !important; font-weight: 800; letter-spacing: .4em; text-align: center; font-variant-numeric: tabular-nums; }
+.start-code-error { padding: 10px 12px; border-radius: 8px; background: #fdecec; font-weight: 600; color: var(--color-danger); }
+
+/* Referees & start codes (organizer) */
+.referee-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; }
+.referee-courts { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); }
+.referee-courts li { display: grid; gap: 6px; align-content: start; }
+.referee-courts h3 { font-size: 18px; font-weight: 800; color: var(--color-ink); margin-bottom: 6px; }
+.referee-label { font-size: 12px; font-weight: 700; color: var(--color-secondary); }
+.referee-token { font-size: 34px; font-weight: 800; letter-spacing: .18em; color: var(--color-ink); font-variant-numeric: tabular-nums; }
+.referee-link { font-size: 13px; color: var(--color-secondary); overflow-wrap: anywhere; }
+.referee-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.code-rows { display: grid; gap: 8px; }
+.code-rows li { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 6px 14px; align-items: center; padding: 12px; border: 1px solid var(--color-line); border-left: 4px solid var(--cat, var(--color-line)); border-radius: 10px; }
+.code-when { display: grid; font-weight: 800; color: var(--color-ink); font-variant-numeric: tabular-nums; }
+.code-when small, .code-match small { font-size: 12px; font-weight: 600; color: var(--color-secondary); }
+.code-match { display: grid; min-width: 0; font-weight: 700; color: var(--color-ink); overflow-wrap: anywhere; }
+.code-match em { font-style: normal; font-weight: 500; color: var(--color-secondary); }
+.code-value { font-size: 28px; font-weight: 800; letter-spacing: .14em; color: var(--color-ink); font-variant-numeric: tabular-nums; }
+.code-state { grid-column: 2 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; color: var(--color-warning-ink); }
+.code-rows li.is-open .code-state { color: #0b7a55; }
+.code-rows li.is-open .code-value { color: var(--color-secondary); text-decoration: line-through; }
+.code-rows li.is-locked .code-state { color: var(--color-danger); }
+@media (min-width: 900px) { .code-rows li { grid-template-columns: 72px minmax(0, 1fr) auto 220px; } .code-state { grid-column: auto; justify-content: flex-end; } }

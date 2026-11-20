@@ -6,6 +6,7 @@ import { Icon } from "@/components/ui/Icon";
 import React, { useCallback, useEffect, useState, use } from "react";
 import Link from "next/link";
 import { apiFetch } from "@/lib/api-client";
+import { StartCodeGate } from "@/components/referee/StartCodeGate";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import {
   MatchMutationResult,
@@ -27,6 +28,7 @@ function RefereeScoringContent({
   const [loading, setLoading] = useState(true);
   const isOnline = useOnlineStatus();
   const [actionLoading, setActionLoading] = useState(false);
+  const [needsCode, setNeedsCode] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const loadMatch = useCallback(async () => {
@@ -81,9 +83,13 @@ function RefereeScoringContent({
         },
       );
       applyResult(res);
+      setNeedsCode(false);
       await loadMatch();
     } catch (err) {
-      setErrorMessage(errorText(err, "Gagal memulai pertandingan."));
+      // A referee needs the control desk's start code first.
+      if ((err as { code?: string }).code === "START_LOCKED")
+        setNeedsCode(true);
+      else setErrorMessage(errorText(err, "Gagal memulai pertandingan."));
     } finally {
       setActionLoading(false);
     }
@@ -379,7 +385,14 @@ function RefereeScoringContent({
         )}
 
         {/* Giant Interactive Scoring Buttons */}
-        {match.status === "SCHEDULED" ? (
+        {match.status === "SCHEDULED" && needsCode ? (
+          <div className="py-6">
+            <StartCodeGate
+              matchId={matchId}
+              onUnlocked={() => void handleStartMatch()}
+            />
+          </div>
+        ) : match.status === "SCHEDULED" ? (
           <div className="py-6 space-y-3">
             <button
               onClick={handleStartMatch}

@@ -166,6 +166,15 @@ describe("V2 organization, privacy and offline scoring integration", () => {
     await prisma.matchOfficial.create({
       data: { matchId: match, userId: referee },
     });
+    // Assigned, but still waiting for the control desk's start code.
+    const locked = await call(`matches/${match}/claim`, refToken, {
+      deviceId: device,
+    });
+    expect(locked.status).toBe(423);
+    await prisma.match.update({
+      where: { id: match },
+      data: { startUnlockedAt: new Date() },
+    });
   });
   it("private event cannot be viewed anonymously or by another organizer", async () => {
     const req = new NextRequest(

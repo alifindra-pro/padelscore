@@ -53,11 +53,19 @@ export async function matchAccess(
 ) {
   const m = await prisma.match.findUnique({
     where: { id },
-    include: { stage: { include: { category: true } }, officials: true },
+    include: {
+      stage: { include: { category: true } },
+      officials: true,
+      court: { select: { refereeUserId: true } },
+    },
   });
   if (!m) throw AppError.notFound("Pertandingan tidak ditemukan");
   if (user.role === "REFEREE") {
-    if (adminOnly || !m.officials.some((o) => o.userId === user.userId))
+    // Assigned by name, or the referee account of the court it is played on.
+    const assigned =
+      m.officials.some((o) => o.userId === user.userId) ||
+      m.court?.refereeUserId === user.userId;
+    if (adminOnly || !assigned)
       throw AppError.forbidden("Pertandingan bukan penugasan Anda");
   } else await tournamentAccess(user, m.stage.category.tournamentId, true);
   return m;

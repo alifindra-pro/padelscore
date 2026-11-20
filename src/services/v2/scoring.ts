@@ -1,3 +1,4 @@
+import { assertStartUnlocked } from "@/lib/court-referee";
 import prisma from "@/lib/db";
 import { refreshGroupStandings } from "./standings";
 import { isDeepStrictEqual } from "node:util";
@@ -29,6 +30,7 @@ export async function claimMatch(
   takeover = false,
 ) {
   const access = await matchAccess(user, id, takeover);
+  assertStartUnlocked(user, access);
   return prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM categories WHERE id = ${access.stage.categoryId} FOR UPDATE`;
     const m = await tx.match.findUniqueOrThrow({

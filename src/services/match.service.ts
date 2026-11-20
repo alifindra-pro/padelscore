@@ -142,9 +142,11 @@ export class MatchService {
   static async getAssignedMatches(userId: string) {
     return await prisma.match.findMany({
       where: {
-        officials: {
-          some: { userId },
-        },
+        OR: [
+          { officials: { some: { userId } } },
+          // The referee account of the court the match is played on.
+          { court: { refereeUserId: userId } },
+        ],
       },
       include: {
         stage: {

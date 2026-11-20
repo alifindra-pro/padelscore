@@ -1014,7 +1014,10 @@ async function dispatch(req: NextRequest, context: Context): Promise<Response> {
         return ok(
           await prisma.match.findMany({
             where: {
-              officials: { some: { userId: user.userId } },
+              OR: [
+                { officials: { some: { userId: user.userId } } },
+                { court: { refereeUserId: user.userId } },
+              ],
               status: {
                 in: ["SCHEDULED", "WARMUP", "IN_PROGRESS", "SUSPENDED"],
               },

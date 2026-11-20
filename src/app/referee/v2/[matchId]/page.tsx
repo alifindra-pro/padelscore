@@ -10,6 +10,7 @@ import {
   useRef,
 } from "react";
 import Link from "next/link";
+import { StartCodeGate } from "@/components/referee/StartCodeGate";
 import { apiFetch } from "@/lib/api-client";
 import { saveMatch, loadMatch, deviceId } from "@/lib/v2/offline-store";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
@@ -64,6 +65,7 @@ function OfflineScoring({ params }: { params: Promise<{ matchId: string }> }) {
   const [match, setMatch] = useState<OfflineMatch>();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [needsCode, setNeedsCode] = useState(false);
   const [tossChoice, setTossChoice] = useState<"" | "SERVE" | "RECEIVE">("");
   const [openingA, setOpeningA] = useState<"A1" | "A2">("A1");
   const [openingB, setOpeningB] = useState<"B1" | "B2">("B1");
@@ -136,8 +138,13 @@ function OfflineScoring({ params }: { params: Promise<{ matchId: string }> }) {
         conflict: null,
       });
       setError("");
+      setNeedsCode(false);
     } catch (e) {
-      setError((e as Error).message);
+      // A referee needs the control desk's start code before the first download.
+      if ((e as { code?: string }).code === "START_LOCKED") {
+        setNeedsCode(true);
+        setError("");
+      } else setError((e as Error).message);
     } finally {
       setBusy(false);
     }
@@ -274,7 +281,9 @@ function OfflineScoring({ params }: { params: Promise<{ matchId: string }> }) {
           {error}
         </p>
       )}
-      {!match ? (
+      {!match && needsCode ? (
+        <StartCodeGate matchId={matchId} onUnlocked={() => void download()} />
+      ) : !match ? (
         <button
           className="btn-primary w-full"
           disabled={busy || !online}
