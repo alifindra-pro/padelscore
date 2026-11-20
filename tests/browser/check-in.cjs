@@ -1,6 +1,5 @@
 const assert = require("node:assert/strict");
 const { randomUUID } = require("node:crypto");
-const { mkdir } = require("node:fs/promises");
 const { PrismaClient } = require("@prisma/client");
 const { chromium, expect: baseExpect } = require("@playwright/test");
 const jwt = require("jsonwebtoken");

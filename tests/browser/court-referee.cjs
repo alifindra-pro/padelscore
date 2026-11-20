@@ -68,6 +68,7 @@ const shots = process.env.SCREENSHOT_DIR;
           category: "Rookie Men",
           courts: 2,
           preset: "TOTAL_4",
+          deuce: "GOLDEN_POINT",
           format: "SINGLE_ELIMINATION",
           registrationLater: true,
           slotCount: 2,
@@ -88,7 +89,17 @@ const shots = process.env.SCREENSHOT_DIR;
     for (const n of [1, 2])
       pairs.push(
         await db.entry.create({
-          data: { categoryId: category.id, name: `Tim ${n}A / Tim ${n}B` },
+          data: {
+            categoryId: category.id,
+            name: `Tim ${n}A / Tim ${n}B`,
+            players: {
+              create: ["A", "B"].map((s) => ({
+                player: {
+                  create: { fullName: `Tim ${n}${s}`, organizationId: orgId },
+                },
+              })),
+            },
+          },
         }),
       );
     const stage = await db.stage.create({
@@ -171,7 +182,7 @@ const shots = process.env.SCREENSHOT_DIR;
     await expect(ref.getByText("Tim 1A / Tim 1B").first()).toBeVisible();
     await ref.goto(`${base}/referee/v2/${match.id}`);
     await ref
-      .getByRole("button", { name: "Unduh pertandingan & mulai mencatat" })
+      .getByRole("button", { name: "Buka laga ini", exact: true })
       .click();
     await expect(
       ref.getByRole("heading", { name: "Kode mulai laga" }),
@@ -180,16 +191,92 @@ const shots = process.env.SCREENSHOT_DIR;
     await ref
       .getByRole("textbox", { name: "Kode mulai", exact: true })
       .fill(code === "0000" ? "1111" : "0000");
-    await ref.getByRole("button", { name: "Buka laga" }).click();
+    await ref.getByRole("button", { name: "Buka laga", exact: true }).click();
     await expect(ref.getByText("Kode salah. Sisa 4 kali")).toBeVisible();
     await ref
       .getByRole("textbox", { name: "Kode mulai", exact: true })
       .fill(code);
-    await ref.getByRole("button", { name: "Buka laga" }).click();
+    await ref.getByRole("button", { name: "Buka laga", exact: true }).click();
     await expect(
-      ref.getByRole("heading", { name: "Undian servis pertama" }),
+      ref.getByRole("heading", { name: "Sebelum mulai" }),
     ).toBeVisible();
-    if (shots) await ref.screenshot({ path: `${shots}/referee-open.png` });
+    await expect(
+      ref.getByRole("heading", { name: "Tim 1A / Tim 1B vs Tim 2A / Tim 2B" }),
+    ).toBeVisible();
+
+    // Toss, choice, opening players by name, start.
+    await ref.getByRole("button", { name: "Lempar koin" }).click();
+    await expect(ref.getByText(/menang undian/)).toBeVisible();
+    await ref.getByRole("button", { name: "Servis dulu" }).click();
+    await expect(ref.getByRole("button", { name: "Tim 1B" })).toBeVisible();
+    await ref.getByRole("button", { name: "Tim 1B" }).click();
+    if (shots)
+      await ref.screenshot({
+        path: `${shots}/referee-setup.png`,
+        fullPage: true,
+      });
+    await ref.getByRole("button", { name: "Mulai pertandingan" }).click();
+    const pointA = ref.getByRole("button", {
+      name: /Poin untuk\s*Tim 1A \/ Tim 1B/,
+    });
+    const pointB = ref.getByRole("button", {
+      name: /Poin untuk\s*Tim 2A \/ Tim 2B/,
+    });
+    await expect(pointA).toBeVisible();
+    await expect(ref.getByText(/Servis: Tim/)).toBeVisible();
+
+    // First game to 40–40: the receiving pair picks a side, then A wins it.
+    for (const tap of [pointA, pointA, pointA, pointB, pointB, pointB]) {
+      await tap.click();
+      await expect(tap).toBeEnabled();
+    }
+    await expect(
+      ref.getByText("Poin penentu. Pasangan penerima memilih sisi:"),
+    ).toBeVisible();
+    await ref.getByRole("button", { name: "Terima di kanan" }).click();
+    if (shots)
+      await ref.screenshot({
+        path: `${shots}/referee-golden.png`,
+        fullPage: true,
+      });
+    // A mistaken tap is undone with a reason chip, no pop-up.
+    await pointB.click();
+    await expect(
+      ref.getByText("Poin penentu. Pasangan penerima memilih sisi:"),
+    ).toHaveCount(0);
+    await ref.getByRole("button", { name: "Batalkan aksi terakhir" }).click();
+    await ref.getByRole("button", { name: "Salah tekan" }).click();
+    await expect(
+      ref.getByText("Poin penentu. Pasangan penerima memilih sisi:"),
+    ).toBeVisible();
+    await pointA.click();
+    await expect(pointA).toBeEnabled();
+    // Three more games to A: 4–0.
+    for (let i = 0; i < 12; i++) {
+      await pointA.click();
+      await expect(
+        pointA.or(ref.getByRole("heading", { name: "Laga selesai" })),
+      ).toBeVisible();
+    }
+    await expect(
+      ref.getByRole("heading", { name: "Laga selesai" }),
+    ).toBeVisible();
+    await expect(
+      ref.getByText("Pemenang: Tim 1A / Tim 1B · 4–0"),
+    ).toBeVisible();
+    if (shots)
+      await ref.screenshot({
+        path: `${shots}/referee-finish.png`,
+        fullPage: true,
+      });
+    await expect(
+      ref.getByRole("button", { name: "Kirim hasil ke panitia" }),
+    ).toBeEnabled();
+    await ref.getByRole("button", { name: "Kirim hasil ke panitia" }).click();
+    await expect(
+      ref.getByRole("heading", { name: "Hasil terkirim" }),
+    ).toBeVisible();
+    if (shots) await ref.screenshot({ path: `${shots}/referee-done.png` });
     assert.equal(
       await ref.evaluate(
         () => document.documentElement.scrollWidth > innerWidth + 1,
@@ -198,9 +285,26 @@ const shots = process.env.SCREENSHOT_DIR;
       "referee page overflows",
     );
 
-    // The desk shows the match as opened.
-    await desk.reload();
-    await expect(desk.getByText("Sudah dibuka")).toBeVisible();
+    // The organizer's report shows the result, ready to approve.
+    await desk.goto(`${base}/admin/tournaments/${tournamentId}/hasil`);
+    await expect(
+      desk.getByRole("heading", { name: "Laporan hasil" }),
+    ).toBeVisible();
+    const row = desk.locator(".results-list li").first();
+    await expect(row).toContainText("4–0");
+    await expect(row).toContainText(`Wasit: Wasit ${courts[0].name}`);
+    await expect(row).toContainText("Menunggu pengesahan");
+    if (shots)
+      await desk.screenshot({
+        path: `${shots}/results-report.png`,
+        fullPage: true,
+      });
+    await row.getByRole("button", { name: "Sahkan hasil" }).click();
+    await expect(desk.getByText("Hasil laga 1 disahkan")).toBeVisible();
+    await desk.getByRole("tab", { name: /Disahkan/ }).click();
+    await expect(desk.locator(".results-list li").first()).toContainText(
+      "Disahkan",
+    );
     await desk.setViewportSize({ width: 390, height: 844 });
     assert.equal(
       await desk.evaluate(
@@ -212,7 +316,7 @@ const shots = process.env.SCREENSHOT_DIR;
 
     assert.deepEqual(errors, []);
     console.log(
-      "PASS: court referee accounts, link + token sign-in, start code gate",
+      "PASS: court referee sign-in, start code, full match on the console, results report and approval",
     );
   } finally {
     await browser?.close();
@@ -220,6 +324,9 @@ const shots = process.env.SCREENSHOT_DIR;
       const refs = await db.court.findMany({
         where: { tournamentId },
         select: { refereeUserId: true },
+      });
+      await db.scoringAction.deleteMany({
+        where: { match: { stage: { category: { tournamentId } } } },
       });
       await db.tournament.deleteMany({ where: { id: tournamentId } });
       const ids = refs.map((r) => r.refereeUserId).filter(Boolean);

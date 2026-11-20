@@ -1054,9 +1054,27 @@ async function dispatch(req: NextRequest, context: Context): Promise<Response> {
         const m = await prisma.match.findUniqueOrThrow({
           where: { id },
           include: {
-            entryA: true,
-            entryB: true,
+            // Player names in A1/A2 order for the referee console.
+            entryA: {
+              include: {
+                players: {
+                  select: { player: { select: { fullName: true } } },
+                  orderBy: { createdAt: "asc" },
+                },
+              },
+            },
+            entryB: {
+              include: {
+                players: {
+                  select: { player: { select: { fullName: true } } },
+                  orderBy: { createdAt: "asc" },
+                },
+              },
+            },
             court: true,
+            stage: {
+              select: { name: true, category: { select: { name: true } } },
+            },
             actionEvents: { orderBy: { sequence: "asc" } },
           },
         });

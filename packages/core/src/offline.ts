@@ -21,6 +21,14 @@ export interface OfflineMatch {
   teamA: string;
   teamB: string;
   conflict: string | null;
+  /** Shown on the referee console; player names are in A1/A2, B1/B2 order. */
+  info?: {
+    category?: string;
+    matchNumber?: number;
+    court?: string | null;
+    playersA?: string[];
+    playersB?: string[];
+  };
 }
 export function enqueue(
   match: OfflineMatch,

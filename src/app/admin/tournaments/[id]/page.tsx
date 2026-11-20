@@ -422,6 +422,14 @@ export default function Workspace({
               Wasit & kode laga
             </Link>
           )}
+          {["IN_PROGRESS", "COMPLETED", "ARCHIVED"].includes(t.status) && (
+            <Link
+              className="btn-secondary"
+              href={`/admin/tournaments/${id}/hasil`}
+            >
+              Laporan hasil
+            </Link>
+          )}
           {["PUBLISHED", "IN_PROGRESS", "COMPLETED", "ARCHIVED"].includes(
             t.status,
           ) && (

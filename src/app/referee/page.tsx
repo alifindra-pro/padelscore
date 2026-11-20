@@ -114,19 +114,11 @@ export default function RefereeDashboardPage() {
           </div>
         ) : !matches.length ? (
           <div className="py-20 text-center text-muted text-sm bg-card border border-line rounded-2xl p-6 space-y-3">
-            <p className="text-base">
-              Belum ada pertandingan yang ditugaskan kepada Anda.
-            </p>
+            <p className="text-base">Belum ada laga untuk Anda.</p>
             <p className="text-xs text-secondary">
-              Hubungi pengelola turnamen untuk ditugaskan sebagai wasit di
-              lapangan aktif.
+              Laga muncul di sini setelah panitia membuat undian dan jadwal di
+              lapangan Anda. Tekan Muat ulang untuk memeriksa lagi.
             </p>
-            <Link
-              href="/admin"
-              className="inline-block mt-2 px-4 py-2 bg-surface-tint text-ink text-xs font-bold rounded-xl"
-            >
-              Buka halaman pengelola
-            </Link>
           </div>
         ) : (
           <div className="referee-match-grid">
@@ -144,8 +136,14 @@ export default function RefereeDashboardPage() {
                       {m.stage?.category?.tournament?.name || "Turnamen"}
                     </h3>
                     <p className="text-[11px] text-secondary">
-                      {m.stage?.category?.name || "Kategori"} &bull; Babak{" "}
-                      {m.round}
+                      {m.stage?.category?.name || "Kategori"} · Laga{" "}
+                      {m.matchNumber}
+                      {m.scheduledAt
+                        ? ` · ${new Date(m.scheduledAt).toLocaleTimeString(
+                            "id-ID",
+                            { hour: "2-digit", minute: "2-digit" },
+                          )}`
+                        : ""}
                     </p>
                   </div>
 
@@ -170,7 +168,7 @@ export default function RefereeDashboardPage() {
                     </span>
                     {m.scoreSnapshot && (
                       <span className="text-brand-strong font-sans tabular-nums text-sm ml-2">
-                        {m.scoreSnapshot.setsA} ({m.scoreSnapshot.pointsA})
+                        {m.scoreSnapshot.gamesA?.at(-1) ?? 0}
                       </span>
                     )}
                   </div>
@@ -181,7 +179,7 @@ export default function RefereeDashboardPage() {
                     </span>
                     {m.scoreSnapshot && (
                       <span className="text-brand-strong font-sans tabular-nums text-sm ml-2">
-                        {m.scoreSnapshot.setsB} ({m.scoreSnapshot.pointsB})
+                        {m.scoreSnapshot.gamesB?.at(-1) ?? 0}
                       </span>
                     )}
                   </div>

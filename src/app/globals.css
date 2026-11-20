@@ -2970,3 +2970,61 @@
 .code-rows li.is-open .code-value { color: var(--color-secondary); text-decoration: line-through; }
 .code-rows li.is-locked .code-state { color: var(--color-danger); }
 @media (min-width: 900px) { .code-rows li { grid-template-columns: 72px minmax(0, 1fr) auto 220px; } .code-state { grid-column: auto; justify-content: flex-end; } }
+
+/* Results report (organizer) */
+.results-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 16px; }
+.results-filter { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 640px) { .results-filter { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.results-list { display: grid; gap: 10px; }
+.results-list li { display: grid; gap: 10px; padding: 14px 16px; border: 1px solid var(--color-line); border-left: 4px solid var(--cat, var(--color-line)); border-radius: 12px; background: var(--color-card); }
+.results-meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; font-size: 12px; font-weight: 600; color: var(--color-secondary); }
+.results-score { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 12px; font-weight: 600; color: var(--color-secondary); }
+.results-score span { min-width: 0; overflow-wrap: anywhere; }
+.results-score span:last-child { text-align: right; }
+.results-score .is-winner { font-weight: 800; color: var(--color-ink); }
+.results-score strong { padding: 4px 12px; border-radius: 8px; background: var(--color-surface-tint); font-size: 20px; font-weight: 800; color: var(--color-ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.results-foot { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px 16px; font-size: 13px; color: var(--color-secondary); }
+.results-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.results-state { font-weight: 700; }
+.is-awaiting_approval .results-state { color: var(--color-warning-ink); }
+.is-approved .results-state { color: #0b7a55; }
+.is-playing .results-state { color: var(--color-brand); }
+
+/* Referee console (v2) */
+.referee-console { max-width: 560px; }
+.console-head { display: grid; gap: 4px; }
+.console-title { font-size: 22px; font-weight: 800; line-height: 1.2; color: var(--color-ink); overflow-wrap: anywhere; }
+.console-net { font-size: 13px; font-weight: 600; color: #0b7a55; }
+.console-net.is-offline { color: var(--color-warning-ink); }
+.console-error { padding: 10px 12px; border-radius: 8px; background: #fdecec; font-weight: 600; color: var(--color-danger); }
+.console-conflict { border-color: var(--color-danger); }
+.console-setup { display: grid; gap: 16px; }
+.console-steps { display: grid; gap: 16px; }
+.console-steps > li { display: grid; gap: 8px; }
+.console-step-title { font-weight: 800; color: var(--color-ink); }
+.console-toss { padding: 10px 12px; border-radius: 8px; background: var(--color-brand-soft); color: var(--color-ink); }
+.console-opening { display: grid; gap: 6px; }
+.console-choice { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.console-choice.is-stacked { grid-template-columns: minmax(0, 1fr); }
+.console-choice button { min-height: 48px; padding: 10px 12px; border: 1px solid var(--color-line); border-radius: 10px; background: var(--color-card); font-weight: 700; color: var(--color-ink); overflow-wrap: anywhere; }
+.console-choice button[aria-pressed="true"] { border-color: var(--color-ink); background: var(--color-ink); color: #fff; }
+.console-big { min-height: 56px; font-size: 17px; }
+.console-board { display: grid; gap: 10px; padding: 16px; border-radius: 14px; background: var(--color-ink); color: #fff; }
+.console-rules { font-size: 12px; color: rgba(255,255,255,.7); }
+.console-row { display: grid; grid-template-columns: minmax(0, 1fr) 56px 64px; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid rgba(255,255,255,.15); }
+.console-team { display: grid; min-width: 0; font-weight: 800; overflow-wrap: anywhere; }
+.console-team small { font-size: 12px; font-weight: 700; color: var(--color-kinetic); }
+.console-row.is-winner .console-team { color: var(--color-kinetic); }
+.console-games { font-size: 34px; font-weight: 800; text-align: center; font-variant-numeric: tabular-nums; }
+.console-points { padding: 4px 0; border-radius: 8px; background: rgba(255,255,255,.12); font-size: 26px; font-weight: 800; text-align: center; font-variant-numeric: tabular-nums; }
+.console-board .text-sm { color: rgba(255,255,255,.85); }
+.console-alert { font-weight: 800; color: var(--color-kinetic); }
+.console-golden { display: grid; gap: 8px; }
+.console-golden .console-choice button { background: transparent; border-color: rgba(255,255,255,.4); color: #fff; }
+.console-golden .console-choice button[aria-pressed="true"] { background: var(--color-kinetic); border-color: var(--color-kinetic); color: var(--color-ink); }
+.console-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.console-point { display: grid; gap: 2px; min-height: 120px; padding: 12px; font-size: 18px; line-height: 1.2; overflow-wrap: anywhere; }
+.console-point small { font-size: 12px; font-weight: 600; }
+.console-finish, .console-done { display: grid; gap: 10px; }
+.console-done { border-color: #0b7a55; background: #e8f6f0; }
+.console-more summary { cursor: pointer; font-size: 14px; color: var(--color-secondary); }

@@ -265,8 +265,14 @@ export async function syncActions(user: AuthUser, id: string, input: unknown) {
   return result;
 }
 export async function approveV2(user: AuthUser, id: string) {
-  await matchAccess(user, id, true);
+  const access = await matchAccess(user, id, true);
   return prisma.$transaction(async (tx) => {
+    // Approvals in one group recalculate the same standings rows. Taking the
+    // group first, then the match, makes them wait in turn instead of
+    // deadlocking or writing standings that miss each other's result.
+    if (access.groupId)
+      await tx.$queryRaw`SELECT id FROM groups WHERE id = ${access.groupId} FOR UPDATE`;
+    await tx.$queryRaw`SELECT id FROM matches WHERE id = ${id} FOR UPDATE`;
     const m = await tx.match.findUniqueOrThrow({
       where: { id },
       include: { stage: true },

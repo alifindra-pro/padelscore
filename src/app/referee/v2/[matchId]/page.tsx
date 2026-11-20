@@ -1,5 +1,5 @@
 "use client";
-import { deuceLabel, scoreStatusLabel } from "@/lib/labels";
+import { deuceLabel } from "@/lib/labels";
 
 import {
   Suspense,
@@ -11,6 +11,7 @@ import {
 } from "react";
 import Link from "next/link";
 import { StartCodeGate } from "@/components/referee/StartCodeGate";
+import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/lib/api-client";
 import { saveMatch, loadMatch, deviceId } from "@/lib/v2/offline-store";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
@@ -30,6 +31,9 @@ import {
 
 type TimedActionType =
   "START_MATCH" | "SUSPEND_MATCH" | "RESUME_MATCH" | "TIME_EXPIRED";
+type Team = "A" | "B";
+type Ending =
+  "RECORD_RETIREMENT" | "RECORD_WALKOVER" | "RECORD_DISQUALIFICATION";
 
 // Only called from tap handlers; stamps the action with the moment of the tap.
 function timedAction(type: TimedActionType): Action {
@@ -49,9 +53,18 @@ interface V2MatchResponse {
   stateV2: ScoreState;
   version: number;
   sequence: number;
+  matchNumber?: number;
   actionEvents: { action: Action }[];
-  entryA?: { name: string } | null;
-  entryB?: { name: string } | null;
+  court?: { name: string } | null;
+  stage?: { name: string; category?: { name: string } } | null;
+  entryA?: {
+    name: string;
+    players?: { player: { fullName: string } }[];
+  } | null;
+  entryB?: {
+    name: string;
+    players?: { player: { fullName: string } }[];
+  } | null;
 }
 
 interface SyncResult {
@@ -60,8 +73,22 @@ interface SyncResult {
   version: number;
   sequence: number;
 }
+
+const FINISHED = ["COMPLETED", "RETIRED", "WALKOVER", "DISQUALIFIED"];
+const endingText: Record<Ending, string> = {
+  RECORD_RETIREMENT: "Pasangan mundur (cedera dll.)",
+  RECORD_WALKOVER: "Tidak hadir (WO)",
+  RECORD_DISQUALIFICATION: "Diskualifikasi",
+};
+const outcomeText: Record<string, string> = {
+  RETIRED: "lawan mundur",
+  WALKOVER: "menang WO",
+  DISQUALIFIED: "lawan didiskualifikasi",
+};
+
 function OfflineScoring({ params }: { params: Promise<{ matchId: string }> }) {
   const { matchId } = use(params);
+  const { user } = useAuth();
   const [match, setMatch] = useState<OfflineMatch>();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -69,17 +96,34 @@ function OfflineScoring({ params }: { params: Promise<{ matchId: string }> }) {
   const [tossChoice, setTossChoice] = useState<"" | "SERVE" | "RECEIVE">("");
   const [openingA, setOpeningA] = useState<"A1" | "A2">("A1");
   const [openingB, setOpeningB] = useState<"B1" | "B2">("B1");
+  const [undoOpen, setUndoOpen] = useState(false);
+  const [ending, setEnding] = useState<{
+    type: Ending | "";
+    loser: Team | "";
+    reason: string;
+  }>({ type: "", loser: "", reason: "" });
+  const [syncing, setSyncing] = useState(false);
   const online = useOnlineStatus();
-  const locked = useRef(false);
-  const persist = async (next: OfflineMatch) => {
-    await saveMatch(next);
+  // The latest match, so a tap during an upload builds on the newest score.
+  const latest = useRef<OfflineMatch | undefined>(undefined);
+  const network = useRef(false);
+  const uploading = useRef(false);
+  const saves = useRef<Promise<unknown>>(Promise.resolve());
+  const persist = (next: OfflineMatch) => {
+    latest.current = next;
     setMatch(next);
+    // Saved to the device in the order the taps happened.
+    saves.current = saves.current.catch(() => {}).then(() => saveMatch(next));
+    return saves.current;
   };
   useEffect(() => {
     let active = true;
     loadMatch(matchId)
       .then((cached) => {
-        if (active && cached) setMatch(cached);
+        if (active && cached) {
+          latest.current = cached;
+          setMatch(cached);
+        }
       })
       .catch((e) => {
         if (active) setError((e as Error).message);
@@ -108,7 +152,7 @@ function OfflineScoring({ params }: { params: Promise<{ matchId: string }> }) {
   }, [matchId]);
   async function download(takeover = false) {
     if (match?.pending.length) {
-      setError("Sinkronkan atau ekspor antrean sebelum mengunduh ulang.");
+      setError("Kirim semua skor yang tersimpan di HP sebelum membuka ulang.");
       return;
     }
     setBusy(true);
@@ -136,6 +180,13 @@ function OfflineScoring({ params }: { params: Promise<{ matchId: string }> }) {
         teamA: m.entryA?.name ?? "Pasangan A",
         teamB: m.entryB?.name ?? "Pasangan B",
         conflict: null,
+        info: {
+          category: m.stage?.category?.name,
+          matchNumber: m.matchNumber,
+          court: m.court?.name ?? null,
+          playersA: m.entryA?.players?.map((p) => p.player.fullName),
+          playersB: m.entryB?.players?.map((p) => p.player.fullName),
+        },
       });
       setError("");
       setNeedsCode(false);
@@ -150,8 +201,9 @@ function OfflineScoring({ params }: { params: Promise<{ matchId: string }> }) {
     }
   }
   async function runToss() {
-    if (!match || locked.current || !online || match.pending.length) return;
-    locked.current = true;
+    const match = latest.current;
+    if (!match || network.current || !online || match.pending.length) return;
+    network.current = true;
     setBusy(true);
     setError("");
     try {
@@ -165,20 +217,18 @@ function OfflineScoring({ params }: { params: Promise<{ matchId: string }> }) {
           }),
         },
       );
-      await persist({ ...match, coinToss });
+      await persist({ ...latest.current!, coinToss });
       setTossChoice("");
     } catch (e) {
       setError((e as Error).message);
     } finally {
-      locked.current = false;
+      network.current = false;
       setBusy(false);
     }
   }
   async function startAfterToss() {
     if (!match?.coinToss || !tossChoice) {
-      setError(
-        "Lempar koin dan pilih keputusan pemenang undian terlebih dahulu",
-      );
+      setError("Lempar koin dan pilih keputusan pemenang undian dahulu.");
       return;
     }
     const first =
@@ -198,28 +248,26 @@ function OfflineScoring({ params }: { params: Promise<{ matchId: string }> }) {
       ),
     );
   }
+  // Scoring is applied on the device at once and never waits for an upload.
   async function act(action: Action) {
-    if (!match || locked.current) return;
+    const match = latest.current;
+    if (!match) return;
     if (action.type === "FINALIZE_MATCH" && (!online || match.pending.length)) {
-      setError("Sinkronkan semua aksi sebelum finalisasi.");
+      setError("Kirim semua skor ke server sebelum mengirim hasil akhir.");
       return;
     }
-    locked.current = true;
-    setBusy(true);
     try {
       await persist(enqueue(match, action, crypto.randomUUID()));
       setError("");
     } catch (e) {
       setError((e as Error).message);
-    } finally {
-      locked.current = false;
-      setBusy(false);
     }
   }
   async function sync() {
-    if (!match || !match.pending.length || locked.current) return;
-    locked.current = true;
-    setBusy(true);
+    const match = latest.current;
+    if (!match || !match.pending.length || uploading.current) return;
+    uploading.current = true;
+    setSyncing(true);
     try {
       const result = await apiFetch<SyncResult>(
         `/api/v2/matches/${matchId}/actions`,
@@ -233,27 +281,45 @@ function OfflineScoring({ params }: { params: Promise<{ matchId: string }> }) {
           }),
         },
       );
-      await persist(acknowledge(match, result, new Date().toISOString()));
+      // Taps made while this upload was in flight stay queued.
+      await persist(
+        acknowledge(latest.current!, result, new Date().toISOString()),
+      );
       setError("");
     } catch (e) {
       const problem = e as Error & { status?: number };
       setError(problem.message);
       if (problem.status === 409)
-        await persist({ ...match, conflict: problem.message });
+        await persist({ ...latest.current!, conflict: problem.message });
     } finally {
-      locked.current = false;
-      setBusy(false);
+      uploading.current = false;
+      setSyncing(false);
     }
   }
   const autoSync = useEffectEvent(() => void sync());
+  // Uploads every half second while scores are waiting. Depends on whether
+  // anything is waiting, not on each tap, so fast tapping cannot postpone it.
+  const waiting = !!match?.pending.length && !match.conflict;
   useEffect(() => {
-    if (online && match?.pending.length && !match.conflict && !busy) {
+    if (online && waiting && !syncing) {
       const timer = setTimeout(autoSync, 500);
       return () => clearTimeout(timer);
     }
-  }, [online, match, busy]);
+  }, [online, waiting, syncing]);
+
+  const isReferee = user?.role === "REFEREE";
+  const name = (slot: string) => {
+    const list = slot.startsWith("A")
+      ? match?.info?.playersA
+      : match?.info?.playersB;
+    return list?.[Number(slot[1]) - 1] ?? slot;
+  };
+  const team = (t: Team) => (t === "A" ? match?.teamA : match?.teamB) ?? t;
   const beforeStart =
     !!match && ["NOT_STARTED", "WARMUP"].includes(match.state.status);
+  const playing =
+    !!match && ["IN_PROGRESS", "SUSPENDED"].includes(match.state.status);
+  const ended = !!match && FINISHED.includes(match.state.status);
   const firstTeam =
     match?.coinToss && tossChoice
       ? tossChoice === "SERVE"
@@ -262,402 +328,524 @@ function OfflineScoring({ params }: { params: Promise<{ matchId: string }> }) {
           ? "B"
           : "A"
       : null;
-  const score = match ? pointLabels(match.state) : [];
-  const server = match ? serviceInfo(match.state) : null;
+  const points = match ? pointLabels(match.state) : ["0", "0"];
+  const server = match && !beforeStart ? serviceInfo(match.state) : null;
+  const sets = match ? setPointScores(match.state) : [];
+  const games = match?.state.sets.at(-1)?.games ?? [0, 0];
+  const finalScore = sets.map((s) => s.join("–")).join(", ");
+  const canUndo =
+    !!match &&
+    !match.state.finalized &&
+    match.history.length + match.pending.length > 0;
+  const info = match?.info;
+  // At 40–40 under golden point, the receiving pair picks the side.
+  const goldenPoint =
+    !!match &&
+    match.state.status === "IN_PROGRESS" &&
+    match.rules.mode !== "POINTS" &&
+    (match.rules.deuce === "GOLDEN_POINT" ||
+      (match.rules.deuce === "STAR_POINT" &&
+        match.state.advantageCycles >= 2)) &&
+    match.state.points[0] >= 3 &&
+    match.state.points[0] === match.state.points[1];
+  const title = match ? `${match.teamA} vs ${match.teamB}` : "Konsol wasit";
+
   return (
-    <main className="scoring-workspace mx-auto w-full p-4 sm:p-6 space-y-5">
+    <main className="scoring-workspace referee-console mx-auto w-full p-4 sm:p-6 space-y-4">
       <Link href="/referee" className="text-brand">
-        ← Daftar pertandingan
+        ← Daftar laga
       </Link>
-      <div>
-        <p className="page-eyebrow">Pencatatan skor</p>
-        <h1 className="page-heading">Konsol wasit</h1>
-      </div>
-      <p role="status" className="connection-status">
-        {online ? "Terhubung" : "Offline. Skor disimpan di perangkat."}
-      </p>
+      <header className="console-head">
+        <p className="page-eyebrow">
+          {[
+            info?.category,
+            info?.matchNumber ? `Laga ${info.matchNumber}` : "",
+            info?.court,
+          ]
+            .filter(Boolean)
+            .join(" · ") || "Pencatatan skor"}
+        </p>
+        <h1 className="console-title">{title}</h1>
+        <p
+          role="status"
+          className={online ? "console-net" : "console-net is-offline"}
+        >
+          {!online
+            ? "Offline. Skor tetap tersimpan di HP dan terkirim saat online."
+            : match?.pending.length
+              ? `Mengirim ${match.pending.length} skor…`
+              : match
+                ? "Terhubung. Semua skor sudah terkirim."
+                : "Terhubung"}
+        </p>
+      </header>
       {error && (
-        <p role="alert" className="p-3 bg-critical/10 text-danger rounded-lg">
+        <p role="alert" className="console-error">
           {error}
         </p>
       )}
+      {match?.conflict && (
+        <section className="panel console-conflict" role="alert">
+          <h2 className="panel-title">Skor berbeda dengan server</h2>
+          <p className="text-sm">
+            {match.conflict} Jangan lanjut mencatat. Hubungi panitia; mereka
+            bisa mengambil alih laga ini.
+          </p>
+        </section>
+      )}
+
       {!match && needsCode ? (
         <StartCodeGate matchId={matchId} onUnlocked={() => void download()} />
       ) : !match ? (
-        <button
-          className="btn-primary w-full"
-          disabled={busy || !online}
-          onClick={() => download()}
-        >
-          Unduh pertandingan & mulai mencatat
-        </button>
+        <section className="panel space-y-3">
+          <p className="text-sm text-secondary">
+            Buka laga ini di HP Anda untuk mulai mencatat skor. Skor tetap
+            tersimpan di HP jika sinyal hilang.
+          </p>
+          <button
+            className="btn-kinetic w-full"
+            disabled={busy || !online}
+            onClick={() => download()}
+          >
+            {busy ? "Membuka…" : "Buka laga ini"}
+          </button>
+        </section>
       ) : (
         <>
-          {(beforeStart || match.coinToss) && (
-            <section
-              className="panel space-y-4"
-              aria-label="Undian servis pertama"
-            >
-              <div>
-                <h2 className="panel-title">Undian servis pertama</h2>
-                <p className="text-sm text-secondary mt-2">
-                  Kepala untuk pasangan A · Ekor untuk pasangan B. Pemenang
-                  undian memilih servis atau menerima.
-                </p>
-              </div>
-              <p className="text-sm">
-                A: {match.teamA}
-                <br />
-                B: {match.teamB}
-              </p>
-              {match.coinToss ? (
-                <div className="flex items-center gap-4 rounded-xl bg-brand-soft p-4">
-                  <div className="w-20 h-20 shrink-0 rounded-full border-2 border-brand flex flex-col items-center justify-center text-center leading-tight text-brand font-bold">
-                    <span>
-                      {match.coinToss.face === "KEPALA" ? "Kepala" : "Ekor"}
-                    </span>
-                    <span className="text-xs font-semibold">
-                      Pasangan {match.coinToss.winner}
-                    </span>
-                  </div>
-                  <p role="status" className="min-w-0 break-words">
-                    Pemenang undian:{" "}
-                    <strong>
-                      {match.coinToss.winner === "A"
-                        ? match.teamA
-                        : match.teamB}
-                    </strong>
-                    <br />
-                    <span className="text-sm text-secondary">
-                      Hasil tersimpan. Undian tidak diulang.
-                    </span>
+          {beforeStart && (
+            <section className="panel console-setup" aria-label="Sebelum mulai">
+              <h2 className="panel-title">Sebelum mulai</h2>
+              <ol className="console-steps">
+                <li>
+                  <p className="console-step-title">1. Undian koin</p>
+                  <p className="text-sm text-secondary">
+                    Kepala untuk {match.teamA}. Ekor untuk {match.teamB}.
                   </p>
-                </div>
-              ) : (
-                <>
-                  <button
-                    className="btn-primary w-full"
-                    disabled={
-                      busy ||
-                      !online ||
-                      !!match.pending.length ||
-                      !!match.conflict
-                    }
-                    onClick={() => void runToss()}
-                  >
-                    {busy ? "Mengundi…" : "Lempar koin online"}
-                  </button>
-                  {!online && (
-                    <p className="text-sm text-secondary">
-                      Hubungkan internet untuk melakukan undian.
+                  {match.coinToss ? (
+                    <p className="console-toss" role="status">
+                      {match.coinToss.face === "KEPALA" ? "Kepala" : "Ekor"}:{" "}
+                      <strong>{team(match.coinToss.winner)}</strong> menang
+                      undian
                     </p>
-                  )}
-                </>
-              )}
-              {beforeStart && match.coinToss && (
-                <div className="space-y-4">
-                  <label className="field">
-                    Pilihan pemenang undian
-                    <select
-                      aria-label="Pilihan pemenang undian"
-                      value={tossChoice}
-                      disabled={busy}
-                      onChange={(e) =>
-                        setTossChoice(
-                          e.target.value as "" | "SERVE" | "RECEIVE",
-                        )
+                  ) : (
+                    <button
+                      className="btn-primary w-full"
+                      disabled={
+                        busy ||
+                        !online ||
+                        !!match.pending.length ||
+                        !!match.conflict
                       }
+                      onClick={() => void runToss()}
                     >
-                      <option value="">
-                        Pilih setelah konfirmasi pasangan
-                      </option>
-                      <option value="SERVE">Servis terlebih dahulu</option>
-                      <option value="RECEIVE">Menerima terlebih dahulu</option>
-                    </select>
-                  </label>
-                  <div className="grid sm:grid-cols-2 gap-3">
-                    <label className="field">
-                      Pemain pembuka pasangan A
-                      <select
-                        aria-label="Pemain pembuka pasangan A"
-                        value={openingA}
-                        disabled={busy}
-                        onChange={(e) =>
-                          setOpeningA(e.target.value as "A1" | "A2")
-                        }
-                      >
-                        <option value="A1">A1: pemain pertama</option>
-                        <option value="A2">A2: pemain kedua</option>
-                      </select>
-                    </label>
-                    <label className="field">
-                      Pemain pembuka pasangan B
-                      <select
-                        aria-label="Pemain pembuka pasangan B"
-                        value={openingB}
-                        disabled={busy}
-                        onChange={(e) =>
-                          setOpeningB(e.target.value as "B1" | "B2")
-                        }
-                      >
-                        <option value="B1">B1: pemain pertama</option>
-                        <option value="B2">B2: pemain kedua</option>
-                      </select>
-                    </label>
-                  </div>
-                  {firstTeam && (
-                    <p role="status">
-                      Servis pertama:{" "}
-                      <strong>
-                        {firstTeam === "A" ? match.teamA : match.teamB}
-                      </strong>{" "}
-                      · {firstTeam === "A" ? openingA : openingB}. Tekan mulai
-                      setelah wasit mengonfirmasi.
+                      {busy ? "Mengundi…" : "Lempar koin"}
+                    </button>
+                  )}
+                  {!online && !match.coinToss && (
+                    <p className="text-sm text-secondary">
+                      Butuh internet untuk undian.
                     </p>
                   )}
+                </li>
+                {match.coinToss && (
+                  <li>
+                    <p className="console-step-title">
+                      2. {team(match.coinToss.winner)} memilih
+                    </p>
+                    <div className="console-choice" role="group">
+                      {(
+                        [
+                          ["SERVE", "Servis dulu"],
+                          ["RECEIVE", "Terima dulu"],
+                        ] as const
+                      ).map(([value, label]) => (
+                        <button
+                          key={value}
+                          aria-pressed={tossChoice === value}
+                          disabled={busy}
+                          onClick={() => setTossChoice(value)}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </li>
+                )}
+                {match.coinToss && tossChoice && (
+                  <li>
+                    <p className="console-step-title">
+                      3. Siapa yang mulai di tiap pasangan
+                    </p>
+                    {(["A", "B"] as const).map((t) => (
+                      <div key={t} className="console-opening">
+                        <p className="text-sm text-secondary">
+                          {team(t)}{" "}
+                          {firstTeam === t ? "(servis pertama)" : "(menerima)"}
+                        </p>
+                        <div className="console-choice" role="group">
+                          {([1, 2] as const).map((n) => {
+                            const slot = `${t}${n}`;
+                            const chosen =
+                              t === "A" ? openingA === slot : openingB === slot;
+                            return (
+                              <button
+                                key={slot}
+                                aria-pressed={chosen}
+                                disabled={busy}
+                                onClick={() =>
+                                  t === "A"
+                                    ? setOpeningA(slot as "A1" | "A2")
+                                    : setOpeningB(slot as "B1" | "B2")
+                                }
+                              >
+                                {name(slot)}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </li>
+                )}
+              </ol>
+              <button
+                className="btn-kinetic w-full console-big"
+                disabled={busy || !match.coinToss || !tossChoice}
+                onClick={() => void startAfterToss()}
+              >
+                Mulai pertandingan
+              </button>
+            </section>
+          )}
+
+          {!beforeStart && (
+            <section className="console-board" aria-label="Papan skor">
+              <p className="console-rules">
+                {match.rules.name} ·{" "}
+                {match.rules.mode === "POINTS"
+                  ? directPointsSummary(match.rules)
+                  : deuceLabel(match.rules.deuce)}
+              </p>
+              {(["A", "B"] as const).map((t, i) => (
+                <div
+                  key={t}
+                  className={
+                    match.state.winner === t
+                      ? "console-row is-winner"
+                      : "console-row"
+                  }
+                >
+                  <span className="console-team">
+                    {team(t)}
+                    {server?.team === t && playing && (
+                      <small>Servis: {name(server.server)}</small>
+                    )}
+                  </span>
+                  {match.rules.mode !== "POINTS" && (
+                    <span className="console-games" aria-label="Game">
+                      {games[i]}
+                    </span>
+                  )}
+                  {(playing || match.rules.mode === "POINTS") && (
+                    <span className="console-points" aria-label="Poin">
+                      {points[i]}
+                    </span>
+                  )}
+                </div>
+              ))}
+              {sets.length > 1 && (
+                <p className="text-sm text-secondary">
+                  Set: {sets.map((s) => s.join("–")).join(" / ")}
+                </p>
+              )}
+              {playing && server && (
+                <p className="text-sm">
+                  Servis dari sisi {server.side === "RIGHT" ? "kanan" : "kiri"}
+                  {server.attempt > 1 ? " · servis kedua" : ""}
+                </p>
+              )}
+              {goldenPoint && (
+                <div className="console-golden">
+                  <p className="console-alert">
+                    Poin penentu. Pasangan penerima memilih sisi:
+                  </p>
+                  <div
+                    className="console-choice"
+                    role="group"
+                    aria-label="Sisi penerima golden point"
+                  >
+                    {(["RIGHT", "LEFT"] as const).map((side) => (
+                      <button
+                        key={side}
+                        disabled={busy}
+                        aria-pressed={match.state.goldenReceiverSide === side}
+                        onClick={() =>
+                          act({ type: "SELECT_RECEIVER_SIDE", side })
+                        }
+                      >
+                        Terima di {side === "RIGHT" ? "kanan" : "kiri"}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
-              {!beforeStart && (
-                <p className="text-sm">
-                  Pembuka pertandingan: {match.state.serviceOrder[0]} ·{" "}
-                  {match.state.serviceOrder[0].startsWith("A")
-                    ? match.teamA
-                    : match.teamB}
+              {match.state.decidingPoint && (
+                <p className="console-alert">
+                  Poin penentu: poin berikutnya menentukan.
+                </p>
+              )}
+              {match.state.changeEnds && (
+                <p className="console-alert">Bertukar sisi lapangan</p>
+              )}
+            </section>
+          )}
+
+          {match.state.status === "IN_PROGRESS" && !match.conflict && (
+            <section className="console-actions" aria-label="Catat poin">
+              {(["A", "B"] as const).map((t) => (
+                <button
+                  key={t}
+                  className="btn-kinetic console-point"
+                  disabled={busy}
+                  onClick={() => act({ type: "AWARD_POINT", team: t })}
+                >
+                  <small>Poin untuk</small>
+                  {team(t)}
+                </button>
+              ))}
+              <button
+                className="btn-secondary"
+                disabled={busy}
+                onClick={() =>
+                  act({
+                    type: match.state.faults
+                      ? "RECORD_SECOND_SERVE_FAULT"
+                      : "RECORD_FIRST_SERVE_FAULT",
+                  })
+                }
+              >
+                {match.state.faults ? "Double fault" : "Fault servis"}
+              </button>
+              <button
+                className="btn-secondary"
+                disabled={busy}
+                onClick={() => act(timedAction("SUSPEND_MATCH"))}
+              >
+                Tunda laga
+              </button>
+              {match.rules.mode === "TIMED" && (
+                <button
+                  className="btn-secondary"
+                  disabled={busy}
+                  onClick={() => act(timedAction("TIME_EXPIRED"))}
+                >
+                  Waktu habis
+                </button>
+              )}
+            </section>
+          )}
+
+          {match.state.status === "SUSPENDED" && !match.conflict && (
+            <button
+              className="btn-primary w-full console-big"
+              disabled={busy}
+              onClick={() => act(timedAction("RESUME_MATCH"))}
+            >
+              Lanjutkan laga
+            </button>
+          )}
+
+          {ended && !match.state.finalized && !match.conflict && (
+            <section className="panel console-finish" aria-label="Kirim hasil">
+              <h2 className="panel-title">Laga selesai</h2>
+              <p>
+                Pemenang:{" "}
+                <strong>
+                  {match.state.winner ? team(match.state.winner) : "—"}
+                </strong>
+                {finalScore ? ` · ${finalScore}` : ""}
+                {outcomeText[match.state.status]
+                  ? ` (${outcomeText[match.state.status]})`
+                  : ""}
+              </p>
+              <p className="text-sm text-secondary">
+                Tunjukkan skor ke kedua pasangan. Jika sudah benar, kirim ke
+                panitia. Jika ada yang salah, batalkan aksi terakhir.
+              </p>
+              <button
+                className="btn-kinetic w-full console-big"
+                disabled={busy || !online || !!match.pending.length}
+                onClick={() => act({ type: "FINALIZE_MATCH" })}
+              >
+                Kirim hasil ke panitia
+              </button>
+              {(!online || match.pending.length > 0) && (
+                <p className="text-sm text-secondary">
+                  Menunggu semua skor terkirim…
                 </p>
               )}
             </section>
           )}
-          <div className="scoring-card bg-card border border-line rounded-xl p-5 space-y-4">
-            <p className="text-xs text-secondary">
-              {match.rules.name} ·{" "}
-              {match.rules.mode === "POINTS"
-                ? directPointsSummary(match.rules)
-                : deuceLabel(match.rules.deuce)}{" "}
-              · {scoreStatusLabel(match.state.status)}
-            </p>
-            {[match.teamA, match.teamB].map((name, i) => (
-              <div key={i} className="flex justify-between items-center gap-4">
-                <span className="font-bold">{name}</span>
-                <strong className="scoring-points text-4xl tabular-nums">
-                  {score[i]}
-                </strong>
-              </div>
-            ))}
-            {match.rules.mode === "POINTS" ? (
-              <p role="status">
-                {match.state.decidingPoint
-                  ? "Seri. Satu poin berikutnya menentukan pemenang set."
-                  : match.rules.pointsFormat === "TARGET"
-                    ? `Set ${match.state.sets.length} · target ${match.rules.totalPoints} poin${match.rules.pointsWinBy === 2 ? " · selisih 2" : ""}`
-                    : `Set ${match.state.sets.length} · total ${match.state.points[0] + match.state.points[1]} dari ${match.rules.totalPoints} poin`}
-              </p>
-            ) : (
-              <p>
-                Set:{" "}
-                {match.state.sets
-                  .map((s) =>
-                    s.kind === "MATCH_TIEBREAK"
-                      ? `Match tie-break ${s.tiebreak.join("–")}`
-                      : s.games.join("–"),
-                  )
-                  .join(" / ")}
-              </p>
-            )}
-            {match.rules.mode === "POINTS" &&
-              setPointScores(match.state).length > 0 && (
-                <p>
-                  Set:{" "}
-                  {setPointScores(match.state)
-                    .map((p, i) => `${i + 1}: ${p.join("–")}`)
-                    .join(" / ")}{" "}
-                  · Kemenangan set{" "}
-                  {match.state.sets.filter((s) => s.winner === "A").length}–
-                  {match.state.sets.filter((s) => s.winner === "B").length}
-                </p>
-              )}
-            {!beforeStart && (
-              <p className="text-sm">
-                Servis: {server?.team === "A" ? match.teamA : match.teamB} (
-                {server?.server}) · sisi{" "}
-                {server?.side === "RIGHT" ? "kanan" : "kiri"} · servis ke-
-                {server?.attempt}
-              </p>
-            )}
-            {match.state.changeEnds && (
-              <p className="status-live">Bertukar sisi lapangan</p>
-            )}
-          </div>
-          <p className="text-sm" role="status">
-            {match.pending.length
-              ? `${match.pending.length} aksi tersimpan di perangkat, belum terkirim ke server.`
-              : "Semua aksi sudah tersimpan di server."}{" "}
-            {match.lastSyncedAt
-              ? `Terakhir terkirim pukul ${new Date(match.lastSyncedAt).toLocaleTimeString("id-ID")}.`
-              : ""}
-          </p>
-          {match.pending.length > 0 && (
-            <button
-              className="btn-secondary w-full"
-              disabled={busy || !online || !!match.conflict}
-              onClick={sync}
+
+          {match.state.finalized && (
+            <section
+              className="panel console-done"
+              role="status"
+              aria-label="Hasil terkirim"
             >
-              {online ? "Kirim sekarang" : "Menunggu koneksi untuk mengirim"}
-            </button>
+              <h2 className="panel-title">
+                {match.pending.length ? "Mengirim hasil…" : "Hasil terkirim"}
+              </h2>
+              <p>
+                {match.state.winner ? team(match.state.winner) : "—"} menang
+                {finalScore ? ` ${finalScore}` : ""}.
+              </p>
+              <p className="text-sm text-secondary">
+                Panitia akan mengesahkan hasil ini. Anda bisa kembali ke daftar
+                laga.
+              </p>
+              <Link className="btn-primary w-full text-center" href="/referee">
+                Kembali ke daftar laga
+              </Link>
+            </section>
           )}
-          {!match.conflict && (
-            <div className="grid grid-cols-2 gap-3">
-              {["NOT_STARTED", "WARMUP"].includes(match.state.status) ? (
+
+          {canUndo && !match.conflict && (
+            <div className="console-undo">
+              {!undoOpen ? (
                 <button
-                  className="btn-kinetic col-span-2"
-                  disabled={busy || !match.coinToss || !tossChoice}
-                  onClick={() => void startAfterToss()}
-                >
-                  Mulai pertandingan
-                </button>
-              ) : match.state.status === "IN_PROGRESS" ? (
-                <>
-                  {(["A", "B"] as const).map((team, i) => (
-                    <button
-                      className="btn-kinetic py-10 text-xl"
-                      disabled={busy}
-                      key={team}
-                      onClick={() => act({ type: "AWARD_POINT", team })}
-                    >
-                      +1 {i === 0 ? match.teamA : match.teamB}
-                    </button>
-                  ))}
-                  <button
-                    className="btn-secondary"
-                    disabled={busy}
-                    onClick={() =>
-                      act({
-                        type: match.state.faults
-                          ? "RECORD_SECOND_SERVE_FAULT"
-                          : "RECORD_FIRST_SERVE_FAULT",
-                      })
-                    }
-                  >
-                    {match.state.faults
-                      ? "Double fault"
-                      : "Fault servis pertama"}
-                  </button>
-                  <button
-                    className="btn-secondary"
-                    disabled={busy}
-                    onClick={() => act(timedAction("SUSPEND_MATCH"))}
-                  >
-                    Tunda
-                  </button>
-                  {match.rules.mode === "TIMED" && (
-                    <button
-                      className="btn-secondary"
-                      disabled={busy}
-                      onClick={() => act(timedAction("TIME_EXPIRED"))}
-                    >
-                      Waktu habis
-                    </button>
-                  )}
-                </>
-              ) : match.state.status === "SUSPENDED" ? (
-                <button
-                  className="btn-primary"
+                  className="btn-secondary w-full"
                   disabled={busy}
-                  onClick={() => act(timedAction("RESUME_MATCH"))}
-                >
-                  Lanjutkan
-                </button>
-              ) : (
-                !match.state.finalized && (
-                  <button
-                    className="btn-kinetic col-span-2"
-                    disabled={busy || !online || !!match.pending.length}
-                    onClick={() => act({ type: "FINALIZE_MATCH" })}
-                  >
-                    Finalisasi hasil
-                  </button>
-                )
-              )}
-              {!match.state.finalized && (
-                <button
-                  className="btn-secondary"
-                  disabled={busy}
-                  onClick={() => {
-                    const reason = prompt("Alasan membatalkan aksi terakhir");
-                    if (reason) void act({ type: "UNDO_LAST_ACTION", reason });
-                  }}
+                  onClick={() => setUndoOpen(true)}
                 >
                   Batalkan aksi terakhir
                 </button>
+              ) : (
+                <div
+                  className="panel space-y-3"
+                  role="group"
+                  aria-label="Alasan pembatalan"
+                >
+                  <p className="font-semibold">Kenapa dibatalkan?</p>
+                  <div className="console-choice">
+                    {["Salah tekan", "Koreksi skor"].map((reason) => (
+                      <button
+                        key={reason}
+                        disabled={busy}
+                        onClick={() => {
+                          setUndoOpen(false);
+                          void act({ type: "UNDO_LAST_ACTION", reason });
+                        }}
+                      >
+                        {reason}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    className="text-sm text-secondary underline"
+                    onClick={() => setUndoOpen(false)}
+                  >
+                    Tidak jadi
+                  </button>
+                </div>
               )}
             </div>
           )}
-          <details>
-            <summary className="cursor-pointer">
-              Kontrol lanjutan & pemulihan
-            </summary>
-            <div className="grid grid-cols-2 gap-2 mt-3">
-              {(["RIGHT", "LEFT"] as const).map((side) => (
+
+          {!match.state.finalized && (
+            <details className="console-more">
+              <summary>Laga berakhir lebih awal, atau masalah lain</summary>
+              <div className="space-y-4 mt-3">
+                {!ended && (
+                  <div className="panel space-y-3">
+                    <p className="font-semibold">Akhiri laga lebih awal</p>
+                    <div className="console-choice is-stacked" role="group">
+                      {(Object.keys(endingText) as Ending[]).map((type) => (
+                        <button
+                          key={type}
+                          aria-pressed={ending.type === type}
+                          onClick={() => setEnding({ ...ending, type })}
+                        >
+                          {endingText[type]}
+                        </button>
+                      ))}
+                    </div>
+                    {ending.type && (
+                      <>
+                        <p className="text-sm text-secondary">
+                          Pasangan yang tidak melanjutkan:
+                        </p>
+                        <div className="console-choice" role="group">
+                          {(["A", "B"] as const).map((t) => (
+                            <button
+                              key={t}
+                              aria-pressed={ending.loser === t}
+                              onClick={() => setEnding({ ...ending, loser: t })}
+                            >
+                              {team(t)}
+                            </button>
+                          ))}
+                        </div>
+                        <label className="field">
+                          Keterangan singkat
+                          <input
+                            value={ending.reason}
+                            maxLength={200}
+                            placeholder="Contoh: cedera pergelangan kaki"
+                            onChange={(e) =>
+                              setEnding({ ...ending, reason: e.target.value })
+                            }
+                          />
+                        </label>
+                        <button
+                          className="btn-primary w-full"
+                          disabled={
+                            busy ||
+                            !ending.loser ||
+                            ending.reason.trim().length < 3
+                          }
+                          onClick={() => {
+                            const { type, loser, reason } = ending;
+                            if (!type || !loser) return;
+                            setEnding({ type: "", loser: "", reason: "" });
+                            void act({ type, loser, reason: reason.trim() });
+                          }}
+                        >
+                          Catat: {team((ending.loser || "A") as Team)}{" "}
+                          {ending.loser ? "tidak melanjutkan" : "…"}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
                 <button
-                  className="btn-secondary"
-                  key={side}
-                  onClick={() => act({ type: "SELECT_RECEIVER_SIDE", side })}
-                >
-                  Terima {side === "RIGHT" ? "kanan" : "kiri"}
-                </button>
-              ))}
-              {(
-                [
-                  "RECORD_RETIREMENT",
-                  "RECORD_WALKOVER",
-                  "RECORD_DISQUALIFICATION",
-                ] as const
-              ).map((type, i) => (
-                <button
-                  className="btn-secondary"
-                  key={type}
+                  className="btn-secondary w-full"
                   onClick={() => {
-                    const loser = prompt(
-                      "Pasangan yang tidak melanjutkan: A atau B",
-                    );
-                    const reason = prompt("Alasan");
-                    if ((loser === "A" || loser === "B") && reason)
-                      void act({ type, loser, reason });
+                    const blob = new Blob([JSON.stringify(match, null, 2)], {
+                      type: "application/json",
+                    });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `skor-${match.id}.json`;
+                    a.click();
+                    URL.revokeObjectURL(url);
                   }}
                 >
-                  {
-                    [
-                      "Pasangan mundur",
-                      "Menang tanpa bertanding",
-                      "Diskualifikasi",
-                    ][i]
-                  }
+                  Simpan cadangan skor (untuk panitia)
                 </button>
-              ))}
-              <button
-                className="btn-secondary"
-                onClick={() => {
-                  const blob = new Blob([JSON.stringify(match, null, 2)], {
-                    type: "application/json",
-                  });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement("a");
-                  a.href = url;
-                  a.download = `skor-${match.id}.json`;
-                  a.click();
-                  URL.revokeObjectURL(url);
-                }}
-              >
-                Ekspor antrean untuk admin
-              </button>
-              <button
-                className="btn-secondary"
-                disabled={busy || !!match.pending.length}
-                onClick={() => download(true)}
-              >
-                Ambil alih (admin)
-              </button>
-            </div>
-          </details>
+                {!isReferee && (
+                  <button
+                    className="btn-secondary w-full"
+                    disabled={busy || !!match.pending.length}
+                    onClick={() => download(true)}
+                  >
+                    Ambil alih laga ini (admin)
+                  </button>
+                )}
+              </div>
+            </details>
+          )}
         </>
       )}
     </main>
