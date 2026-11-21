@@ -288,18 +288,40 @@ function TournamentPublicContent({
   }
 
   // Flatten and filter all matches
-  const allMatches =
+  // In playing order: by start time, then court, so players can find their slot.
+  const allMatches = (
     tournament.categories?.flatMap(
       (cat) =>
-        cat.stages?.flatMap(
-          (st) =>
+        cat.stages?.flatMap((st) => {
+          const groupName = new Map(
+            (st.groups ?? []).map((g) => [g.id, g.name]),
+          );
+          return (
             st.matches?.map((m) => ({
               ...m,
               categoryId: cat.id,
               categoryName: cat.name,
-            })) || [],
-        ) || [],
-    ) || [];
+              groupName: m.groupId ? (groupName.get(m.groupId) ?? null) : null,
+            })) || []
+          );
+        }) || [],
+    ) || []
+  ).sort(
+    (x, y) =>
+      (x.scheduledAt ?? "9999").localeCompare(y.scheduledAt ?? "9999") ||
+      (x.court?.name ?? "~").localeCompare(y.court?.name ?? "~", "id", {
+        numeric: true,
+      }) ||
+      x.matchNumber - y.matchNumber,
+  );
+  const clock = (iso?: string | null) =>
+    iso
+      ? new Date(iso).toLocaleTimeString("id-ID", {
+          timeZone: "Asia/Jakarta",
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+      : null;
 
   const filteredMatches = allMatches.filter(
     (m) =>
@@ -722,24 +744,38 @@ function TournamentPublicContent({
                       key={m.id}
                       className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-surface-tint transition text-sm"
                     >
-                      <div>
-                        <div className="font-bold text-ink">
-                          {m.entryA?.name || "TBD"} vs {m.entryB?.name || "TBD"}
+                      <div className="flex items-start gap-3">
+                        <div className="shrink-0 w-16 text-center rounded-xl bg-surface-tint border border-line py-1.5">
+                          <div className="font-extrabold text-ink text-base leading-tight tabular-nums">
+                            {clock(m.scheduledAt) ?? "--:--"}
+                          </div>
+                          <div className="text-[10px] font-bold text-secondary uppercase">
+                            {m.court?.name?.replace(/^Lapangan\s*/i, "Lap ") ||
+                              "Lap -"}
+                          </div>
                         </div>
-                        <div className="text-xs text-secondary mt-0.5">
-                          <span
-                            className="cat-chip"
-                            style={categoryStyle(
-                              m.categoryName,
-                              (tournament.categories ?? []).findIndex(
-                                (c) => c.id === m.categoryId,
-                              ),
-                            )}
-                          >
-                            {m.categoryName}
-                          </span>{" "}
-                          &bull; {m.court?.name || "Lapangan TBA"} &bull; Babak{" "}
-                          {m.round}
+                        <div>
+                          <div className="font-bold text-ink">
+                            {m.entryA?.name || "TBD"} vs{" "}
+                            {m.entryB?.name || "TBD"}
+                          </div>
+                          <div className="text-xs text-secondary mt-0.5">
+                            <span
+                              className="cat-chip"
+                              style={categoryStyle(
+                                m.categoryName,
+                                (tournament.categories ?? []).findIndex(
+                                  (c) => c.id === m.categoryId,
+                                ),
+                              )}
+                            >
+                              {m.categoryName}
+                            </span>{" "}
+                            {m.groupName ? <> &bull; {m.groupName}</> : null}{" "}
+                            &bull;{" "}
+                            {m.court?.name || "Lapangan belum ditentukan"}{" "}
+                            &bull; Laga {m.matchNumber}
+                          </div>
                         </div>
                       </div>
 
