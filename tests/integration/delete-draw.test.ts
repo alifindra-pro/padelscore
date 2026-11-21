@@ -128,20 +128,95 @@ it("removes an unplayed draw so pairs can change and registration can reopen", a
   expect(extra.id).toBeTruthy();
 });
 
-it("keeps a draw once a match has been opened at the desk", async () => {
+it("allows a redraw after a match was only opened, but not once a point is recorded", async () => {
   await prisma.tournament.update({
     where: { id: tournamentId },
     data: { status: "PUBLISHED" },
   });
   expect((await call("POST", { mode: "RANDOM" })).status).toBeLessThan(300);
-  const match = await prisma.match.findFirstOrThrow({
+  const opened = await prisma.match.findFirstOrThrow({
     where: { stage: { categoryId } },
   });
+  // Opened on a phone with the coin tossed, nothing scored yet.
   await prisma.match.update({
-    where: { id: match.id },
-    data: { startUnlockedAt: new Date() },
+    where: { id: opened.id },
+    data: {
+      engineVersion: 2,
+      startUnlockedAt: new Date(),
+      coinToss: {
+        face: "EKOR",
+        winner: "B",
+        tossedAt: new Date().toISOString(),
+      },
+    },
+  });
+  expect((await call("DELETE")).status).toBe(200);
+  expect((await call("POST", { mode: "RANDOM" })).status).toBeLessThan(300);
+
+  // Once a point is recorded the draw stays.
+  const played = await prisma.match.findFirstOrThrow({
+    where: { stage: { categoryId } },
+  });
+  await prisma.scoringAction.create({
+    data: {
+      id: randomUUID(),
+      matchId: played.id,
+      userId,
+      deviceId: randomUUID(),
+      ownershipVersion: 0,
+      sequence: 1,
+      baseVersion: 0,
+      action: { type: "START_MATCH", at: Date.now() },
+    },
   });
   const refused = await call("DELETE");
   expect(refused.status).toBe(409);
+  expect((await call("POST", { mode: "RANDOM" })).status).toBe(409);
   expect(await prisma.stage.count({ where: { categoryId } })).toBe(1);
+  await prisma.scoringAction.deleteMany({ where: { matchId: played.id } });
+});
+
+it("never completes a tournament with unplayed matches, and undoes a mistaken start", async () => {
+  const { TournamentService } = await import("@/services/tournament.service");
+  await prisma.tournament.update({
+    where: { id: tournamentId },
+    data: { status: "IN_PROGRESS" },
+  });
+  await expect(
+    TournamentService.changeTournamentStatus(tournamentId, "COMPLETED", userId),
+  ).rejects.toThrow(/belum dimainkan/);
+  // Nothing played yet: back to published is allowed, from started or ended.
+  await TournamentService.changeTournamentStatus(
+    tournamentId,
+    "PUBLISHED",
+    userId,
+  );
+  await prisma.tournament.update({
+    where: { id: tournamentId },
+    data: { status: "COMPLETED" },
+  });
+  await TournamentService.changeTournamentStatus(
+    tournamentId,
+    "PUBLISHED",
+    userId,
+  );
+  expect(
+    (await prisma.tournament.findUniqueOrThrow({ where: { id: tournamentId } }))
+      .status,
+  ).toBe("PUBLISHED");
+  // Once a match started, the way back is closed.
+  const m = await prisma.match.findFirstOrThrow({
+    where: { stage: { categoryId } },
+  });
+  await prisma.match.update({
+    where: { id: m.id },
+    data: { startedAt: new Date() },
+  });
+  await prisma.tournament.update({
+    where: { id: tournamentId },
+    data: { status: "IN_PROGRESS" },
+  });
+  await expect(
+    TournamentService.changeTournamentStatus(tournamentId, "PUBLISHED", userId),
+  ).rejects.toThrow();
 });

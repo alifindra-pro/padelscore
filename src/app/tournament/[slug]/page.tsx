@@ -21,7 +21,14 @@ function eventDates(start: string, end: string) {
 import { Sponsors } from "@/components/tournament/Sponsors";
 import { Icon } from "@/components/ui/Icon";
 
-import React, { useCallback, useEffect, useState, use, Suspense } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useState,
+  use,
+  Suspense,
+} from "react";
 import Link from "next/link";
 import { entryStatusLabel, isMainEntry } from "@/lib/entry-status";
 import {
@@ -201,6 +208,18 @@ function TournamentPublicContent({
   }, [selectedBracketCatId, bracketRetry]);
 
   const bracketLoading = bracketsLoadedFor !== selectedBracketCatId;
+
+  // Draws, redraws and schedules change without a score event, so a page left
+  // open (a TV, a phone) refreshes itself every 30 seconds while visible.
+  const refreshOpenPage = useEffectEvent(() => {
+    if (document.visibilityState !== "visible") return;
+    void loadData();
+    setBracketRetry((n) => n + 1);
+  });
+  useEffect(() => {
+    const timer = setInterval(refreshOpenPage, 30000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Connect to SSE stream for tournament-wide real-time updates
   const { isConnected } = useSSE<unknown, MatchUpdatePayload>({

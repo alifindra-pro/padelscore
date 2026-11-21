@@ -13,7 +13,12 @@ import Link from "next/link";
 import { StartCodeGate } from "@/components/referee/StartCodeGate";
 import { useAuth } from "@/context/AuthContext";
 import { apiFetch } from "@/lib/api-client";
-import { saveMatch, loadMatch, deviceId } from "@/lib/v2/offline-store";
+import {
+  saveMatch,
+  loadMatch,
+  forgetMatch,
+  deviceId,
+} from "@/lib/v2/offline-store";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import {
   OfflineMatch,
@@ -93,6 +98,7 @@ function OfflineScoring({ params }: { params: Promise<{ matchId: string }> }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [needsCode, setNeedsCode] = useState(false);
+  const [gone, setGone] = useState(false);
   const [tossChoice, setTossChoice] = useState<"" | "SERVE" | "RECEIVE">("");
   const [openingA, setOpeningA] = useState<"A1" | "A2">("A1");
   const [openingB, setOpeningB] = useState<"B1" | "B2">("B1");
@@ -123,6 +129,16 @@ function OfflineScoring({ params }: { params: Promise<{ matchId: string }> }) {
         if (active && cached) {
           latest.current = cached;
           setMatch(cached);
+          // A redraw deletes matches: drop a copy the server no longer has.
+          if (navigator.onLine)
+            apiFetch(`/api/v2/matches/${matchId}`).catch(async (e) => {
+              const status = (e as { status?: number }).status;
+              if (!active || (status !== 404 && status !== 403)) return;
+              await forgetMatch(matchId);
+              latest.current = undefined;
+              setMatch(undefined);
+              setGone(true);
+            });
         }
       })
       .catch((e) => {
@@ -394,7 +410,18 @@ function OfflineScoring({ params }: { params: Promise<{ matchId: string }> }) {
         </section>
       )}
 
-      {!match && needsCode ? (
+      {gone ? (
+        <section className="panel space-y-3" role="alert">
+          <h2 className="panel-title">Laga ini sudah tidak ada</h2>
+          <p className="text-sm text-secondary">
+            Panitia mengulang undian atau jadwal. Salinan di HP ini sudah
+            dihapus. Buka daftar laga untuk melihat laga terbaru.
+          </p>
+          <Link className="btn-primary w-full text-center" href="/referee">
+            Kembali ke daftar laga
+          </Link>
+        </section>
+      ) : !match && needsCode ? (
         <StartCodeGate matchId={matchId} onUnlocked={() => void download()} />
       ) : !match ? (
         <section className="panel space-y-3">

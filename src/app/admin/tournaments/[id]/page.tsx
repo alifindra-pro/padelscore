@@ -71,6 +71,9 @@ interface Match {
   round: number;
   entryA?: { id: string; name: string };
   entryB?: { id: string; name: string };
+  entryAId?: string | null;
+  entryBId?: string | null;
+  startedAt?: string | null;
   winnerId?: string | null;
   court?: { name: string };
   status: string;
@@ -274,40 +277,66 @@ export default function Workspace({
   const perCategory = t.categories.length > 1;
   // The lifecycle button follows what the tournament actually needs next:
   // once a bracket exists entries are locked, so registration is no longer offered.
-  const lifecycle: { label: string; next: string; done: string } | null = [
-    "COMPLETED",
-    "ARCHIVED",
-  ].includes(t.status)
-    ? null
-    : t.status === "IN_PROGRESS"
+  const anyPlayed = matches.some(
+    (m) =>
+      !!m.startedAt ||
+      ["IN_PROGRESS", "SUSPENDED", "FINISHED"].includes(m.status),
+  );
+  const unplayed = matches.filter(
+    (m) =>
+      m.entryAId &&
+      m.entryBId &&
+      ["SCHEDULED", "WARMUP", "IN_PROGRESS", "SUSPENDED"].includes(m.status),
+  ).length;
+  const lifecycle: {
+    label: string;
+    next: string;
+    done: string;
+    confirm?: string;
+  } | null =
+    t.status === "COMPLETED" && !anyPlayed
       ? {
-          label: "Selesaikan turnamen",
-          next: "COMPLETED",
-          done: "Turnamen selesai. Hasil tetap dapat dilihat di halaman publik.",
+          // Ended by mistake before any play.
+          label: "Kembalikan ke Terbit",
+          next: "PUBLISHED",
+          done: "Turnamen kembali terbit. Bagan dan jadwal tetap ada.",
         }
-      : !matches.length
-        ? t.status === "REGISTRATION"
-          ? {
-              label: "Tutup pendaftaran",
-              next: "PUBLISHED",
-              done: "Pendaftaran ditutup. Bagan siap dibuat setelah peserta lengkap.",
-            }
-          : {
-              label: "Buka pendaftaran publik",
-              next: "REGISTRATION",
-              done: "Pendaftaran publik dibuka.",
-            }
-        : t.status === "PUBLISHED"
-          ? {
-              label: "Mulai turnamen",
-              next: "IN_PROGRESS",
-              done: "Turnamen dimulai. Wasit dapat mencatat skor.",
-            }
-          : {
-              label: "Terbitkan turnamen",
-              next: "PUBLISHED",
-              done: "Turnamen terbit. Jadwal dan bagan terlihat di halaman publik.",
-            };
+      : ["COMPLETED", "ARCHIVED"].includes(t.status)
+        ? null
+        : t.status === "IN_PROGRESS"
+          ? // Only offered once every match has been played.
+            unplayed
+            ? null
+            : {
+                label: "Selesaikan turnamen",
+                next: "COMPLETED",
+                done: "Turnamen selesai. Hasil tetap dapat dilihat di halaman publik.",
+                confirm:
+                  "Selesaikan turnamen? Wasit tidak bisa mencatat skor lagi.",
+              }
+          : !matches.length
+            ? t.status === "REGISTRATION"
+              ? {
+                  label: "Tutup pendaftaran",
+                  next: "PUBLISHED",
+                  done: "Pendaftaran ditutup. Bagan siap dibuat setelah peserta lengkap.",
+                }
+              : {
+                  label: "Buka pendaftaran publik",
+                  next: "REGISTRATION",
+                  done: "Pendaftaran publik dibuka.",
+                }
+            : t.status === "PUBLISHED"
+              ? {
+                  label: "Mulai turnamen",
+                  next: "IN_PROGRESS",
+                  done: "Turnamen dimulai. Wasit dapat mencatat skor.",
+                }
+              : {
+                  label: "Terbitkan turnamen",
+                  next: "PUBLISHED",
+                  done: "Turnamen terbit. Jadwal dan bagan terlihat di halaman publik.",
+                };
   const nextStep: {
     text: string;
     action: string;
@@ -476,7 +505,10 @@ export default function Workspace({
           <button
             className="btn-kinetic"
             disabled={busy}
-            onClick={() => changeStatus(lifecycle.next, lifecycle.done)}
+            onClick={() =>
+              (!lifecycle.confirm || confirm(lifecycle.confirm)) &&
+              changeStatus(lifecycle.next, lifecycle.done)
+            }
           >
             {lifecycle.label}
           </button>

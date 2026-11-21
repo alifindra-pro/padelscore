@@ -35,6 +35,20 @@ export async function loadMatch(id: string): Promise<OfflineMatch | undefined> {
     db.close();
   }
 }
+/** Removes a match that no longer exists on the server (e.g. after a redraw). */
+export async function forgetMatch(id: string) {
+  const db = await open();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction("matches", "readwrite");
+      tx.objectStore("matches").delete(id);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } finally {
+    db.close();
+  }
+}
 export function deviceId() {
   let id = localStorage.getItem("padel-device-id");
   if (!id) {

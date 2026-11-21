@@ -815,14 +815,13 @@ async function dispatch(req: NextRequest, context: Context): Promise<Response> {
                 stage: { categoryId: id },
                 OR: [
                   { status: { not: "SCHEDULED" } },
-                  { engineVersion: 2 },
-                  { startUnlockedAt: { not: null } },
+                  { actionEvents: { some: {} } },
                 ],
               },
             });
             if (used)
               throw AppError.conflict(
-                "Undian tidak bisa dihapus karena ada laga yang sudah dibuka atau dimainkan",
+                "Undian tidak bisa dihapus karena sudah ada laga yang dimainkan",
               );
             const { count } = await tx.stage.deleteMany({
               where: { categoryId: id },
@@ -892,7 +891,11 @@ async function dispatch(req: NextRequest, context: Context): Promise<Response> {
           const started = await tx.match.count({
             where: {
               stage: { categoryId: id },
-              OR: [{ status: { not: "SCHEDULED" } }, { engineVersion: 2 }],
+              // Opened on a phone or coin tossed is fine; a recorded point is not.
+              OR: [
+                { status: { not: "SCHEDULED" } },
+                { actionEvents: { some: {} } },
+              ],
             },
           });
           if (started)

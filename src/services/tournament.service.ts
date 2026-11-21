@@ -1,8 +1,8 @@
-import prisma from '@/lib/db';
-import { TournamentStatus, TournamentMemberRole, Prisma } from '@prisma/client';
-import { AppError } from '@/lib/errors';
-import { createAuditLog } from './audit.service';
-import slugify from 'slugify';
+import prisma from "@/lib/db";
+import { TournamentStatus, TournamentMemberRole, Prisma } from "@prisma/client";
+import { AppError } from "@/lib/errors";
+import { createAuditLog } from "./audit.service";
+import slugify from "slugify";
 
 export interface CreateTournamentParams {
   organizationId?: string;
@@ -37,21 +37,24 @@ export interface ListTournamentsParams {
 
 export class TournamentService {
   static async createTournament(params: CreateTournamentParams) {
-    const rawSlug = params.slug || slugify(params.name, { lower: true, strict: true });
+    const rawSlug =
+      params.slug || slugify(params.name, { lower: true, strict: true });
 
     // Check slug collision
     const existing = await prisma.tournament.findUnique({
       where: { slug: rawSlug },
     });
     if (existing) {
-      throw AppError.conflict(`Tournament with slug '${rawSlug}' already exists`);
+      throw AppError.conflict(
+        `Tournament with slug '${rawSlug}' already exists`,
+      );
     }
 
     const startDate = new Date(params.startDate);
     const endDate = new Date(params.endDate);
 
     if (endDate <= startDate) {
-      throw AppError.badRequest('End date must be after start date');
+      throw AppError.badRequest("End date must be after start date");
     }
 
     return await prisma.$transaction(async (tx) => {
@@ -62,7 +65,7 @@ export class TournamentService {
           slug: rawSlug,
           description: params.description || null,
           location: params.location || null,
-          timezone: params.timezone || 'Asia/Jakarta',
+          timezone: params.timezone || "Asia/Jakarta",
           startDate,
           endDate,
           status: TournamentStatus.DRAFT,
@@ -84,14 +87,17 @@ export class TournamentService {
         },
       });
 
-      await createAuditLog({
-        userId: params.userId,
-        tournamentId: tournament.id,
-        action: 'CREATE_TOURNAMENT',
-        entityType: 'Tournament',
-        entityId: tournament.id,
-        after: tournament,
-      }, tx);
+      await createAuditLog(
+        {
+          userId: params.userId,
+          tournamentId: tournament.id,
+          action: "CREATE_TOURNAMENT",
+          entityType: "Tournament",
+          entityId: tournament.id,
+          after: tournament,
+        },
+        tx,
+      );
 
       return tournament;
     });
@@ -137,7 +143,7 @@ export class TournamentService {
         },
         courts: {
           where: { isActive: true },
-          orderBy: { priority: 'desc' },
+          orderBy: { priority: "desc" },
         },
       },
     });
@@ -154,7 +160,9 @@ export class TournamentService {
     const limit = Math.min(100, Math.max(1, params.limit || 20));
     const skip = (page - 1) * limit;
 
-    const where: Prisma.TournamentWhereInput = { AND: [params.accessWhere || {}] };
+    const where: Prisma.TournamentWhereInput = {
+      AND: [params.accessWhere || {}],
+    };
 
     if (params.status) {
       where.status = params.status;
@@ -162,9 +170,9 @@ export class TournamentService {
 
     if (params.search) {
       where.OR = [
-        { name: { contains: params.search, mode: 'insensitive' } },
-        { location: { contains: params.search, mode: 'insensitive' } },
-        { slug: { contains: params.search, mode: 'insensitive' } },
+        { name: { contains: params.search, mode: "insensitive" } },
+        { location: { contains: params.search, mode: "insensitive" } },
+        { slug: { contains: params.search, mode: "insensitive" } },
       ];
     }
 
@@ -174,7 +182,7 @@ export class TournamentService {
         where,
         skip,
         take: limit,
-        orderBy: { startDate: 'desc' },
+        orderBy: { startDate: "desc" },
         include: {
           _count: {
             select: { categories: true, courts: true, members: true },
@@ -201,8 +209,14 @@ export class TournamentService {
       TournamentStatus.IN_PROGRESS,
       TournamentStatus.COMPLETED,
     ];
-    if (params.slug && params.slug !== current.slug && lockedStatuses.includes(current.status)) {
-      throw AppError.badRequest('Cannot change slug for published, active, or completed tournaments');
+    if (
+      params.slug &&
+      params.slug !== current.slug &&
+      lockedStatuses.includes(current.status)
+    ) {
+      throw AppError.badRequest(
+        "Cannot change slug for published, active, or completed tournaments",
+      );
     }
 
     const data: Prisma.TournamentUpdateInput = {};
@@ -222,15 +236,18 @@ export class TournamentService {
         data,
       });
 
-      await createAuditLog({
-        userId: params.userId,
-        tournamentId: id,
-        action: 'UPDATE_TOURNAMENT',
-        entityType: 'Tournament',
-        entityId: id,
-        before: current,
-        after: res,
-      }, tx);
+      await createAuditLog(
+        {
+          userId: params.userId,
+          tournamentId: id,
+          action: "UPDATE_TOURNAMENT",
+          entityType: "Tournament",
+          entityId: id,
+          before: current,
+          after: res,
+        },
+        tx,
+      );
 
       return res;
     });
@@ -238,23 +255,80 @@ export class TournamentService {
     return updated;
   }
 
-  static async changeTournamentStatus(id: string, newStatus: TournamentStatus, userId: string) {
+  static async changeTournamentStatus(
+    id: string,
+    newStatus: TournamentStatus,
+    userId: string,
+  ) {
     const current = await this.getTournamentById(id);
 
     // Valid state transitions
     const validTransitions: Record<TournamentStatus, TournamentStatus[]> = {
-      [TournamentStatus.DRAFT]: [TournamentStatus.REGISTRATION, TournamentStatus.PUBLISHED, TournamentStatus.ARCHIVED],
-      [TournamentStatus.REGISTRATION]: [TournamentStatus.PUBLISHED, TournamentStatus.IN_PROGRESS, TournamentStatus.DRAFT, TournamentStatus.ARCHIVED],
-      [TournamentStatus.PUBLISHED]: [TournamentStatus.IN_PROGRESS, TournamentStatus.REGISTRATION, TournamentStatus.ARCHIVED],
-      [TournamentStatus.IN_PROGRESS]: [TournamentStatus.COMPLETED, TournamentStatus.ARCHIVED],
-      [TournamentStatus.COMPLETED]: [TournamentStatus.ARCHIVED, TournamentStatus.IN_PROGRESS],
+      [TournamentStatus.DRAFT]: [
+        TournamentStatus.REGISTRATION,
+        TournamentStatus.PUBLISHED,
+        TournamentStatus.ARCHIVED,
+      ],
+      [TournamentStatus.REGISTRATION]: [
+        TournamentStatus.PUBLISHED,
+        TournamentStatus.IN_PROGRESS,
+        TournamentStatus.DRAFT,
+        TournamentStatus.ARCHIVED,
+      ],
+      [TournamentStatus.PUBLISHED]: [
+        TournamentStatus.IN_PROGRESS,
+        TournamentStatus.REGISTRATION,
+        TournamentStatus.ARCHIVED,
+      ],
+      [TournamentStatus.IN_PROGRESS]: [
+        TournamentStatus.COMPLETED,
+        TournamentStatus.ARCHIVED,
+      ],
+      [TournamentStatus.COMPLETED]: [
+        TournamentStatus.ARCHIVED,
+        TournamentStatus.IN_PROGRESS,
+      ],
       [TournamentStatus.ARCHIVED]: [TournamentStatus.DRAFT],
     };
 
-    const allowed = validTransitions[current.status] || [];
+    const inTournament = { stage: { category: { tournamentId: id } } };
+    // A match counts as played once it started or has any recorded point.
+    const played = await prisma.match.count({
+      where: {
+        ...inTournament,
+        OR: [
+          { startedAt: { not: null } },
+          { actionEvents: { some: {} } },
+          { status: { in: ["IN_PROGRESS", "SUSPENDED", "FINISHED"] } },
+        ],
+      },
+    });
+    const allowed = [...(validTransitions[current.status] || [])];
+    // Started or ended by mistake before any play: back to published.
+    if (
+      newStatus === TournamentStatus.PUBLISHED &&
+      (current.status === TournamentStatus.IN_PROGRESS ||
+        current.status === TournamentStatus.COMPLETED) &&
+      played === 0
+    )
+      allowed.push(TournamentStatus.PUBLISHED);
+    if (newStatus === TournamentStatus.COMPLETED) {
+      const unfinished = await prisma.match.count({
+        where: {
+          ...inTournament,
+          status: { in: ["SCHEDULED", "WARMUP", "IN_PROGRESS", "SUSPENDED"] },
+          entryAId: { not: null },
+          entryBId: { not: null },
+        },
+      });
+      if (unfinished)
+        throw AppError.conflict(
+          `Turnamen belum bisa diselesaikan: masih ada ${unfinished} laga yang belum dimainkan`,
+        );
+    }
     if (!allowed.includes(newStatus)) {
       throw AppError.badRequest(
-        `Invalid status transition from ${current.status} to ${newStatus}`
+        `Invalid status transition from ${current.status} to ${newStatus}`,
       );
     }
 
@@ -264,15 +338,18 @@ export class TournamentService {
         data: { status: newStatus },
       });
 
-      await createAuditLog({
-        userId,
-        tournamentId: id,
-        action: 'CHANGE_TOURNAMENT_STATUS',
-        entityType: 'Tournament',
-        entityId: id,
-        before: { status: current.status },
-        after: { status: newStatus },
-      }, tx);
+      await createAuditLog(
+        {
+          userId,
+          tournamentId: id,
+          action: "CHANGE_TOURNAMENT_STATUS",
+          entityType: "Tournament",
+          entityId: id,
+          before: { status: current.status },
+          after: { status: newStatus },
+        },
+        tx,
+      );
 
       return updated;
     });
