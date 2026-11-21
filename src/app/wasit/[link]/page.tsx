@@ -47,7 +47,12 @@ function Content({ params }: { params: Promise<{ link: string }> }) {
                   throw new Error(json?.error?.message || "Gagal masuk");
                 // Full reload so the signed-in session is picked up everywhere.
                 window.location.assign(
-                  new URL("/referee", window.location.origin).href,
+                  new URL(
+                    json.data?.matchId
+                      ? `/referee/v2/${json.data.matchId}`
+                      : "/referee",
+                    window.location.origin,
+                  ).href,
                 );
               } catch (err) {
                 setError((err as Error).message);
@@ -57,16 +62,17 @@ function Content({ params }: { params: Promise<{ link: string }> }) {
             }}
           >
             <p className="checkin-lead">
-              Masukkan token 6 angka dari panitia untuk {info.court}.
+              Masukkan token pertandingan (4 angka) dari meja panitia. Laga
+              langsung terbuka.
             </p>
             <label className="field">
-              <span className="sr-only">Token wasit</span>
+              <span className="sr-only">Token pertandingan</span>
               <input
                 className="start-code-input"
                 inputMode="numeric"
                 autoComplete="one-time-code"
                 maxLength={6}
-                placeholder="000000"
+                placeholder="0000"
                 value={token}
                 onChange={(e) => {
                   setToken(e.target.value.replace(/\D/g, "").slice(0, 6));
@@ -82,9 +88,9 @@ function Content({ params }: { params: Promise<{ link: string }> }) {
             )}
             <button
               className="btn-kinetic w-full"
-              disabled={busy || token.length !== 6}
+              disabled={busy || ![4, 6].includes(token.length)}
             >
-              {busy ? "Memeriksa…" : "Masuk"}
+              {busy ? "Memeriksa…" : "Buka laga"}
             </button>
           </form>
         ) : (

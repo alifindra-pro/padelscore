@@ -245,6 +245,47 @@ it("signs a court referee in with the link and token, and gates each match with 
   expect(rotated.courts[0].referee.token).not.toBe(court.referee.token);
 });
 
+it("opens a match from the court link and its match token alone", async () => {
+  const view = (await (await desk(admin("GET"), deskCtx())).json()).data;
+  const link = view.courts[0].referee.linkId;
+  const code = matchStartCode(matchId);
+  await prisma.match.update({
+    where: { id: matchId },
+    data: { startUnlockedAt: null },
+  });
+  const wrong = code === "0000" ? "1111" : "0000";
+  const miss = await signIn(
+    json(
+      "http://localhost/api/v2/referee-access",
+      "POST",
+      { link, token: wrong },
+      undefined,
+      "203.0.113.77",
+    ),
+  );
+  expect(miss.status).toBe(401);
+  const ok = await signIn(
+    json(
+      "http://localhost/api/v2/referee-access",
+      "POST",
+      { link, token: code },
+      undefined,
+      "203.0.113.77",
+    ),
+  );
+  expect(ok.status).toBe(200);
+  expect((await ok.json()).data.matchId).toBe(matchId);
+  const cookie = ok.cookies.get("token")!.value;
+  expect(
+    (await prisma.match.findUniqueOrThrow({ where: { id: matchId } }))
+      .startUnlockedAt,
+  ).toBeTruthy();
+  // The start gate is open; the earlier test's device still holds this match.
+  const claimed = await claim(matchId, cookie);
+  expect(claimed.status).not.toBe(423);
+  expect((await claimed.json()).error.code).toBe("CONFLICT");
+});
+
 it("keeps the referee desk and start codes from anyone but organizers", async () => {
   const anon = await desk(
     json(`http://localhost/api/v2/tournaments/${tournamentId}/referees`, "GET"),

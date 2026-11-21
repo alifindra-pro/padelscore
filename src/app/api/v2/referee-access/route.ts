@@ -5,7 +5,7 @@ import { z } from "zod";
 import prisma from "@/lib/db";
 import { AUTH_CONFIG } from "@/lib/auth";
 import { AppError, handleApiError } from "@/lib/errors";
-import { courtToken, sameCode } from "@/lib/court-referee";
+import { courtToken, matchStartCode, sameCode } from "@/lib/court-referee";
 import {
   assertLoginAllowed,
   loginKeys,
@@ -46,23 +46,49 @@ export async function GET(req: NextRequest) {
   }
 }
 
-/** Court link + 6-digit token signs the court's referee in on this device. */
+/**
+ * Court link + the match token from the desk (4 digits) opens that match
+ * straight away. The older 6-digit court token still signs in.
+ */
 export async function POST(req: NextRequest) {
   try {
     const input = z
-      .object({ link: linkId, token: z.string().regex(/^\d{6}$/) })
+      .object({ link: linkId, token: z.string().regex(/^(\d{4}|\d{6})$/) })
       .parse(await req.json());
     const keys = loginKeys(req, `court:${input.link}`);
     await assertLoginAllowed(keys);
     const court = await courtFor(input.link);
-    if (
-      !sameCode(courtToken(court.id, court.refereeTokenVersion), input.token)
-    ) {
+    let matchId: string | null = null;
+    if (input.token.length === 4) {
+      // Matches on this court still waiting to be played, earliest first.
+      const waiting = await prisma.match.findMany({
+        where: {
+          courtId: court.id,
+          status: { in: ["SCHEDULED", "WARMUP", "IN_PROGRESS", "SUSPENDED"] },
+          entryAId: { not: null },
+          entryBId: { not: null },
+        },
+        orderBy: [{ scheduledAt: "asc" }, { matchNumber: "asc" }],
+        select: { id: true },
+      });
+      matchId =
+        waiting.find((m) => sameCode(matchStartCode(m.id), input.token))?.id ??
+        null;
+    } else if (
+      sameCode(courtToken(court.id, court.refereeTokenVersion), input.token)
+    )
+      matchId = "";
+    if (matchId === null) {
       await recordLoginFailure(keys);
       throw AppError.unauthorized(
-        "Token salah. Periksa lagi token dari panitia.",
+        "Token salah atau laga ini bukan di lapangan ini. Periksa lagi token dari panitia.",
       );
     }
+    if (matchId)
+      await prisma.match.updateMany({
+        where: { id: matchId, startUnlockedAt: null },
+        data: { startUnlockedAt: new Date() },
+      });
     const user = court.refereeUser!;
     // A revocable session: changing the court token signs this device out.
     const session = await prisma.mobileSession.create({
@@ -78,7 +104,13 @@ export async function POST(req: NextRequest) {
       { expiresIn: `${SESSION_DAYS}d` },
     );
     const response = NextResponse.json(
-      { data: { court: court.name, tournament: court.tournament.name } },
+      {
+        data: {
+          court: court.name,
+          tournament: court.tournament.name,
+          matchId: matchId || null,
+        },
+      },
       noStore,
     );
     response.cookies.set({

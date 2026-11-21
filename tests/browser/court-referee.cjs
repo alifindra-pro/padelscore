@@ -170,33 +170,19 @@ const shots = process.env.SCREENSHOT_DIR;
     await expect(
       ref.getByRole("heading", { name: `Wasit ${courts[0].name}` }),
     ).toBeVisible();
+    // Link + the match token from the desk opens that match directly.
     await ref
-      .getByLabel("Token wasit")
-      .fill("000000" === token ? "111111" : "000000");
-    await ref.getByRole("button", { name: "Masuk" }).click();
+      .getByLabel("Token pertandingan")
+      .fill(code === "0000" ? "1111" : "0000");
+    await ref.getByRole("button", { name: "Buka laga" }).click();
     await expect(ref.getByText("Token salah")).toBeVisible();
-    await ref.getByLabel("Token wasit").fill(token);
+    await ref.getByLabel("Token pertandingan").fill(code);
     if (shots) await ref.screenshot({ path: `${shots}/referee-login.png` });
-    await ref.getByRole("button", { name: "Masuk" }).click();
-    await expect(ref).toHaveURL(/\/referee$/);
-    await expect(ref.getByText("Tim 1A / Tim 1B").first()).toBeVisible();
-    await ref.goto(`${base}/referee/v2/${match.id}`);
+    await ref.getByRole("button", { name: "Buka laga" }).click();
+    await expect(ref).toHaveURL(new RegExp(`/referee/v2/${match.id}$`));
     await ref
       .getByRole("button", { name: "Buka laga ini", exact: true })
       .click();
-    await expect(
-      ref.getByRole("heading", { name: "Kode mulai laga" }),
-    ).toBeVisible();
-    if (shots) await ref.screenshot({ path: `${shots}/referee-code.png` });
-    await ref
-      .getByRole("textbox", { name: "Kode mulai", exact: true })
-      .fill(code === "0000" ? "1111" : "0000");
-    await ref.getByRole("button", { name: "Buka laga", exact: true }).click();
-    await expect(ref.getByText("Kode salah. Sisa 4 kali")).toBeVisible();
-    await ref
-      .getByRole("textbox", { name: "Kode mulai", exact: true })
-      .fill(code);
-    await ref.getByRole("button", { name: "Buka laga", exact: true }).click();
     await expect(
       ref.getByRole("heading", { name: "Sebelum mulai" }),
     ).toBeVisible();
