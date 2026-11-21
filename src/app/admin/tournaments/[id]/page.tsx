@@ -1384,6 +1384,28 @@ export default function Workspace({
                         ? "Undi ulang bagan"
                         : "Buat bagan otomatis"}
                   </button>
+                  {stages.length > 0 && (
+                    <button
+                      className="btn-secondary"
+                      disabled={busy}
+                      onClick={() => {
+                        if (
+                          confirm(
+                            `Hapus undian ${category.name}? Semua grup dan laga yang belum dimainkan dihapus, lalu daftar pasangan bisa diubah lagi.`,
+                          )
+                        )
+                          void run(
+                            () =>
+                              apiFetch(`/api/v2/categories/${selected}/draw`, {
+                                method: "DELETE",
+                              }),
+                            "Undian dihapus. Pasangan bisa diubah, dan pendaftaran bisa dibuka lagi.",
+                          );
+                      }}
+                    >
+                      Hapus undian
+                    </button>
+                  )}
                   {groupDraw && replayPlacements().length > 0 && (
                     <button
                       className="btn-secondary"

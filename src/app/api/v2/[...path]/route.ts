@@ -775,6 +775,42 @@ async function dispatch(req: NextRequest, context: Context): Promise<Response> {
           201,
         );
       }
+      // Undo a draw before play: back to the pair list, so registration can reopen.
+      if (operation === "draw" && method === "DELETE") {
+        return ok(
+          await prisma.$transaction(async (tx) => {
+            await tx.$queryRaw`SELECT id FROM categories WHERE id = ${id} FOR UPDATE`;
+            const used = await tx.match.count({
+              where: {
+                stage: { categoryId: id },
+                OR: [
+                  { status: { not: "SCHEDULED" } },
+                  { engineVersion: 2 },
+                  { startUnlockedAt: { not: null } },
+                ],
+              },
+            });
+            if (used)
+              throw AppError.conflict(
+                "Undian tidak bisa dihapus karena ada laga yang sudah dibuka atau dimainkan",
+              );
+            const { count } = await tx.stage.deleteMany({
+              where: { categoryId: id },
+            });
+            await tx.auditLog.create({
+              data: {
+                userId: user.userId,
+                tournamentId: category.tournamentId,
+                action: "DELETE_DRAW",
+                entityType: "Category",
+                entityId: id,
+                after: { stagesRemoved: count },
+              },
+            });
+            return { removed: count };
+          }),
+        );
+      }
       if (operation === "draw" && method === "POST") {
         const input = z
           .object({
