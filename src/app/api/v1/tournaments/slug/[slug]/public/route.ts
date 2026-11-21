@@ -20,7 +20,8 @@ async function handleGET(
             ruleset: true,
             entries: {
               include: { players: { include: { player: true } } },
-              orderBy: { seed: "asc" },
+              // Seeds first, then the order pairs registered, so the list never shuffles.
+              orderBy: [{ seed: "asc" }, { createdAt: "asc" }],
             },
             stages: {
               include: {
