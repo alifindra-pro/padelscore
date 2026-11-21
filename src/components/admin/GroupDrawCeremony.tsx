@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 export interface Placement {
   entryId: string;
@@ -119,7 +120,8 @@ export function GroupDrawCeremony({
     setSpinning(false);
   };
 
-  return (
+  // Rendered on <body> so no page layout can clip or show through the stage.
+  return createPortal(
     <div
       className="draw-stage"
       role="dialog"
@@ -153,10 +155,13 @@ export function GroupDrawCeremony({
       </p>
 
       <div
-        className="draw-groups"
-        style={{
-          gridTemplateColumns: `repeat(${groups.length}, minmax(0, 1fr))`,
-        }}
+        className={groups.length > 5 ? "draw-groups is-many" : "draw-groups"}
+        style={
+          {
+            "--n": groups.length,
+            "--half": Math.ceil(groups.length / 2),
+          } as React.CSSProperties
+        }
       >
         {groups.map((g) => {
           const members = placements
@@ -219,6 +224,7 @@ export function GroupDrawCeremony({
         Hasil sudah diundi dan disimpan oleh sistem sebelum ditampilkan. Tekan
         spasi untuk nama berikutnya.
       </p>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -247,6 +247,28 @@ export default function Workspace({
   const groupDraw = ["GROUP_KNOCKOUT", "ROUND_ROBIN"].includes(
     category?.format ?? "",
   );
+  // Replays a saved group draw (e.g. after the stage was closed by mistake):
+  // the same pairs in the same groups, revealed one per group in turn.
+  function replayPlacements(): Placement[] {
+    const stage = stages.find((st) => st.groups?.length);
+    if (!stage?.groups) return [];
+    const members = stage.groups.map((g) => {
+      const seen = new Map<string, string>();
+      for (const m of stage.matches ?? [])
+        if (m.groupId === g.id)
+          for (const e of [m.entryA, m.entryB])
+            if (e && !seen.has(e.id)) seen.set(e.id, e.name);
+      return [...seen].map(([entryId, name]) => ({
+        entryId,
+        name,
+        group: g.name,
+      }));
+    });
+    const out: Placement[] = [];
+    for (let i = 0; i < Math.max(0, ...members.map((m) => m.length)); i++)
+      for (const list of members) if (list[i]) out.push(list[i]);
+    return out;
+  }
   // Each category can start at its own time when an event has several.
   const perCategory = t.categories.length > 1;
   // The lifecycle button follows what the tournament actually needs next:
@@ -1362,6 +1384,22 @@ export default function Workspace({
                         ? "Undi ulang bagan"
                         : "Buat bagan otomatis"}
                   </button>
+                  {groupDraw && replayPlacements().length > 0 && (
+                    <button
+                      className="btn-secondary"
+                      onClick={() =>
+                        setCeremony({
+                          title: category.name,
+                          groups: stages
+                            .find((st) => st.groups?.length)!
+                            .groups!.map((g) => g.name),
+                          placements: replayPlacements(),
+                        })
+                      }
+                    >
+                      Putar ulang animasi undian
+                    </button>
+                  )}
                   <Link
                     className="btn-secondary"
                     href={`/admin/competition/${id}`}

@@ -2557,15 +2557,19 @@
   text-align: center;
 }
 .draw-reel-name {
-  font-size: clamp(26px, 5vw, 72px);
+  font-size: clamp(24px, min(4.6vw, 7.5vh), 72px);
   font-weight: 800;
   line-height: 1.1;
   letter-spacing: -0.02em;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 .draw-reel-name.is-spinning { color: #c5d3de; }
 .draw-reel-target { font-size: clamp(15px, 1.8vw, 26px); font-weight: 700; color: var(--color-kinetic); }
-.draw-groups { display: grid; gap: clamp(8px, 1vw, 16px); }
+.draw-groups { display: grid; gap: clamp(8px, 1vw, 16px); grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr)); }
+/* Many groups: one row only on wide screens (projector), two rows on laptops. */
+@media (max-width: 1599px) { .draw-groups.is-many { grid-template-columns: repeat(var(--half), minmax(0, 1fr)); } }
+@media (max-width: 900px) { .draw-groups, .draw-groups.is-many { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.draw-stage > * { flex-shrink: 0; }
 .draw-group { min-width: 0; border: 1px solid #3b5265; border-radius: 12px; overflow: hidden; }
 .draw-group h3 { padding: 10px 12px; background: #1c3a52; font-size: clamp(15px, 1.6vw, 22px); font-weight: 800; text-align: center; }
 .draw-group ol { display: grid; gap: 6px; padding: 8px; }
@@ -2576,10 +2580,11 @@
   padding: 8px 10px;
   border-radius: 8px;
   background: #24445e;
-  font-size: clamp(13px, 1.25vw, 18px);
+  font-size: clamp(13px, 1.1vw, 18px);
   font-weight: 700;
   line-height: 1.25;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
+  hyphens: auto;
 }
 .draw-group li.is-empty { background: transparent; border: 1px dashed #3b5265; }
 .draw-group li.is-new { background: var(--color-kinetic); color: var(--color-ink); }
