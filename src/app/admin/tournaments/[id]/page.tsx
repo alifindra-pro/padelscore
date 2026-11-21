@@ -115,6 +115,7 @@ export default function Workspace({
     title: string;
     groups: string[];
     placements: Placement[];
+    kicker?: string;
   } | null>(null);
   const [newCategoryFormat, setNewCategoryFormat] =
     useState("SINGLE_ELIMINATION");
@@ -1438,6 +1439,34 @@ export default function Workspace({
                       knockout setelah bagan terbentuk.
                     </p>
                     <button
+                      className="btn-kinetic"
+                      disabled={
+                        busy ||
+                        stages.some((s) => s.type === "SINGLE_ELIMINATION")
+                      }
+                      onClick={() =>
+                        run(async () => {
+                          const result = await apiFetch<{
+                            groups?: string[];
+                            placements?: Placement[];
+                          }>(`/api/v2/categories/${selected}/qualify`, {
+                            method: "POST",
+                            body: JSON.stringify({ mode: "RANDOM" }),
+                          });
+                          // The bracket is already saved; the stage reveals it.
+                          if (result.groups && result.placements?.length)
+                            setCeremony({
+                              title: category.name,
+                              kicker: "Undian babak gugur",
+                              groups: result.groups,
+                              placements: result.placements,
+                            });
+                        }, "Bagan babak gugur diundi dan disimpan. Atur jadwalnya.")
+                      }
+                    >
+                      Undi babak gugur dengan animasi
+                    </button>
+                    <button
                       className="btn-primary"
                       disabled={
                         busy ||
@@ -1448,7 +1477,7 @@ export default function Workspace({
                           () =>
                             apiFetch(`/api/v2/categories/${selected}/qualify`, {
                               method: "POST",
-                              body: "{}",
+                              body: JSON.stringify({ mode: "RANKED" }),
                             }),
                           "Babak knockout dibuat. Atur jadwal laga berikutnya.",
                         )
@@ -1456,7 +1485,7 @@ export default function Workspace({
                     >
                       {stages.some((s) => s.type === "SINGLE_ELIMINATION")
                         ? "Knockout sudah dibuat"
-                        : "Buat knockout dari hasil grup"}
+                        : "Knockout sesuai peringkat grup"}
                     </button>
                   </div>
                 )}

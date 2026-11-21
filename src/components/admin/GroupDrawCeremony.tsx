@@ -22,11 +22,13 @@ export function GroupDrawCeremony({
   groups,
   placements,
   onClose,
+  kicker = "Undian grup",
 }: {
   title: string;
   groups: string[];
   placements: Placement[];
   onClose: () => void;
+  kicker?: string;
 }) {
   const [shown, setShown] = useState(0);
   const [reel, setReel] = useState("");
@@ -130,7 +132,7 @@ export function GroupDrawCeremony({
     >
       <header className="draw-stage-header">
         <div>
-          <p>Undian grup</p>
+          <p>{kicker}</p>
           <h2 id="draw-stage-title">{title}</h2>
         </div>
         <span className="draw-stage-count">
@@ -147,7 +149,7 @@ export function GroupDrawCeremony({
             ? "Mengundi…"
             : current
               ? `masuk ${current.group}`
-              : `${placements.length} pasangan · ${groups.length} grup`}
+              : `${placements.length} pasangan · ${groups.length} ${kicker === "Undian grup" ? "grup" : "laga"}`}
         </span>
       </section>
       <p className="sr-only" role="status">

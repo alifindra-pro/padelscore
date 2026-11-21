@@ -203,6 +203,58 @@ it("seeds the 10 qualifiers by results into the 9-match knockout and applies rou
   });
 }, 120000);
 
+it("can draw the knockout at random, keeping each group's pairs apart", async () => {
+  // Same group results; replace the ranked bracket with a drawn one.
+  await prisma.stage.deleteMany({
+    where: { categoryId, type: "SINGLE_ELIMINATION" },
+  });
+  const response = await v2Post(
+    request(`/api/v2/categories/${categoryId}/qualify`, { mode: "RANDOM" }),
+    {
+      params: Promise.resolve({ path: ["categories", categoryId, "qualify"] }),
+    },
+  );
+  expect(response.status).toBe(201);
+  const body = (await response.json()).data as {
+    groups: string[];
+    placements: { entryId: string; group: string; name: string }[];
+  };
+  expect(body.placements).toHaveLength(10);
+  expect(body.placements.every((p) => p.name)).toBe(true);
+  const stage = await prisma.stage.findFirstOrThrow({
+    where: { categoryId, type: "SINGLE_ELIMINATION" },
+    include: { matches: true },
+  });
+  expect(stage.matches).toHaveLength(15);
+  const { bracketHalves } = await import("@/lib/knockout-draw");
+  const half = bracketHalves(
+    (stage.config as unknown as { draw: Parameters<typeof bracketHalves>[0] })
+      .draw,
+  );
+  const groupRows = await prisma.group.findMany({
+    where: { stage: { categoryId, type: "GROUP" } },
+    include: { matches: true },
+  });
+  for (const g of groupRows) {
+    const qualifiedHere = body.placements
+      .map((p) => p.entryId)
+      .filter((id) =>
+        g.matches.some((m) => m.entryAId === id || m.entryBId === id),
+      );
+    expect(qualifiedHere).toHaveLength(2);
+    expect(half.get(qualifiedHere[0])).not.toBe(half.get(qualifiedHere[1]));
+  }
+  // Every revealed pair sits in the match the reveal names.
+  for (const p of body.placements)
+    expect(
+      stage.matches.some(
+        (m) =>
+          !(m.approvalStatus === "APPROVED" && m.winnerId) &&
+          (m.entryAId === p.entryId || m.entryBId === p.entryId),
+      ),
+    ).toBe(true);
+});
+
 it("keeps registering the second category while the first is already playing", async () => {
   const { EntryService } = await import("@/services/entry.service");
   const men = await prisma.category.create({

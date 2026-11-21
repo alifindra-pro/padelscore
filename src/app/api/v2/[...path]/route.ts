@@ -1,3 +1,4 @@
+import { knockoutReveal, randomKnockout } from "@/lib/knockout-draw";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { randomBytes, randomInt } from "node:crypto";
@@ -613,6 +614,10 @@ async function dispatch(req: NextRequest, context: Context): Promise<Response> {
       if (operation === "qualify" && method === "POST") {
         if (category.format !== "GROUP_KNOCKOUT")
           throw AppError.badRequest("Kategori bukan grup + knockout");
+        // RANKED: positions follow group results. RANDOM: drawn, same-group pairs split.
+        const { mode } = z
+          .object({ mode: z.enum(["RANKED", "RANDOM"]).default("RANKED") })
+          .parse(await req.json().catch(() => ({})));
         return ok(
           await prisma.$transaction(
             async (tx) => {
@@ -721,15 +726,40 @@ async function dispatch(req: NextRequest, context: Context): Promise<Response> {
                 throw AppError.badRequest(
                   "Knockout memerlukan minimal dua pasangan",
                 );
-              const nodes = draw(
-                qualified.map((r, i) => ({ id: r.id, seed: i + 1 })),
-                "SINGLE_ELIMINATION",
-                "SEEDED",
-                Array.from(
-                  { length: qualified.length },
-                  () => randomInt(0, 0x1000000) / 0x1000000,
-                ),
-              );
+              let reveal: ReturnType<typeof knockoutReveal> | undefined;
+              let nodes: ReturnType<typeof draw>;
+              if (mode === "RANDOM") {
+                const groupOf = new Map(
+                  groups.flatMap((g) =>
+                    g.standings.map((r) => [r.id, g.name] as const),
+                  ),
+                );
+                const picked = randomKnockout(
+                  qualified.map((r) => ({
+                    id: r.id,
+                    group: groupOf.get(r.id) ?? "",
+                  })),
+                );
+                nodes = picked.nodes;
+                const names = new Map(
+                  (
+                    await tx.entry.findMany({
+                      where: { id: { in: qualified.map((r) => r.id) } },
+                      select: { id: true, name: true },
+                    })
+                  ).map((e) => [e.id, e.name]),
+                );
+                reveal = knockoutReveal(nodes, picked.order, names);
+              } else
+                nodes = draw(
+                  qualified.map((r, i) => ({ id: r.id, seed: i + 1 })),
+                  "SINGLE_ELIMINATION",
+                  "SEEDED",
+                  Array.from(
+                    { length: qualified.length },
+                    () => randomInt(0, 0x1000000) / 0x1000000,
+                  ),
+                );
               if (
                 await tx.stage.count({
                   where: { categoryId: id, type: "SINGLE_ELIMINATION" },
@@ -768,7 +798,7 @@ async function dispatch(req: NextRequest, context: Context): Promise<Response> {
                     winnerId: n.bye ? (n.a ?? n.b) : null,
                   },
                 });
-              return stage;
+              return { ...stage, ...reveal };
             },
             { timeout: 30000 },
           ),
