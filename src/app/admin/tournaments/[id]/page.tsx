@@ -13,6 +13,7 @@ import {
   entryStatusLabel,
 } from "@/lib/entry-status";
 import { apiFetch } from "@/lib/api-client";
+import { categoryStyle } from "@/lib/category-color";
 import { Icon } from "@/components/ui/Icon";
 import { BracketViewer } from "@/components/BracketViewer";
 import {
@@ -40,6 +41,7 @@ interface Category {
   format: string;
   rulesV2?: Rules;
   maxEntries?: number | null;
+  _count?: { entries: number; stages: number };
 }
 interface Tournament {
   id: string;
@@ -425,7 +427,23 @@ export default function Workspace({
                           href: `/tournament/${t.slug}`,
                         };
   return (
-    <div className="tournament-workspace space-y-6">
+    <div
+      className={
+        category
+          ? "tournament-workspace space-y-6 has-category"
+          : "tournament-workspace space-y-6"
+      }
+      // The chosen category's colour runs through the page, so it is always
+      // clear which category is being managed.
+      style={
+        category
+          ? categoryStyle(
+              category.name,
+              t.categories.findIndex((c) => c.id === category.id),
+            )
+          : undefined
+      }
+    >
       {ceremony && (
         <GroupDrawCeremony {...ceremony} onClose={() => setCeremony(null)} />
       )}
@@ -804,19 +822,37 @@ export default function Workspace({
       ) : (
         <>
           {t.categories.length > 1 && (
-            <label className="field max-w-md">
-              Kategori yang dikelola
-              <select
-                value={selected}
-                onChange={(e) => setSelected(e.target.value)}
+            <div className="category-switch">
+              <p className="category-switch-label" id="category-switch-label">
+                Kategori yang dikelola
+              </p>
+              <div
+                className="category-switch-tabs"
+                role="tablist"
+                aria-labelledby="category-switch-label"
               >
-                {t.categories.map((c) => (
-                  <option value={c.id} key={c.id}>
-                    {c.name}
-                  </option>
+                {t.categories.map((c, i) => (
+                  <button
+                    key={c.id}
+                    role="tab"
+                    aria-selected={c.id === selected}
+                    style={categoryStyle(c.name, i)}
+                    onClick={() => {
+                      setSelected(c.id);
+                      setError("");
+                      setNotice("");
+                    }}
+                  >
+                    <span>{c.name}</span>
+                    <small>
+                      {c._count?.entries ?? 0}
+                      {c.maxEntries ? ` / ${c.maxEntries}` : ""} pasangan
+                      {c._count?.stages ? " · sudah diundi" : ""}
+                    </small>
+                  </button>
                 ))}
-              </select>
-            </label>
+              </div>
+            </div>
           )}
           {!category ? (
             <section className="panel empty-state">

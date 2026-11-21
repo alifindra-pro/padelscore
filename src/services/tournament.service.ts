@@ -112,6 +112,8 @@ export class TournamentService {
             ruleset: true,
             _count: { select: { entries: true, stages: true } },
           },
+          // Stable order: the category tabs and the default choice never jump.
+          orderBy: { createdAt: 'asc' },
         },
         courts: true,
         members: {

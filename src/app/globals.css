@@ -3033,3 +3033,17 @@
 .console-finish, .console-done { display: grid; gap: 10px; }
 .console-done { border-color: #0b7a55; background: #e8f6f0; }
 .console-more summary { cursor: pointer; font-size: 14px; color: var(--color-secondary); }
+
+/* Category switch in the tournament workspace: every category visible, each
+   in its own colour; the chosen one colours the page (--cat). */
+.category-switch { display: grid; gap: 8px; }
+.category-switch-label { font-size: 12px; font-weight: 700; color: var(--color-secondary); }
+.category-switch-tabs { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); }
+.category-switch-tabs button { display: grid; gap: 2px; min-height: 64px; padding: 12px 16px; border: 2px solid var(--cat); border-radius: 12px; background: var(--cat-soft); text-align: left; color: var(--cat); }
+.category-switch-tabs button span { font-size: 18px; font-weight: 800; line-height: 1.2; }
+.category-switch-tabs button small { font-size: 13px; font-weight: 600; }
+.category-switch-tabs button[aria-selected="true"] { background: var(--cat); color: #fff; box-shadow: 0 6px 18px color-mix(in srgb, var(--cat) 30%, transparent); }
+.category-switch-tabs button:focus-visible { outline: 3px solid var(--color-ink); outline-offset: 2px; }
+.tournament-workspace.has-category .panel-title::before { background: var(--cat); }
+.tournament-workspace.has-category .panel { border-top: 3px solid var(--cat); }
+.tournament-workspace.has-category .step-tab[aria-current="step"] { border-color: var(--cat); }
