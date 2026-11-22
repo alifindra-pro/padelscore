@@ -2976,6 +2976,15 @@
 .code-rows li.is-locked .code-state { color: var(--color-danger); }
 @media (min-width: 900px) { .code-rows li { grid-template-columns: 72px minmax(0, 1fr) auto 220px; } .code-state { grid-column: auto; justify-content: flex-end; } }
 
+/* Match format per phase (organizer) */
+.phase-rows { display: grid; gap: 8px; }
+.phase-rows li { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--color-line); border-radius: 10px; }
+.phase-name { display: grid; font-weight: 800; color: var(--color-ink); }
+.phase-name small { font-size: 12px; font-weight: 600; color: var(--color-secondary); }
+.phase-rows .field { margin: 0; }
+.phase-detail { font-size: 13px; color: var(--color-secondary); }
+@media (min-width: 900px) { .phase-rows li { grid-template-columns: 200px 240px minmax(0, 1fr); align-items: center; gap: 16px; } }
+
 /* Results report (organizer) */
 .results-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 16px; }
 .results-filter { grid-template-columns: repeat(4, minmax(0, 1fr)); }

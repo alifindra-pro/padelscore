@@ -110,9 +110,16 @@ export async function POST(req: NextRequest, ctx: Context) {
         where: {
           id: input.matchId,
           status: "SCHEDULED",
+          actionEvents: { none: {} },
           stage: { category: { tournamentId: id } },
         },
-        data: { startUnlockedAt: null },
+        // A phone that already opened the match is released too: its scores
+        // are refused until the referee enters the code again.
+        data: {
+          startUnlockedAt: null,
+          deviceId: null,
+          ownershipVersion: { increment: 1 },
+        },
       });
       if (!count)
         throw AppError.badRequest(

@@ -131,14 +131,31 @@ function OfflineScoring({ params }: { params: Promise<{ matchId: string }> }) {
           setMatch(cached);
           // A redraw deletes matches: drop a copy the server no longer has.
           if (navigator.onLine)
-            apiFetch(`/api/v2/matches/${matchId}`).catch(async (e) => {
-              const status = (e as { status?: number }).status;
-              if (!active || (status !== 404 && status !== 403)) return;
-              await forgetMatch(matchId);
-              latest.current = undefined;
-              setMatch(undefined);
-              setGone(true);
-            });
+            apiFetch<{ ownershipVersion: number }>(`/api/v2/matches/${matchId}`)
+              .then(async (server) => {
+                // The desk cancelled the start (or an admin took over) before
+                // any point: drop this copy so the start code is asked again.
+                const current = latest.current;
+                if (
+                  !active ||
+                  !current ||
+                  server.ownershipVersion === current.ownershipVersion ||
+                  current.pending.length ||
+                  !["NOT_STARTED", "WARMUP"].includes(current.state.status)
+                )
+                  return;
+                await forgetMatch(matchId);
+                latest.current = undefined;
+                setMatch(undefined);
+              })
+              .catch(async (e) => {
+                const status = (e as { status?: number }).status;
+                if (!active || (status !== 404 && status !== 403)) return;
+                await forgetMatch(matchId);
+                latest.current = undefined;
+                setMatch(undefined);
+                setGone(true);
+              });
         }
       })
       .catch((e) => {
@@ -323,6 +340,25 @@ function OfflineScoring({ params }: { params: Promise<{ matchId: string }> }) {
     }
   }, [online, waiting, syncing]);
 
+  // Closing the tab or reloading while scores wait asks the browser to confirm.
+  const unsent = match?.pending.length ?? 0;
+  useEffect(() => {
+    if (!unsent) return;
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [unsent]);
+  // Scores stay on this phone either way; leaving only pauses the upload.
+  const confirmLeave = (e: { preventDefault(): void }) => {
+    if (
+      unsent &&
+      !window.confirm(
+        `${unsent} skor belum terkirim. Skor tetap tersimpan di HP ini, tetapi baru terkirim saat laga ini dibuka lagi. Tetap keluar?`,
+      )
+    )
+      e.preventDefault();
+  };
+
   const isReferee = user?.role === "REFEREE";
   const name = (slot: string) => {
     const list = slot.startsWith("A")
@@ -368,7 +404,7 @@ function OfflineScoring({ params }: { params: Promise<{ matchId: string }> }) {
 
   return (
     <main className="scoring-workspace referee-console mx-auto w-full p-4 sm:p-6 space-y-4">
-      <Link href="/referee" className="text-brand">
+      <Link href="/referee" className="text-brand" onClick={confirmLeave}>
         ← Daftar laga
       </Link>
       <header className="console-head">
@@ -731,7 +767,11 @@ function OfflineScoring({ params }: { params: Promise<{ matchId: string }> }) {
                 Panitia akan mengesahkan hasil ini. Anda bisa kembali ke daftar
                 laga.
               </p>
-              <Link className="btn-primary w-full text-center" href="/referee">
+              <Link
+                className="btn-primary w-full text-center"
+                href="/referee"
+                onClick={confirmLeave}
+              >
                 Kembali ke daftar laga
               </Link>
             </section>

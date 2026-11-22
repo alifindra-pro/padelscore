@@ -1,4 +1,13 @@
 import { knockoutReveal, randomKnockout } from "@/lib/knockout-draw";
+import {
+  KNOCKOUT_PHASES,
+  PHASE_PRESETS,
+  knockoutStageRules,
+  phaseKey,
+  presetRules,
+  type PhasePolicy,
+} from "@/lib/phase-rules";
+import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { randomBytes, randomInt } from "node:crypto";
@@ -58,6 +67,11 @@ import {
 const ok = (data: unknown, status = 200) =>
   NextResponse.json({ data }, { status });
 const uuid = z.string().uuid();
+const phasePreset = z.enum(PHASE_PRESETS as [string, ...string[]]);
+const stageRulesData = (r: ReturnType<typeof knockoutStageRules>) => ({
+  ...(r.rulesOverride && { rulesOverride: json(r.rulesOverride) }),
+  ...(r.roundRules && { roundRules: json(r.roundRules) }),
+});
 const publicWhere = {
   status: {
     in: PUBLIC_STATUSES as (
@@ -563,9 +577,53 @@ async function dispatch(req: NextRequest, context: Context): Promise<Response> {
                 finalRules: rulesSchema.partial().optional(),
               })
               .optional(),
+            // Match format per phase as preset names; null = follow the
+            // knockout default. Allowed after play starts: matches already
+            // opened on a phone keep the format they were opened with.
+            phases: z
+              .object({
+                group: phasePreset.optional(),
+                knockout: phasePreset.nullable().optional(),
+                quarterfinal: phasePreset.nullable().optional(),
+                semifinal: phasePreset.nullable().optional(),
+                final: phasePreset.nullable().optional(),
+              })
+              .optional(),
           })
           .parse(await req.json());
         if (body.rules) validateRules(body.rules);
+        const savedPolicy = (category.qualificationPolicy ?? {}) as Record<
+          string,
+          unknown
+        >;
+        let phaseRules: Rules | undefined;
+        let phasePolicy: Record<string, unknown> | undefined;
+        if (body.phases) {
+          const current = (body.rules ??
+            category.rulesV2 ??
+            PRESETS.STANDARD) as unknown as Rules;
+          // The group phase is the category's own rules; deuce is kept.
+          if (body.phases.group)
+            phaseRules = validateRules({
+              ...current,
+              ...presetRules(body.phases.group),
+            });
+          phasePolicy = { ...savedPolicy };
+          for (const phase of KNOCKOUT_PHASES) {
+            const value = body.phases[phase];
+            if (value === undefined) continue;
+            if (value === null) delete phasePolicy[phaseKey(phase)];
+            else phasePolicy[phaseKey(phase)] = presetRules(value);
+          }
+          const p = phasePolicy as PhasePolicy;
+          for (const extra of [
+            undefined,
+            p.quarterfinalRules,
+            p.semifinalRules,
+            p.finalRules,
+          ])
+            resolveRules(phaseRules ?? current, p.knockoutRules, extra);
+        }
         for (const extra of [
           body.qualificationPolicy?.knockoutRules,
           body.qualificationPolicy?.finalRules,
@@ -593,23 +651,62 @@ async function dispatch(req: NextRequest, context: Context): Promise<Response> {
               "Kebijakan klasemen dikunci setelah kompetisi dimulai",
             );
         }
-        return ok(
-          await prisma.category.update({
-            where: { id },
+        // Saving the qualification form keeps the per-phase formats.
+        const policy =
+          phasePolicy ??
+          (body.qualificationPolicy && {
+            ...Object.fromEntries(
+              KNOCKOUT_PHASES.map((p) => [
+                phaseKey(p),
+                savedPolicy[phaseKey(p)],
+              ]),
+            ),
+            ...body.qualificationPolicy,
+          });
+        const rulesV2 = phaseRules ?? body.rules;
+        const updated = await prisma.category.update({
+          where: { id },
+          data: {
+            rulesV2: rulesV2 ? json(rulesV2) : undefined,
+            eligibility: body.eligibility ? json(body.eligibility) : undefined,
+            standingsPolicy: body.standingsPolicy
+              ? json(body.standingsPolicy)
+              : undefined,
+            qualificationPolicy: policy ? json(policy) : undefined,
+          },
+        });
+        if (!body.phases) return ok(updated);
+        // An existing knockout bracket follows the new formats at once.
+        for (const stage of category.stages.filter(
+          (s) => s.type === "SINGLE_ELIMINATION",
+        )) {
+          const last = await prisma.match.aggregate({
+            where: { stageId: stage.id },
+            _max: { round: true },
+          });
+          const r = knockoutStageRules(
+            phasePolicy as PhasePolicy,
+            last._max.round ?? 1,
+          );
+          await prisma.stage.update({
+            where: { id: stage.id },
             data: {
-              rulesV2: body.rules ? json(body.rules) : undefined,
-              eligibility: body.eligibility
-                ? json(body.eligibility)
-                : undefined,
-              standingsPolicy: body.standingsPolicy
-                ? json(body.standingsPolicy)
-                : undefined,
-              qualificationPolicy: body.qualificationPolicy
-                ? json(body.qualificationPolicy)
-                : undefined,
+              rulesOverride: r.rulesOverride
+                ? json(r.rulesOverride)
+                : Prisma.DbNull,
+              roundRules: r.roundRules ? json(r.roundRules) : Prisma.DbNull,
             },
-          }),
-        );
+          });
+        }
+        // Rules are fixed when a phone opens a match; those keep the old ones.
+        const keptMatches = await prisma.match.count({
+          where: {
+            stage: { categoryId: id },
+            rulesSnapshot: { not: Prisma.DbNull },
+            status: { in: ["SCHEDULED", "WARMUP", "IN_PROGRESS", "SUSPENDED"] },
+          },
+        });
+        return ok({ ...updated, keptMatches });
       }
       if (operation === "qualify" && method === "POST") {
         if (category.format !== "GROUP_KNOCKOUT")
@@ -773,15 +870,12 @@ async function dispatch(req: NextRequest, context: Context): Promise<Response> {
                   type: "SINGLE_ELIMINATION",
                   order: 2,
                   config: json({ draw: nodes }),
-                  rulesOverride: policy.knockoutRules
-                    ? json(policy.knockoutRules)
-                    : undefined,
-                  roundRules: policy.finalRules
-                    ? json({
-                        [String(Math.max(...nodes.map((n) => n.round)))]:
-                          policy.finalRules,
-                      })
-                    : undefined,
+                  ...stageRulesData(
+                    knockoutStageRules(
+                      policy,
+                      Math.max(...nodes.map((n) => n.round)),
+                    ),
+                  ),
                 },
               });
               for (const n of nodes)
@@ -950,6 +1044,13 @@ async function dispatch(req: NextRequest, context: Context): Promise<Response> {
                     : "SINGLE_ELIMINATION",
                 order: 1,
                 config: json({ draw: nodes }),
+                ...(category.format === "SINGLE_ELIMINATION" &&
+                  stageRulesData(
+                    knockoutStageRules(
+                      category.qualificationPolicy as PhasePolicy | null,
+                      Math.max(...nodes.map((n) => n.round)),
+                    ),
+                  )),
               },
             });
             for (const node of nodes)

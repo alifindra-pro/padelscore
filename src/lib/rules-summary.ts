@@ -5,11 +5,13 @@ interface QualificationPolicy {
   groups?: number;
   bestRunnersUp?: number;
   knockoutRules?: Partial<Rules>;
+  quarterfinalRules?: Partial<Rules>;
+  semifinalRules?: Partial<Rules>;
   finalRules?: Partial<Rules>;
 }
 
 /** How one match is won, in plain words. */
-function matchFormat(r: Rules) {
+export function matchFormat(r: Rules) {
   if (r.mode === "POINTS") return directPointsSummary(r);
   if (r.mode === "TIMED") return `Berbatas waktu ${r.durationMinutes} menit`;
   const g = r.gamesPerSet;
@@ -32,6 +34,19 @@ const deuce = (r: Rules) =>
       : r.deuce === "STAR_POINT"
         ? "Star point, dua kali advantage lalu satu poin penentu"
         : "Advantage, pada 40–40 harus unggul dua poin";
+
+/** Knockout default, then each phase that has its own format. */
+function knockoutLines(rules: Rules, policy: QualificationPolicy | null) {
+  const knockout = { ...rules, ...policy?.knockoutRules };
+  const lines = [`Babak gugur: ${matchFormat(knockout)}`];
+  for (const [label, own] of [
+    ["Perempat final", policy?.quarterfinalRules],
+    ["Semifinal", policy?.semifinalRules],
+    ["Final", policy?.finalRules],
+  ] as const)
+    if (own) lines.push(`${label}: ${matchFormat({ ...knockout, ...own })}`);
+  return lines;
+}
 
 /**
  * Public, plain-language lines describing how a category is played, e.g.
@@ -70,11 +85,9 @@ export function rulesSummary(
         groups ? ` (${groups * per + extra} pasangan)` : ""
       }`,
     );
-    lines.push(
-      `Babak gugur: ${matchFormat({ ...rules, ...policy?.knockoutRules })}`,
-    );
-    if (policy?.finalRules)
-      lines.push(`Final: ${matchFormat({ ...rules, ...policy.finalRules })}`);
+    lines.push(...knockoutLines(rules, policy));
+  } else if (format === "SINGLE_ELIMINATION") {
+    lines.push(...knockoutLines(rules, policy));
   } else {
     lines.push(`Format laga: ${matchFormat(rules)}`);
   }

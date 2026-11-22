@@ -144,6 +144,7 @@ export function roundFormat(key: string): Partial<Rules> {
     decidingMatchTiebreak: p.decidingMatchTiebreak,
     matchTiebreakPoints: p.matchTiebreakPoints,
     allowDraw: p.allowDraw,
+    ...(p.mode === "POINTS" && { totalPoints: p.totalPoints }),
   };
 }
 export function validateRules(r: Rules): Rules {

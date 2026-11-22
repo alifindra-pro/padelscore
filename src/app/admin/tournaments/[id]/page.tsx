@@ -15,6 +15,7 @@ import {
 import { apiFetch } from "@/lib/api-client";
 import { categoryStyle } from "@/lib/category-color";
 import { Icon } from "@/components/ui/Icon";
+import { PhaseFormats, type PhaseChoice } from "@/components/admin/PhaseFormats";
 import { BracketViewer } from "@/components/BracketViewer";
 import {
   GroupDrawCeremony,
@@ -40,6 +41,7 @@ interface Category {
   name: string;
   format: string;
   rulesV2?: Rules;
+  qualificationPolicy?: Parameters<typeof PhaseFormats>[0]["policy"];
   maxEntries?: number | null;
   _count?: { entries: number; stages: number };
 }
@@ -125,6 +127,9 @@ export default function Workspace({
   const [newCategoryFormat, setNewCategoryFormat] =
     useState("SINGLE_ELIMINATION");
   const [rules, setRules] = useState<Rules>(PRESETS.STANDARD);
+  const [savedRules, setSavedRules] = useState<Rules>(PRESETS.STANDARD);
+  const [policy, setPolicy] =
+    useState<Parameters<typeof PhaseFormats>[0]["policy"]>(null);
   // null = follow the default (open until a bracket exists); a click makes it explicit.
   const [rulesOpen, setRulesOpen] = useState<boolean | null>(null);
   const [loadedCategory, setLoadedCategory] = useState("");
@@ -174,6 +179,8 @@ export default function Workspace({
     ]);
     setEntries(e);
     setRules(c.rulesV2 ?? PRESETS.STANDARD);
+    setSavedRules(c.rulesV2 ?? PRESETS.STANDARD);
+    setPolicy(c.qualificationPolicy ?? null);
     setStages(Array.isArray(b) ? b : (b.stages ?? []));
     setLoadedCategory(selected);
   }, [selected]);
@@ -248,6 +255,12 @@ export default function Workspace({
     (m) => !m.officials?.length && !approved(m) && m.status !== "FINISHED",
   );
   const isPublic = ["PUBLISHED", "IN_PROGRESS", "COMPLETED"].includes(t.status);
+  const knockoutMatches = stages
+    .filter((st) => st.type === "SINGLE_ELIMINATION")
+    .flatMap((st) => st.matches ?? []);
+  const knockoutRounds = knockoutMatches.length
+    ? Math.max(...knockoutMatches.map((m) => m.round ?? 1))
+    : null;
   const rulesShown =
     rulesOpen ?? (loadedCategory === selected && !stages.length);
   const groupDraw = ["GROUP_KNOCKOUT", "ROUND_ROBIN"].includes(
@@ -1399,6 +1412,33 @@ export default function Workspace({
                   </button>
                 </div>
               </details>
+              {["GROUP_KNOCKOUT", "SINGLE_ELIMINATION"].includes(
+                category.format,
+              ) && (
+                <PhaseFormats
+                  format={category.format}
+                  rules={savedRules}
+                  policy={policy}
+                  knockoutRounds={knockoutRounds}
+                  entryCount={mainEntries.length}
+                  busy={busy}
+                  onSave={(phases: PhaseChoice) => {
+                    let kept = 0;
+                    void run(async () => {
+                      const saved = await apiFetch<{ keptMatches?: number }>(
+                        `/api/v2/categories/${selected}`,
+                        { method: "PATCH", body: JSON.stringify({ phases }) },
+                      );
+                      kept = saved.keptMatches ?? 0;
+                    }, "Sistem pertandingan disimpan").then(() => {
+                      if (kept)
+                        setNotice(
+                          `Sistem pertandingan disimpan. ${kept} laga yang sudah dibuka wasit tetap memakai format lama.`,
+                        );
+                    });
+                  }}
+                />
+              )}
               <section className="panel space-y-5">
                 <div>
                   <h2 className="panel-title">Susun bagan pertandingan</h2>
