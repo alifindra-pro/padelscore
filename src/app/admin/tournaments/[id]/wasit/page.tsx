@@ -257,7 +257,21 @@ function Content({ params }: { params: Promise<{ id: string }> }) {
                   <span className="code-state">
                     {open ? (
                       m.status === "SCHEDULED" ? (
-                        "Sudah dibuka"
+                        <>
+                          Sudah dibuka
+                          <button
+                            className="btn-secondary text-xs"
+                            disabled={busy}
+                            onClick={() =>
+                              post(
+                                { action: "relock", matchId: m.id },
+                                "Izin mulai dibatalkan. Wasit perlu kode lagi.",
+                              )
+                            }
+                          >
+                            Batalkan
+                          </button>
+                        </>
                       ) : (
                         "Berjalan"
                       )

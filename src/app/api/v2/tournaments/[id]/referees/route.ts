@@ -86,6 +86,8 @@ const action = z.discriminatedUnion("action", [
   z.object({ action: z.literal("rotate"), courtId: z.string().uuid() }),
   // Let a match start without a code (e.g. the referee's phone failed).
   z.object({ action: z.literal("unlock"), matchId: z.string().uuid() }),
+  // Undo an unlock pressed by mistake, while the match has not started.
+  z.object({ action: z.literal("relock"), matchId: z.string().uuid() }),
 ]);
 
 export async function POST(req: NextRequest, ctx: Context) {
@@ -100,6 +102,22 @@ export async function POST(req: NextRequest, ctx: Context) {
         data: { startUnlockedAt: new Date() },
       });
       if (!count) throw AppError.notFound("Laga tidak ditemukan");
+      return NextResponse.json({ data: { ok: true } }, noStore);
+    }
+
+    if (input.action === "relock") {
+      const { count } = await prisma.match.updateMany({
+        where: {
+          id: input.matchId,
+          status: "SCHEDULED",
+          stage: { category: { tournamentId: id } },
+        },
+        data: { startUnlockedAt: null },
+      });
+      if (!count)
+        throw AppError.badRequest(
+          "Laga sudah dimulai, izin mulai tidak bisa dibatalkan",
+        );
       return NextResponse.json({ data: { ok: true } }, noStore);
     }
 
